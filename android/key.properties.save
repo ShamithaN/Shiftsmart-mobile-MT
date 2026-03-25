@@ -1,0 +1,5 @@
+storeFile=my-release-key.jks
+storePassword=20011611
+keyAlias=my-key-alias
+keyPassword=20011611
+
