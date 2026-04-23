@@ -134,8 +134,8 @@ class _ManagerNextOfKinScreenState extends State<ManagerNextOfKinScreen> {
 
       final name = c.nameController.text.trim();
       if (name.isEmpty) return '$label: Full Name is required.';
-      if (!RegExp(r"^[a-zA-ZÀ-ÿ\s.'-]{2,80}$").hasMatch(name))
-        return '$label: Full Name must be 2–80 letters only.';
+      if (!RegExp(r"^[a-zA-Z-\s.'-]{2,80}$").hasMatch(name))
+        return '$label: Full Name must be 280 letters only.';
 
       if (c.relationshipController.text.trim().isEmpty)
         return '$label: Relationship is required.';

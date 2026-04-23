@@ -9,7 +9,7 @@ class LeaveService {
   // 1. Initialize the ApiClient
   final ApiClient _apiClient = ApiClient();
 
-  // ✅ PROD Endpoints from func-leave
+  //  PROD Endpoints from func-leave
   final String baseUrl = dotenv.env['LEAVE_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
   final String leaveRequestKey = dotenv.env['LEAVE_REQUEST_KEY'] ?? "";
   final String leaveApproveKey = dotenv.env['LEAVE_APPROVE_KEY'] ?? "";
@@ -18,7 +18,7 @@ class LeaveService {
   final String leaveBalanceKey = dotenv.env['LEAVE_BALANCE_KEY'] ?? "";
 
   LeaveService() {
-    if (baseUrl.isEmpty) debugPrint("❌ LeaveService: LEAVE_BASE_URL is missing");
+    if (baseUrl.isEmpty) debugPrint(" LeaveService: LEAVE_BASE_URL is missing");
   }
 
   // --- ADD LEAVE REQUEST ---
@@ -73,7 +73,7 @@ class LeaveService {
     try {
       final response = await _apiClient.get(
         url,
-        useAuth: false,
+        useAuth: true,
       );
 
       if (response.statusCode == 200) {
@@ -100,7 +100,7 @@ class LeaveService {
     try {
       final response = await _apiClient.get(
         url,
-        useAuth: false,
+        useAuth: true,
       );
 
       if (response.statusCode == 200) {

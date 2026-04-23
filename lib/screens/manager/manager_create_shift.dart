@@ -379,9 +379,9 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
         "JobId": _selectedJobId,
         "SiteId": selectedJob.siteId,
         "TaskName": taskNameForThisDate,
-        "Date": "${dateStr}T00:00:00.000",
-        "StartTime": "${dateStr}T$start",
-        "EndTime": "${dateStr}T$end",
+        "Date": "${dateStr}T00:00:00Z",
+        "StartTime": start,
+        "EndTime": end,
         "Location": matchingSite.siteName,
         "Status": (widget.shift != null && _selectedDates.length == 1)
             ? widget.shift!.status
@@ -393,9 +393,13 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
         "jobId": _selectedJobId,
         "siteId": selectedJob.siteId,
         "taskName": taskNameForThisDate,
-        "date": "${dateStr}T00:00:00.000",
-        "startTime": "${dateStr}T$start",
-        "endTime": "${dateStr}T$end",
+        "date": "${dateStr}T00:00:00Z",
+        "startTime": start,
+        "endTime": end,
+        "location": matchingSite.siteName,
+        "status": (widget.shift != null && _selectedDates.length == 1)
+            ? widget.shift!.status
+            : "Scheduled",
         "assignedEmployeeIds": _selectedEmptIds,
 
         // --- Typo Fallbacks from Model ---
@@ -405,10 +409,10 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
         "Shitid": 0,
 
         // --- Date Fix Keys (Suggested by user/screenshot) ---
-        "StartDate": "${dateStr}T00:00:00",
-        "JobDueDate": "${dateStr}T00:00:00",
-        "startDate": "${dateStr}T00:00:00",
-        "jobDueDate": "${dateStr}T00:00:00",
+        "StartDate": "${dateStr}T00:00:00Z",
+        "JobDueDate": "${dateStr}T00:00:00Z",
+        "startDate": "${dateStr}T00:00:00Z",
+        "jobDueDate": "${dateStr}T00:00:00Z",
       };
 
       // Only include for updates
@@ -422,7 +426,7 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
       }
 
       // Log the refined payload for final verification
-      debugPrint("📤 Submitting Shotgun payload for $dateStr: ${jsonEncode(shiftData)}");
+      debugPrint(" Submitting Shotgun payload for $dateStr: ${jsonEncode(shiftData)}");
 
       try {
         bool success = false;
@@ -442,10 +446,10 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
           }
         } else {
           anyFailure = true;
-          debugPrint("❌ Backend returned failure for shift creation on $dateStr");
+          debugPrint(" Backend returned failure for shift creation on $dateStr");
         }
       } catch (e) {
-        debugPrint("🔥 Exception submitting shift for $dateStr: $e");
+        debugPrint(" Exception submitting shift for $dateStr: $e");
         anyFailure = true;
       }
     }
@@ -975,7 +979,7 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
                                   ),
                                   title: Text(fullName, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500)),
                                   subtitle: (hasCon || onL)
-                                      ? Text(hasCon ? "⚠️ Scheduling Conflict" : "🏖️ On Approved Leave",
+                                      ? Text(hasCon ? " Scheduling Conflict" : " On Approved Leave",
                                           style: const TextStyle(color: Colors.redAccent, fontSize: 12))
                                       : Text(employee.email ?? '', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
                                   trailing: isSelected

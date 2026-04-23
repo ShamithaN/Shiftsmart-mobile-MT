@@ -30,7 +30,7 @@ class RealLocationService implements LocationService {
 
   @override
   Future<bool> sendLocation(Position position, int employeeId) async {
-    // ✅ FIX: Use ATTENDANCE_BASE_URL because LOCATION_KEY belongs to the Attendance Function App
+    //  FIX: Use ATTENDANCE_BASE_URL because LOCATION_KEY belongs to the Attendance Function App
     final String baseUrl = dotenv.env['ATTENDANCE_BASE_URL'] ?? "";
     final String locationKey = dotenv.env['ATTENDANCE_LOCATION_UPDATE_KEY'] ?? "";
 
@@ -53,11 +53,11 @@ class RealLocationService implements LocationService {
 
       if (response.statusCode == 200) {
         debugPrint(
-            "📍 Employee location updated: ${position.latitude}, ${position.longitude}");
+            " Employee location updated: ${position.latitude}, ${position.longitude}");
         return true;
       } else {
         debugPrint(
-            "⚠️ Failed to update employee location: ${response.statusCode} - ${response.body}");
+            " Failed to update employee location: ${response.statusCode} - ${response.body}");
         return false;
       }
     } catch (e) {

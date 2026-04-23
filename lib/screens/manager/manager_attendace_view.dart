@@ -188,7 +188,7 @@ class _ManagerattendaceviewState extends State<Managerattendaceview> {
               _buildTableRow("Employee Name", widget.attendance.employeeName),
               _buildTableRow("Shift Name", widget.attendance.shiftName),
               if (widget.attendance.isEmergency)
-                _buildTableRow("Clock Out Type", "🚨 EARLY CLOCK-OUT"),
+                _buildTableRow("Clock Out Type", " EARLY CLOCK-OUT"),
               if (widget.attendance.isEmergency &&
                   widget.attendance.emergencyReason.isNotEmpty)
                 _buildTableRow("Early Clock Out Reason", widget.attendance.emergencyReason),

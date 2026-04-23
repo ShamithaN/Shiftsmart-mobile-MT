@@ -19,6 +19,8 @@ import 'package:shiftsmart/services/attendance_service.dart';
 import 'package:shiftsmart/screens/manager/manager_pending_requests.dart';
 import 'package:provider/provider.dart';
 import 'package:shiftsmart/providers/user_provider.dart';
+import 'package:shiftsmart/services/super_admin_service.dart';
+import 'package:shiftsmart/services/auth_service.dart';
 import 'dart:ui';
 
 class Managerdashboard extends StatefulWidget {
@@ -43,10 +45,17 @@ class _ManagerdashboardState extends State<Managerdashboard> {
   List<Shift> _todayShifts = [];
   int _pendingCount = 0;
 
+  String _selectedOrganization = 'codebase Ltd';
+  List<Map<String, dynamic>> _tenants = [];
+  final List<String> _organizations = ['Vel Ltd', 'codebase Ltd', 'SK Ltd', 'CodegenX Ltd'];
+
+  final SuperAdminService _superAdminService = SuperAdminService();
+
   final ProjectService _projectService = ProjectService();
   final LeaveService _leaveService = LeaveService();
   final EmployeeService _employeeService = EmployeeService();
   final ShiftService _shiftService = ShiftService();
+  final AuthService _authService = AuthService();
 
   @override
   void initState() {
@@ -55,8 +64,36 @@ class _ManagerdashboardState extends State<Managerdashboard> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshKey.currentState?.show();
-      _refreshData();
+      _initializeDashboard();
     });
+  }
+
+  Future<void> _initializeDashboard() async {
+    setState(() => _isLoading = true);
+    
+    // 1. Fetch current tenant info from token/profile
+    try {
+      final userInfo = await _authService.getCurrentUserInfo();
+      if (userInfo != null) {
+        final currentTenant = userInfo['tenantName'] ?? userInfo['TenantName'];
+        if (currentTenant != null) {
+          setState(() {
+            _selectedOrganization = currentTenant.toString();
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching current user info: $e");
+    }
+
+    // 2. Fetch all available tenants for the dropdown
+    await _fetchTenants();
+    
+    // 3. Refresh all dashboard data
+    await _refreshData();
+    
+    if (!mounted) return;
+    setState(() => _isLoading = false);
   }
 
   Future<void> _refreshData() async {
@@ -98,7 +135,11 @@ class _ManagerdashboardState extends State<Managerdashboard> {
     final projects = await _projectService.fetchAllProjects();
     if (!mounted) return;
     setState(() {
-      allProjects = projects;
+      // Filter projects by selected organization name to show ONLY relevant details
+      allProjects = projects.where((p) => 
+        p.companyName.toLowerCase() == _selectedOrganization.toLowerCase()
+      ).toList();
+      
       total = allProjects.length;
       completed = getCompletedProjectsCount();
       inProgress = getInProgressProjectsCount();
@@ -108,17 +149,25 @@ class _ManagerdashboardState extends State<Managerdashboard> {
   Future<void> _fetchAllShifts() async {
     try {
       final allRawShifts = await _shiftService.fetchAllRawShifts();
+      
+      // Filter shifts to only include those belonging to the selected organization's projects
+      final projectIds = allProjects.map((p) => p.projectId).toSet();
+      final filteredRawShifts = allRawShifts.where((s) {
+        final pid = s['ProjectId'] ?? s['projectId'];
+        return projectIds.contains(pid);
+      }).toList();
+
       final today = DateTime.now();
-      final todayOnly = allRawShifts
+      final todayOnly = filteredRawShifts
           .map((shiftData) => Shift.fromJson(shiftData))
           .where((shift) =>
               shift.date.year == today.year &&
               shift.date.month == today.month &&
               shift.date.day == today.day)
           .toList();
-      debugPrint("Today only: $todayOnly");
+
       int pending = 0;
-      for (var s in allRawShifts) {
+      for (var s in filteredRawShifts) {
         final shift = Shift.fromJson(s);
         for (var resp in shift.employeeResponses) {
           if (resp.approvalStatus == "Pending") {
@@ -135,6 +184,81 @@ class _ManagerdashboardState extends State<Managerdashboard> {
     } catch (e) {
       debugPrint("Error fetching today's shifts: $e");
     }
+  }
+
+  Future<void> _fetchTenants() async {
+    try {
+      final tenants = await _superAdminService.getAllTenants();
+      if (tenants.isNotEmpty) {
+        setState(() {
+          _tenants = tenants.map((t) => t as Map<String, dynamic>).toList();
+          
+          // Synchronize _selectedOrganization with the fetched list
+          final tenantNames = _tenants.map((t) => (t['name'] ?? t['Name'] ?? '').toString().toLowerCase()).toList();
+          if (!tenantNames.contains(_selectedOrganization.toLowerCase())) {
+            // Fallback to the first tenant if current selection is not in the list
+            _selectedOrganization = (_tenants[0]['name'] ?? _tenants[0]['Name'] ?? 'Unnamed').toString();
+          } else {
+            // Ensure exact casing from the list
+            final foundOrg = _tenants.firstWhere(
+              (t) => (t['name'] ?? t['Name'] ?? '').toString().toLowerCase() == _selectedOrganization.toLowerCase()
+            );
+            _selectedOrganization = (foundOrg['name'] ?? foundOrg['Name']).toString();
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching tenants: $e");
+    }
+  }
+
+  Future<void> _handleTenantSwitch(String? orgName) async {
+    if (orgName == null) return;
+
+    final tenant = _tenants.firstWhere(
+      (t) => (t['name'] ?? t['Name'] ?? '').toString().toLowerCase() == orgName.toLowerCase(),
+      orElse: () => {},
+    );
+
+    // Expand ID lookup for reliability
+    final tenantId = tenant['tenantId'] ?? tenant['TenantId'] ?? tenant['id'] ?? tenant['ID'];
+
+    // Update UI name immediately so the dropdown shows the change
+    setState(() {
+      _selectedOrganization = orgName;
+    });
+
+    if (tenantId == null) {
+      debugPrint("Warning: No tenantId found for $orgName. Proceeding with client-side filter only.");
+      await _refreshData(); // Still refresh data to trigger client-side filtering
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final result = await _superAdminService.switchTenant(tenantId);
+      
+      if (result != null) {
+        await _refreshData();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Switched to $orgName'), backgroundColor: Colors.green),
+          );
+        }
+      } else {
+        // Even if API switch fails, we already updated name so client-side filter works
+        await _refreshData();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Switched to $orgName (Offline Mode)'), backgroundColor: Colors.orange),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint("Error switching tenant: $e");
+      await _refreshData();
+    }
+    setState(() => _isLoading = false);
   }
 
   int getCompletedProjectsCount() {
@@ -190,73 +314,82 @@ class _ManagerdashboardState extends State<Managerdashboard> {
                 )
               : Consumer<UserProvider>(
                   builder: (context, userProvider, child) {
-                    final profile = userProvider.userProfile;
-                    final String firstName = profile['firstName'] ?? '';
-                    final String role = profile['userRole'] ?? 'Manager';
-                    
                     return Column(
                       children: [
-                        // Premium Header
-                        Container(
-                          padding: EdgeInsets.fromLTRB(
-                            screenWidth * 0.06,
-                            screenHeight * 0.04,
-                            screenWidth * 0.06,
-                            screenHeight * 0.02,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Hello, $firstName",
-                                    style: const TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                      letterSpacing: 0.5,
+                        // Organization Selection Bar
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05, vertical: 8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF262A34),
+                              borderRadius: BorderRadius.circular(25),
+                              border: Border.all(color: Colors.white24, width: 1),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _selectedOrganization,
+                                icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 24),
+                                dropdownColor: const Color(0xFF1C2230),
+                                isExpanded: true,
+                                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                                items: [
+                                  const DropdownMenuItem<String>(
+                                    value: 'HEADER',
+                                    enabled: false,
+                                    child: Text(
+                                      'ACTIVE ORGANIZATION',
+                                      style: TextStyle(
+                                        color: Colors.white54,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 1.0,
+                                      ),
                                     ),
                                   ),
-                                  Text(
-                                    "$role Dashboard",
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.white.withOpacity(0.7),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
+                                  ...(_tenants.isNotEmpty 
+                                      ? _tenants.map((t) => (t['name'] ?? t['Name'] ?? 'Unnamed').toString()).toList()
+                                      : _organizations).map((String org) {
+                                        return DropdownMenuItem<String>(
+                                          value: org,
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.business, 
+                                                color: _selectedOrganization == org ? Colors.blueAccent : Colors.white70, 
+                                                size: 20
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Text(
+                                                  org,
+                                                  style: TextStyle(
+                                                    color: _selectedOrganization == org ? Colors.blueAccent : Colors.white,
+                                                    fontSize: 15,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (_selectedOrganization == org)
+                                                const Icon(Icons.check, color: Colors.blueAccent, size: 20),
+                                            ],
+                                          ),
+                                        );
+                                      }),
                                 ],
+                                onChanged: (String? newValue) {
+                                  if (newValue != null && newValue != 'HEADER') {
+                                    _handleTenantSwitch(newValue);
+                                  }
+                                },
                               ),
-                              Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white24, width: 2),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.2),
-                                      blurRadius: 10,
-                                      spreadRadius: 2,
-                                    ),
-                                  ],
-                                ),
-                                child: CircleAvatar(
-                                  radius: 25,
-                                  backgroundColor: const Color(0xFF2D3243),
-                                  backgroundImage: (profile['profilePicture'] != null &&
-                                          profile['profilePicture'].toString().isNotEmpty)
-                                      ? (profile['profilePicture'].toString().startsWith('data:image')
-                                          ? MemoryImage(base64Decode(profile['profilePicture'].toString().split(',').last))
-                                          : NetworkImage(profile['profilePicture'].toString()) as ImageProvider)
-                                      : null,
-                                  child: (profile['profilePicture'] == null ||
-                                          profile['profilePicture'].toString().isEmpty)
-                                      ? const Icon(Icons.person, color: Colors.white)
-                                      : null,
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                         Expanded(

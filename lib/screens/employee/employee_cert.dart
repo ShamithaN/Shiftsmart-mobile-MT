@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shiftsmart/models/empcert_model.dart';
-import 'package:shiftsmart/services/employee_service.dart'; // 👈 Import this
+import 'package:shiftsmart/services/employee_service.dart'; //  Import this
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/emp_slidenav.dart';
@@ -43,7 +43,7 @@ class _EmployeecertState extends State<Employeecert> {
         });
       } else {
         setState(() => _isLoading = false);
-        debugPrint("❌ No Employee ID found in SharedPreferences");
+        debugPrint(" No Employee ID found in SharedPreferences");
       }
     } catch (e) {
       setState(() => _isLoading = false);

@@ -17,7 +17,7 @@ class CertificateService {
   final String certBaseUrl = dotenv.env['CERT_BASE_URL'] ?? "";
 
   CertificateService() {
-    if (baseUrl.isEmpty) debugPrint("❌ CertificateService: BASE_URL is missing");
+    if (baseUrl.isEmpty) debugPrint(" CertificateService: BASE_URL is missing");
   }
 
   // Safe getters for keys
@@ -80,23 +80,23 @@ class CertificateService {
   // --- FETCH CERTIFICATES ---
   Future<List<EmployeeCertificate>> fetchCertificates(int employeeId) async {
     final url = '$baseUrl/employee/documents1/$employeeId?code=$fetchKey';
-    debugPrint("🔍 CertificateService: Fetching certificates from $url");
+    debugPrint(" CertificateService: Fetching certificates from $url");
 
     try {
       final response = await _apiClient.get(url, useAuth: true);
-      debugPrint("📡 CertificateService Status: ${response.statusCode}");
-      debugPrint("📄 CertificateService Body snippet: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}");
+      debugPrint(" CertificateService Status: ${response.statusCode}");
+      debugPrint(" CertificateService Body snippet: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}");
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = jsonDecode(response.body);
-        debugPrint("✅ CertificateService: Found ${jsonData.length} documents.");
+        debugPrint(" CertificateService: Found ${jsonData.length} documents.");
         return jsonData.map((e) => EmployeeCertificate.fromJson(e)).toList();
       } else {
-        debugPrint("❌ CertificateService: Failed to fetch documents. Status: ${response.statusCode}");
+        debugPrint(" CertificateService: Failed to fetch documents. Status: ${response.statusCode}");
         return [];
       }
     } catch (e) {
-      debugPrint("❌ CertificateService: Exception fetching documents: $e");
+      debugPrint(" CertificateService: Exception fetching documents: $e");
       return [];
     }
   }

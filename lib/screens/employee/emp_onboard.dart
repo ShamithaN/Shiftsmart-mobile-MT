@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:shiftsmart/services/employee_service.dart';
+import 'package:shiftsmart/services/job_service.dart';
+import 'package:shiftsmart/models/job_role_type.dart';
 import 'package:shiftsmart/services/onboarding_service.dart';
 import 'package:shiftsmart/utils/validators.dart';
 import 'package:shiftsmart/widgets/background.dart';
@@ -94,6 +96,19 @@ class _EmponboardState extends State<Emponboard> {
 
   final List<Map<String, dynamic>> _nokList = [];
 
+  final List<String> _allAvailableDocTypes = [
+    "National ID",
+    "Resume",
+    "Electrical License",
+    "White Card",
+    "Driver's License",
+    "RSA",
+    "Police Check",
+    "Passport",
+    "Visa",
+    "Other Certificate",
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -131,14 +146,13 @@ class _EmponboardState extends State<Emponboard> {
           _shouldShow("TaxInfo");
     }
     if (step == 2) return _shouldShow("Bank");
-    if (step == 3) {
-      return _shouldShow("NextOfKin") || _requiredDocs.isNotEmpty;
-    }
+    if (step == 3) return _shouldShow("NextOfKin");
+    if (step == 4) return _requiredDocs.isNotEmpty;
     return false;
   }
 
   int? _getNextStep(int current) {
-    for (int i = current + 1; i <= 3; i++) {
+    for (int i = current + 1; i <= 4; i++) {
       if (_stepHasContent(i)) return i;
     }
     return null;
@@ -284,7 +298,7 @@ class _EmponboardState extends State<Emponboard> {
   void _mapInvitationData(Map<String, dynamic> data) {
     setState(() {
       _isResubmission = false;
-      String fullName = (data['Name'] ?? '').trim();
+      String fullName = (data['name'] ?? data['Name'] ?? '').trim();
       List<String> nameParts = fullName.split(RegExp(r'\s+'));
 
       if (nameParts.isNotEmpty) {
@@ -298,20 +312,48 @@ class _EmponboardState extends State<Emponboard> {
         }
       }
 
-      _phoneCtrl.text = data['Phone'] ?? '';
-      _jobRole = data['JobRole'] ?? '';
-      _empType = data['EmploymentType'] ?? '';
+      _phoneCtrl.text = (data['phone'] ?? data['Phone'] ?? '').toString();
+      _jobRole = data['jobRole'] ?? data['JobRole'] ?? '';
+      _empType = data['employmentType'] ?? data['EmploymentType'] ?? '';
 
-      String docsStr = data['RequiredCertificates'] ?? '';
-      if (docsStr.isNotEmpty) {
-        _requiredDocs = docsStr
-            .split(',')
-            .map((e) => e.trim())
-            .where((e) => e.isNotEmpty)
-            .toList();
+      dynamic docsRaw = data['requiredCertificates'] ??
+                        data['RequiredDocuments'] ?? 
+                        data['RequiredCertificates'] ?? 
+                        data['Certificates'] ?? 
+                        data['Documents'] ??
+                        data['required_documents'];
+      
+      if (docsRaw != null) {
+        if (docsRaw is List) {
+          _requiredDocs = docsRaw.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+        } else if (docsRaw is String) {
+          _requiredDocs = docsRaw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+        }
+      }
+
+      if (_requiredDocs.isEmpty && _jobRole.isNotEmpty) {
+        _fetchRoleRequirements();
       }
       _isLoading = false;
     });
+  }
+
+  Future<void> _fetchRoleRequirements() async {
+    try {
+      final List<JobRoleType> roles = await JobService().fetchJobRoleType();
+      final target = roles.firstWhere(
+        (r) => r.name.toLowerCase() == _jobRole.toLowerCase(),
+        orElse: () => JobRoleType.unKnown(),
+      );
+      
+      if (target.id != 0 && target.requiredDocuments.isNotEmpty) {
+        setState(() {
+          _requiredDocs = target.requiredDocuments;
+        });
+      }
+    } catch (e) {
+      debugPrint(" Error fetching role requirements: $e");
+    }
   }
 
   String? _validateAge(String? dateStr) {
@@ -360,7 +402,11 @@ class _EmponboardState extends State<Emponboard> {
     );
   }
 
-  void _pickDocument(String docName) {
+  void _pickDocument(String docName, {bool directCamera = false}) {
+    if (directCamera) {
+      _openCamera(docName);
+      return;
+    }
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.grey[900],
@@ -371,11 +417,7 @@ class _EmponboardState extends State<Emponboard> {
               const Text('Take Photo', style: TextStyle(color: Colors.white)),
           onTap: () async {
             Navigator.pop(ctx);
-            final XFile? img = await ImagePicker()
-                .pickImage(source: ImageSource.camera, imageQuality: 80);
-            if (img != null) {
-              setState(() => _uploadedDocs[docName] = File(img.path));
-            }
+            _openCamera(docName);
           },
         ),
         ListTile(
@@ -409,6 +451,14 @@ class _EmponboardState extends State<Emponboard> {
         ),
       ]),
     );
+  }
+
+  Future<void> _openCamera(String docName) async {
+    final XFile? img = await ImagePicker()
+        .pickImage(source: ImageSource.camera, imageQuality: 80);
+    if (img != null) {
+      setState(() => _uploadedDocs[docName] = File(img.path));
+    }
   }
 
   Future<void> _selectDob(BuildContext context) async {
@@ -568,6 +618,7 @@ class _EmponboardState extends State<Emponboard> {
 
     if (_isResubmission) {
       payload["EmployeeId"] = widget.employeeId ?? 0;
+      payload["Email"] = widget.email;
 
       if (_rejectedKeys.contains("FullName")) {
         String middleName = _midNameCtrl.text.trim().isEmpty ? "N/A" : _midNameCtrl.text.trim();
@@ -664,6 +715,18 @@ class _EmponboardState extends State<Emponboard> {
       };
       if (_empType.contains("Contractor")) payload["Abn"] = abn;
       if (_empType.contains("Employee")) payload["Tfn"] = tfn;
+
+      if (_uploadedDocs.isNotEmpty) {
+        List<Map<String, dynamic>> documentsList = [];
+        _uploadedDocs.forEach((key, file) {
+          documentsList.add({
+            "DocumentId": 0,
+            "DocumentType": key,
+            "DocumentUrl": ""
+          });
+        });
+        payload["Certificates"] = documentsList;
+      }
     }
 
     try {
@@ -682,14 +745,14 @@ class _EmponboardState extends State<Emponboard> {
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text("Failed: ${response.body}")));
+          setState(() => _isSubmitting = false);
+          _showErrorWithRetry("Status Code: ${response.statusCode}");
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text("Error: $e")));
+        setState(() => _isSubmitting = false);
+        _showErrorWithRetry(e.toString());
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -739,7 +802,9 @@ class _EmponboardState extends State<Emponboard> {
                                   if (_currentStep == 2)
                                     _buildStep2BankAndAuth(),
                                   if (_currentStep == 3)
-                                    _buildStep3DocsAndNok(),
+                                    _buildStep3NextOfKin(),
+                                  if (_currentStep == 4)
+                                    _buildStep4Documents(),
                                   const SizedBox(height: 30),
                                 ],
                               ),
@@ -775,22 +840,30 @@ class _EmponboardState extends State<Emponboard> {
                                     setState(() => _currentStep = nextStep);
                                   }
                                 } else {
-                                  bool isStep3Valid = _nokList.isNotEmpty &&
-                                      (_requiredDocs.isEmpty ||
-                                          _requiredDocs.every((doc) =>
-                                              _uploadedDocs.containsKey(doc)));
-
-                                  if (_isResubmission && !_stepHasContent(3)) {
-                                    isStep3Valid = true;
+                                  // Final Step Validation (Documents & Submit)
+                                  bool isStepValid = true;
+                                  
+                                  if (_currentStep == 3 && _shouldShow("NextOfKin")) {
+                                    isStepValid = _nokList.isNotEmpty;
+                                  } else if (_currentStep == 4) {
+                                    isStepValid = _requiredDocs.isEmpty ||
+                                        _requiredDocs.every((doc) =>
+                                            _uploadedDocs.containsKey(doc));
                                   }
 
-                                  if (isStep3Valid && !_isSubmitting) {
+                                  if (_isResubmission && !_stepHasContent(_currentStep)) {
+                                    isStepValid = true;
+                                  }
+
+                                  if (isStepValid && !_isSubmitting) {
                                     _submitForm();
                                   } else {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                            content: Text(
-                                                "Complete all requirements.")));
+                                        SnackBar(
+                                            content: Text(_currentStep == 3 
+                                                ? "Please add at least one Next of Kin."
+                                                : "Please upload required documents."),
+                                            backgroundColor: Colors.redAccent));
                                   }
                                 }
                               },
@@ -960,7 +1033,7 @@ class _EmponboardState extends State<Emponboard> {
     ]);
   }
 
-  Widget _buildStep3DocsAndNok() {
+  Widget _buildStep3NextOfKin() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if (_shouldShow("NextOfKin")) ...[
         const Text("Next of Kin",
@@ -1051,30 +1124,185 @@ class _EmponboardState extends State<Emponboard> {
           }).toList(),
         ),
       ],
-      const SizedBox(height: 20),
-      const Text("Required Documents",
-          style: TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+    ]);
+  }
+
+  Widget _buildStep4Documents() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text("Required Documents",
+              style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18)),
+          TextButton.icon(
+            onPressed: _showAddDocModal,
+            icon: const Icon(Icons.add_circle_outline,
+                color: Colors.blueAccent, size: 20),
+            label: const Text("Add New Document",
+                style: TextStyle(color: Colors.blueAccent, fontSize: 13)),
+          ),
+        ],
+      ),
       const SizedBox(height: 10),
       if (_requiredDocs.isEmpty)
-        const Text("No documents required.",
-            style: TextStyle(color: Colors.white70)),
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 20),
+          child: Center(
+            child: Text("No documents required yet. Add them above.",
+                style: TextStyle(color: Colors.white54)),
+          ),
+        ),
       ..._requiredDocs.map((docName) {
         bool isUploaded = _uploadedDocs.containsKey(docName);
+        File? file = _uploadedDocs[docName];
+        bool isImage = file != null &&
+            (file.path.toLowerCase().endsWith('.jpg') ||
+                file.path.toLowerCase().endsWith('.jpeg') ||
+                file.path.toLowerCase().endsWith('.png'));
+
         return Card(
           color: Colors.white.withValues(alpha: 0.1),
           child: ListTile(
             title: Text(docName, style: const TextStyle(color: Colors.white)),
-            subtitle: Text(isUploaded ? "Uploaded" : "Required",
+            subtitle: Text(isUploaded ? "Ready to submit" : "Required",
                 style: TextStyle(
-                    color: isUploaded ? Colors.greenAccent : Colors.redAccent)),
-            trailing: Icon(isUploaded ? Icons.check_circle : Icons.upload_file,
-                color: isUploaded ? Colors.green : Colors.white),
-            onTap: () => _pickDocument(docName),
+                    color:
+                        isUploaded ? Colors.greenAccent : Colors.redAccent)),
+            leading: IconButton(
+              icon: Icon(Icons.camera_alt,
+                  color: isUploaded ? Colors.green : Colors.white70),
+              onPressed: () => _pickDocument(docName, directCamera: true),
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isUploaded)
+                  GestureDetector(
+                    onTap: isImage ? () => _showImagePreview(file!) : null,
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: isImage
+                            ? Image.file(file!, fit: BoxFit.cover)
+                            : const Icon(Icons.picture_as_pdf,
+                                color: Colors.redAccent, size: 24),
+                      ),
+                    ),
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline,
+                      color: Colors.white24, size: 20),
+                  onPressed: () {
+                    setState(() {
+                      _requiredDocs.remove(docName);
+                      _uploadedDocs.remove(docName);
+                    });
+                  },
+                ),
+              ],
+            ),
+            onTap: isUploaded && isImage
+                ? () => _showImagePreview(file!)
+                : () => _pickDocument(docName),
           ),
         );
       }),
     ]);
+  }
+
+  void _showAddDocModal() {
+    String searchQuery = "";
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1A1F2B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(builder: (context, setModalState) {
+          final filtered = _allAvailableDocTypes
+              .where((doc) =>
+                  doc.toLowerCase().contains(searchQuery.toLowerCase()) &&
+                  !_requiredDocs.contains(doc))
+              .toList();
+
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              top: 20,
+              left: 20,
+              right: 20,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text("Add Required Document",
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 20),
+                TextField(
+                  style: const TextStyle(color: Colors.white),
+                  onChanged: (v) => setModalState(() => searchQuery = v),
+                  decoration: InputDecoration(
+                    hintText: "Search document...",
+                    hintStyle: const TextStyle(color: Colors.white54),
+                    prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.05),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 15),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.4),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      final doc = filtered[index];
+                      return ListTile(
+                        title: Text(doc,
+                            style: const TextStyle(color: Colors.white)),
+                        trailing: const Icon(Icons.add, color: Colors.blueAccent),
+                        onTap: () {
+                          setState(() => _requiredDocs.add(doc));
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+                ),
+                if (searchQuery.isNotEmpty && !filtered.contains(searchQuery))
+                  ListTile(
+                    title: Text("Add '$searchQuery'...",
+                        style: const TextStyle(color: Colors.blueAccent)),
+                    leading: const Icon(Icons.create, color: Colors.blueAccent),
+                    onTap: () {
+                      setState(() => _requiredDocs.add(searchQuery));
+                      Navigator.pop(context);
+                    },
+                  ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          );
+        });
+      },
+    );
   }
 
   Widget _buildTextField(
@@ -1183,6 +1411,60 @@ class _EmponboardState extends State<Emponboard> {
           suffixIcon: const Icon(Icons.calendar_today, color: Colors.white70),
           errorStyle: const TextStyle(color: Colors.redAccent),
         ),
+      ),
+    );
+  }
+
+  void _showImagePreview(File file) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: const EdgeInsets.all(10),
+        child: Stack(
+          children: [
+            InteractiveViewer(
+              child: Center(
+                child: Image.file(file),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.pop(ctx),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showErrorWithRetry(String error) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF2A2F45),
+        title:
+            const Text("Submission Error", style: TextStyle(color: Colors.white)),
+        content: Text("Failed to submit: $error",
+            style: const TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _submitForm();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+            child: const Text("Retry", style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }

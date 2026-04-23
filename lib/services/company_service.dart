@@ -8,7 +8,7 @@ import 'api_client.dart'; // Import ApiClient
 class CompanyService {
   final ApiClient _apiClient = ApiClient(); // 1. Initialize ApiClient
 
-  // ✅ PROD Endpoints from func-projects
+  //  PROD Endpoints from func-projects
   final String baseUrl = dotenv.env['PROJECT_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
   final String addCompanyKey = dotenv.env['COMPANY_CREATE_KEY'] ?? "";
   final String updateCompanyKey = dotenv.env['COMPANY_UPDATE_KEY'] ?? "";
@@ -16,7 +16,7 @@ class CompanyService {
   final String deleteCompanyKey = dotenv.env['COMPANY_DELETE_KEY'] ?? "";
 
   CompanyService() {
-    if (baseUrl.isEmpty) debugPrint("❌ CompanyService: PROJECT_BASE_URL is missing");
+    if (baseUrl.isEmpty) debugPrint(" CompanyService: PROJECT_BASE_URL is missing");
   }
 
   // --- ADD COMPANY ---
@@ -28,7 +28,7 @@ class CompanyService {
       final response = await _apiClient.post(
         url,
         body: companyData,
-        useAuth: false,
+        useAuth: true,
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -56,7 +56,7 @@ class CompanyService {
       final response = await _apiClient.put(
         updateUrl,
         body: companyData,
-        useAuth: false,
+        useAuth: true,
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -76,8 +76,7 @@ class CompanyService {
     final String url = '$baseUrl/company/all?code=$fetchCompanyKey';
 
     try {
-      // FIX: Use ApiClient with useAuth: false
-      final response = await _apiClient.get(url, useAuth: false);
+      final response = await _apiClient.get(url, useAuth: true);
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = jsonDecode(response.body);

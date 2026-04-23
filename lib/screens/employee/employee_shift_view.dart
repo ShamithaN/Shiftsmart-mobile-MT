@@ -112,7 +112,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
       }
       return DateTime(now.year, now.month, now.day, hour, minute);
     } catch (e) {
-      debugPrint("⚠️ Start Date Parsing Error: $e");
+      debugPrint(" Start Date Parsing Error: $e");
       return DateTime.now();
     }
   }
@@ -140,7 +140,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
       }
       return DateTime(now.year, now.month, now.day, hour, minute);
     } catch (e) {
-      debugPrint("⚠️ End Date Parsing Error: $e");
+      debugPrint(" End Date Parsing Error: $e");
       return DateTime.now();
     }
   }
@@ -183,7 +183,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
         });
       }
     } catch (e) {
-      debugPrint('❌ Error loading shift details & status: $e');
+      debugPrint(' Error loading shift details & status: $e');
     }
   }
 
@@ -269,7 +269,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
       final site = await _siteService.fetchSiteById(widget.job.siteId!);
       if (site != null) currentSite = site;
     } catch (e) {
-      debugPrint('❌ Error loading site data: $e');
+      debugPrint(' Error loading site data: $e');
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -505,7 +505,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
         return;
       }
 
-      // 🛑 STRICT CHECK: Validate Geofence BEFORE anything else
+      //  STRICT CHECK: Validate Geofence BEFORE anything else
       bool inRange = await _validateGeofence();
       if (!inRange) {
         if (mounted) {
@@ -533,7 +533,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
         return;
       }
 
-      // 🕒 TIME CHECK: Is it within the shift window?
+      //  TIME CHECK: Is it within the shift window?
       final now = DateTime.now();
       final scheduledStart = _getScheduledStartDateTime();
       final scheduledEnd = _getScheduledEndDateTime();
@@ -655,7 +655,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
     try {
       await _locationService.sendLocation(position, widget.employeeId);
     } catch (e) {
-      debugPrint("❌ Error sending employee location: $e");
+      debugPrint(" Error sending employee location: $e");
     }
   }
 
@@ -671,7 +671,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
   Future<void> _handleClockOut() async {
     if (attendanceId == null) return;
 
-    // 🛑 STRICT CHECK: Cannot Clock Out during an active break
+    //  STRICT CHECK: Cannot Clock Out during an active break
     if (currentBreakStart != null) {
       if (mounted) {
         showDialog(
@@ -699,7 +699,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
     final now = DateTime.now();
     final scheduledEnd = _getScheduledEndDateTime();
 
-    // 🛑 CHECK: Is it Early Departure?
+    //  CHECK: Is it Early Departure?
     bool isEarly =
         now.isBefore(scheduledEnd.subtract(const Duration(minutes: 5)));
     
@@ -867,11 +867,11 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               backgroundColor: Colors.orange[800],
               content: const Text(
-                  '⚠ Early Departure Recorded. You clocked out early.'),
+                  ' Early Departure Recorded. You clocked out early.'),
             ));
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('✅ Clock-out successful!')));
+                const SnackBar(content: Text(' Clock-out successful!')));
           }
         }
       } else {
@@ -975,10 +975,10 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
                             _buildAcknowledgementCard()
                           else if (myStatus == "Declined")
                             _buildStatusMessage(
-                                "⛔ You have declined this shift.", Colors.red)
+                                " You have declined this shift.", Colors.red)
                           else if (myStatus == "Swap Requested")
                             _buildStatusMessage(
-                                "🔄 Swap Requested. Waiting for approval.",
+                                " Swap Requested. Waiting for approval.",
                                 Colors.orange)
                           else if (myStatus == "Accepted")
                             _buildTimeTrackingCard(),
@@ -1303,7 +1303,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
                       isEnabled: isBreakEnabled,
                     )
                   else
-                    // 🔴 UPDATED: End Break Button with Distinct Color
+                    //  UPDATED: End Break Button with Distinct Color
                     _buildTimeTrackingItem(
                       "End Break",
                       currentBreakStart,
@@ -1339,7 +1339,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
     final duration = clockOutTime!.difference(clockInTime!);
     if (duration.isNegative) {
       return const Text(
-        '⚠ Shift times are invalid (Clock-out before Clock-in)',
+        ' Shift times are invalid (Clock-out before Clock-in)',
         style: TextStyle(color: Colors.redAccent, fontSize: 14),
       );
     }

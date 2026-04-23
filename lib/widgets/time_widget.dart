@@ -79,12 +79,12 @@ class _TimewidgetState extends State<Timewidget> {
               const Column(
                 children: [
                   Text(
-                    "•",
+                    "",
                     style: TextStyle(fontSize: 12, color: Colors.white),
                   ),
                   SizedBox(height: 5),
                   Text(
-                    "•",
+                    "",
                     style: TextStyle(fontSize: 12, color: Colors.white),
                   ),
                 ],

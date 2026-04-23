@@ -11,15 +11,15 @@ import 'api_client.dart';
 class AttendanceService {
   final ApiClient _apiClient = ApiClient();
 
-  // ✅ PROD ENDPOINT CONFIGURATION (from func-attendance)
+  //  PROD ENDPOINT CONFIGURATION (from func-attendance)
   final String baseUrl = dotenv.env['ATTENDANCE_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
   final String shiftBaseUrl = dotenv.env['SHIFT_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
 
-  // ✅ SHIFT ENDPOINT KEYS (for Cross-Service Updates)
+  //  SHIFT ENDPOINT KEYS (for Cross-Service Updates)
   final String shiftAttendanceKey = dotenv.env['SHIFT_ATTENDANCE_KEY'] ?? dotenv.env['SHIFT_RESPOND_KEY'] ?? "";
   final String shiftReportKey = dotenv.env['SHIFT_RUN_REPORTS_KEY'] ?? dotenv.env['SHIFT_REPORT_EMAIL_KEY'] ?? dotenv.env['REPORT_GENERATE_KEY'] ?? "";
   
-  // ✅ PROD ENDPOINT KEYS (from func-attendance)
+  //  PROD ENDPOINT KEYS (from func-attendance)
   final String attendanceAddKey = dotenv.env['ATTENDANCE_ADD_KEY'] ?? "";
   final String attendanceGetAllKey = dotenv.env['ATTENDANCE_GET_ALL_KEY'] ?? "";
   final String attendanceGetActiveKey = dotenv.env['ATTENDANCE_GET_ACTIVE_KEY'] ?? "";
@@ -35,7 +35,7 @@ class AttendanceService {
   final String locationUpdateKey = dotenv.env['LOCATION_UPDATE_KEY'] ?? "";
 
   AttendanceService() {
-    if (baseUrl.isEmpty) debugPrint("❌ AttendanceService: ATTENDANCE_BASE_URL is missing");
+    if (baseUrl.isEmpty) debugPrint(" AttendanceService: ATTENDANCE_BASE_URL is missing");
   }
   
   
@@ -521,7 +521,7 @@ class AttendanceService {
   /// This ensures the Shift Service has the latest attendance information
   Future<void> _syncAttendanceToShiftService(int shiftId, int attendanceId, 
       {DateTime? clockInTime, DateTime? clockOutTime, int? totalBreakMinutes}) async {
-    debugPrint("🔄 Syncing attendance data to Shift Service...");
+    debugPrint(" Syncing attendance data to Shift Service...");
     try {
       final syncUrl = '$shiftBaseUrl/shift/sync/attendance?code=$shiftAttendanceKey';
       
@@ -538,12 +538,12 @@ class AttendanceService {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        debugPrint("✅ Attendance data synced successfully to Shift Service");
+        debugPrint(" Attendance data synced successfully to Shift Service");
       } else {
-        debugPrint("⚠️ Failed to sync attendance data: ${response.statusCode} - ${response.body}");
+        debugPrint(" Failed to sync attendance data: ${response.statusCode} - ${response.body}");
       }
     } catch (e) {
-      debugPrint("❌ Error syncing attendance data: $e");
+      debugPrint(" Error syncing attendance data: $e");
     }
   }
 

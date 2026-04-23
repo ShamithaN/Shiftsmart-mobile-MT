@@ -60,7 +60,7 @@ class _EmployeeNextOfKinScreenState extends State<EmployeeNextOfKinScreen> {
       final rawNoks = userProvider.userProfile['nextOfKins'] as List<dynamic>?;
 
       if (rawNoks != null && rawNoks.isNotEmpty) {
-        debugPrint('✅ Loaded ${rawNoks.length} NoK(s) from UserProvider');
+        debugPrint(' Loaded ${rawNoks.length} NoK(s) from UserProvider');
         setState(() {
           _kinControllers = rawNoks.map((nok) {
             final m = nok as Map<String, dynamic>;
@@ -76,20 +76,20 @@ class _EmployeeNextOfKinScreenState extends State<EmployeeNextOfKinScreen> {
         });
       } else {
         // Fallback: fetch from API directly
-        debugPrint('🔄 UserProvider has no NoK — fetching from API...');
+        debugPrint(' UserProvider has no NoK  fetching from API...');
         final contacts = await _contactService.getContacts();
-        debugPrint('📦 API returned ${contacts.length} NoK(s)');
+        debugPrint(' API returned ${contacts.length} NoK(s)');
         setState(() {
           _kinControllers = contacts.map((kin) => KinControllers.fromModel(kin)).toList();
         });
       }
 
       if (_kinControllers.isEmpty) {
-        debugPrint('ℹ️ No NoK found — adding empty entry');
+        debugPrint(' No NoK found  adding empty entry');
         _addEmptyKin();
       }
     } catch (e) {
-      debugPrint('❌ Error loading next of kin: $e');
+      debugPrint(' Error loading next of kin: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading Next of Kin: $e')),
@@ -139,22 +139,22 @@ class _EmployeeNextOfKinScreenState extends State<EmployeeNextOfKinScreen> {
       final label = 'Next of Kin ${i + 1}';
       final c = _kinControllers[i];
 
-      // Full Name — required, letters/spaces only, 2–80 chars
+      // Full Name  required, letters/spaces only, 280 chars
       final name = c.nameController.text.trim();
       if (name.isEmpty) return '$label: Full Name is required.';
-      if (!RegExp(r"^[a-zA-ZÀ-ÿ\s.'-]{2,80}$").hasMatch(name))
-        return '$label: Full Name must be 2–80 letters only.';
+      if (!RegExp(r"^[a-zA-Z-\s.'-]{2,80}$").hasMatch(name))
+        return '$label: Full Name must be 280 letters only.';
 
-      // Relationship — required
+      // Relationship  required
       if (c.relationshipController.text.trim().isEmpty)
         return '$label: Relationship is required.';
 
-      // Mobile — international format if provided
+      // Mobile  international format if provided
       final phone = c.phoneController.text.trim().replaceAll(RegExp(r'[\s\-()]'), '');
       if (phone.isNotEmpty && !RegExp(r'^\+?[1-9]\d{6,14}$').hasMatch(phone))
         return '$label: Enter a valid phone number (e.g. +94771234567).';
 
-      // Email — valid format if provided
+      // Email  valid format if provided
       final email = c.emailController.text.trim();
       if (email.isNotEmpty &&
           !RegExp(r'^[\w._%+\-]+@[\w.\-]+\.[a-zA-Z]{2,}$').hasMatch(email))
@@ -176,7 +176,7 @@ class _EmployeeNextOfKinScreenState extends State<EmployeeNextOfKinScreen> {
       final employeeId =
           userProvider.userProfile['EmployeeId'] ?? userProvider.userProfile['employeeId'];
 
-      debugPrint('💾 Saving all profile data for employeeId: $employeeId');
+      debugPrint(' Saving all profile data for employeeId: $employeeId');
       if (employeeId == null) throw Exception('User ID not found in userProfile');
 
       final nextOfKins = _kinControllers.asMap().entries.map((e) => {
@@ -192,8 +192,8 @@ class _EmployeeNextOfKinScreenState extends State<EmployeeNextOfKinScreen> {
 
       // Use profile data from previous step if available, else empty map
       final profileData = widget.profileData ?? {};
-      debugPrint('📤 Sending profile: $profileData');
-      debugPrint('📤 Sending nextOfKins: $nextOfKins');
+      debugPrint(' Sending profile: $profileData');
+      debugPrint(' Sending nextOfKins: $nextOfKins');
 
       final error = await _profileService.updateProfile(
         employeeId: employeeId,
@@ -202,7 +202,7 @@ class _EmployeeNextOfKinScreenState extends State<EmployeeNextOfKinScreen> {
         profilePicture: widget.profilePicture,
       );
 
-      debugPrint('📬 updateProfile result: $error');
+      debugPrint(' updateProfile result: $error');
 
       if (error == null && mounted) {
         // Refresh local UserProvider with latest data from backend
@@ -230,7 +230,7 @@ class _EmployeeNextOfKinScreenState extends State<EmployeeNextOfKinScreen> {
         );
       }
     } catch (e) {
-      debugPrint('❌ Exception saving profile: $e');
+      debugPrint(' Exception saving profile: $e');
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));

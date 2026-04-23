@@ -8,11 +8,11 @@ import 'api_client.dart';
 class SiteService {
   final ApiClient _apiClient = ApiClient();
 
-  // ✅ PROD ENDPOINT CONFIGURATION (from func-projects)
+  //  PROD ENDPOINT CONFIGURATION (from func-projects)
   final String baseUrl = dotenv.env['PROJECT_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
   final String attendanceBaseUrl = dotenv.env['ATTENDANCE_BASE_URL'] ?? "";
 
-  // ✅ PROD ENDPOINT KEYS (from func-projects)
+  //  PROD ENDPOINT KEYS (from func-projects)
   final String siteCreateKey = dotenv.env['SITE_CREATE_KEY'] ?? "";
   final String siteUpdateKey = dotenv.env['SITE_UPDATE_KEY'] ?? "";
   final String siteGetAllKey = dotenv.env['SITE_GET_ALL_KEY'] ?? "";
@@ -22,7 +22,7 @@ class SiteService {
   final String activeLocationsBySiteKey = dotenv.env['ACTIVE_LOCATIONS_BY_SITE_KEY'] ?? "";
 
   SiteService() {
-    if (baseUrl.isEmpty) debugPrint("❌ SiteService: PROJECT_BASE_URL is missing");
+    if (baseUrl.isEmpty) debugPrint(" SiteService: PROJECT_BASE_URL is missing");
   }
 
   // --- ADD SITE ---
@@ -106,23 +106,23 @@ class SiteService {
   // --- FETCH ALL SITES (Restricted to Managers) ---
   Future<List<Site>> fetchAllSites() async {
     final url = '$baseUrl/site/all?code=$siteGetAllKey';
-    debugPrint("🔍 SiteService: Fetching all sites from $url");
+    debugPrint(" SiteService: Fetching all sites from $url");
 
     try {
       final response = await _apiClient.get(url, useAuth: false);
-      debugPrint("📡 SiteService Status: ${response.statusCode}");
-      debugPrint("📄 SiteService Body Snippet: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}");
+      debugPrint(" SiteService Status: ${response.statusCode}");
+      debugPrint(" SiteService Body Snippet: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}");
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = jsonDecode(response.body);
-        debugPrint("✅ SiteService: Found ${jsonData.length} sites.");
+        debugPrint(" SiteService: Found ${jsonData.length} sites.");
         return jsonData.map((e) => Site.fromJson(e)).toList();
       } else {
-        debugPrint("❌ SiteService: Failed to load sites. Status: ${response.statusCode}");
+        debugPrint(" SiteService: Failed to load sites. Status: ${response.statusCode}");
         return [];
       }
     } catch (e) {
-      debugPrint("❌ SiteService: Exception fetching sites: $e");
+      debugPrint(" SiteService: Exception fetching sites: $e");
       return [];
     }
   }
@@ -134,7 +134,7 @@ class SiteService {
     final url =
         '$attendanceBaseUrl/site/$siteId/active/locations?code=$activeLocationsBySiteKey';
 
-    debugPrint("🔍 Fetching Active Locations: $url");
+    debugPrint(" Fetching Active Locations: $url");
 
     try {
       final response = await _apiClient.get(url, useAuth: false);
@@ -142,7 +142,7 @@ class SiteService {
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = jsonDecode(response.body);
 
-        debugPrint("✅ Active Employees Data: $jsonData");
+        debugPrint(" Active Employees Data: $jsonData");
 
         return jsonData
             .map((e) => SiteEmployee.fromJson(e, site))
@@ -150,11 +150,11 @@ class SiteService {
             .toList();
       } else {
         debugPrint(
-            "⚠️ Failed to load employees: ${response.statusCode} | Body: ${response.body}");
+            " Failed to load employees: ${response.statusCode} | Body: ${response.body}");
         return [];
       }
     } catch (e) {
-      debugPrint("❌ Error fetching employees: $e");
+      debugPrint(" Error fetching employees: $e");
       return [];
     }
   }

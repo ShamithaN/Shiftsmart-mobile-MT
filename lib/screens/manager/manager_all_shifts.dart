@@ -33,10 +33,10 @@ class _ManagerallshiftsState extends State<Managerallshifts> {
   // Fetch all shifts from backend
   Future<void> _loadData() async {
     if (mounted) setState(() => _isLoading = true);
-    debugPrint("🔍 [Managerallshifts] Loading shifts from backend...");
+    debugPrint(" [Managerallshifts] Loading shifts from backend...");
     try {
       final shifts = await ShiftService().fetchAllShifts();
-      debugPrint("🔍 [Managerallshifts] Received ${shifts.length} shifts from service.");
+      debugPrint(" [Managerallshifts] Received ${shifts.length} shifts from service.");
       if (mounted) {
         setState(() {
           allShifts = shifts;
@@ -45,7 +45,7 @@ class _ManagerallshiftsState extends State<Managerallshifts> {
         });
       }
     } catch (e) {
-      debugPrint("❌ [Managerallshifts] Error loading data: $e");
+      debugPrint(" [Managerallshifts] Error loading data: $e");
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(

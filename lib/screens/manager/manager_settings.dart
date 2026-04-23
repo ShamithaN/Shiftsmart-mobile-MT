@@ -13,7 +13,7 @@ import 'package:shiftsmart/widgets/build_profile_avatar.dart';
 import 'package:shiftsmart/widgets/gradienthorizontal.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
-import 'package:shiftsmart/widgets/success_dialog.dart'; // 👈 Import Success Dialog
+import 'package:shiftsmart/widgets/success_dialog.dart'; //  Import Success Dialog
 
 class ManagerSettings extends StatefulWidget {
   const ManagerSettings({super.key});

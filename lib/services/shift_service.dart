@@ -10,7 +10,7 @@ class ShiftService {
   // Load Base URL and API Keys from .env
   final String baseUrl = dotenv.env['SHIFT_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
 
-  // ✅ PROD ENDPOINT KEYS (from func-shifts)
+  //  PROD ENDPOINT KEYS (from func-shifts)
   final String shiftCreateKey = dotenv.env['SHIFT_CREATE_KEY'] ?? "";
   final String shiftUpdateKey = dotenv.env['SHIFT_UPDATE_KEY'] ?? "";
   final String shiftGetAllKey = dotenv.env['SHIFT_GET_ALL_KEY'] ?? "";
@@ -21,7 +21,7 @@ class ShiftService {
   final String shiftCompleteKey = dotenv.env['SHIFT_COMPLETE_KEY'] ?? '';
 
   ShiftService() {
-    if (baseUrl.isEmpty) debugPrint("❌ ShiftService: SHIFT_BASE_URL is missing");
+    if (baseUrl.isEmpty) debugPrint(" ShiftService: SHIFT_BASE_URL is missing");
   }
 
   // ===========================================================================
@@ -51,23 +51,23 @@ class ShiftService {
   // 2. Fetch Shifts assigned to a specific Employee (Returns Raw JSON)
   Future<List<Map<String, dynamic>>> fetchShiftsByEmployeeIdRaw(int employeeId) async {
     final String url = '$baseUrl/shift/employee/$employeeId?code=$shiftGetByEmployeeKey';
-    debugPrint("🔍 ShiftService: Fetching shifts for employee $employeeId from $url");
+    debugPrint(" ShiftService: Fetching shifts for employee $employeeId from $url");
 
     try {
       final response = await _apiClient.get(url, useAuth: true);
-      debugPrint("📡 ShiftService Status (EmpId $employeeId): ${response.statusCode}");
-      debugPrint("📄 ShiftService Body snippet: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}");
+      debugPrint(" ShiftService Status (EmpId $employeeId): ${response.statusCode}");
+      debugPrint(" ShiftService Body snippet: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}");
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = jsonDecode(response.body);
-        debugPrint("✅ ShiftService: Found ${jsonData.length} shifts for employee.");
+        debugPrint(" ShiftService: Found ${jsonData.length} shifts for employee.");
         return jsonData.cast<Map<String, dynamic>>();
       } else {
-        debugPrint("❌ ShiftService: Failed to fetch shifts for employee. Status: ${response.statusCode}");
+        debugPrint(" ShiftService: Failed to fetch shifts for employee. Status: ${response.statusCode}");
         return [];
       }
     } catch (e) {
-      debugPrint("❌ ShiftService: Exception in fetchShiftsByEmployeeIdRaw: $e");
+      debugPrint(" ShiftService: Exception in fetchShiftsByEmployeeIdRaw: $e");
       return [];
     }
   }
@@ -174,18 +174,18 @@ class ShiftService {
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);
         if (jsonData is List) {
-          debugPrint("✅ Fetched ${jsonData.length} shifts successfully.");
+          debugPrint(" Fetched ${jsonData.length} shifts successfully.");
           return jsonData.map<Shift>((data) => Shift.fromJson(data)).toList();
         } else {
-          debugPrint("⚠️ Unexpected JSON format for fetchAllShifts: $jsonData");
+          debugPrint(" Unexpected JSON format for fetchAllShifts: $jsonData");
           return [];
         }
       } else {
-        debugPrint("❌ Failed to fetch all shifts. Status: ${response.statusCode}, Body: ${response.body}");
+        debugPrint(" Failed to fetch all shifts. Status: ${response.statusCode}, Body: ${response.body}");
         return [];
       }
     } catch (e) {
-      debugPrint("❌ Exception in fetchAllShifts: $e");
+      debugPrint(" Exception in fetchAllShifts: $e");
       return [];
     }
   }
@@ -253,9 +253,9 @@ class ShiftService {
     final deleteUrl = '$baseUrl/shift/delete/$id?code=$shiftDeleteKey';
 
     try {
-      debugPrint('🗑️ Deleting shift $id → $deleteUrl');
+      debugPrint(' Deleting shift $id  $deleteUrl');
       final response = await _apiClient.delete(deleteUrl, useAuth: true);
-      debugPrint('🗑️ Delete response: ${response.statusCode} - ${response.body}');
+      debugPrint(' Delete response: ${response.statusCode} - ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 204) {
         return true;

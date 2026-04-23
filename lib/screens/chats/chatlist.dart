@@ -104,7 +104,7 @@ class _ChatlistState extends State<Chatlist> {
     final success = await _chatService.createChat(
       senderId: _userId,
       receiverId: receiver.employeeId,
-      message: "👋 Started a new chat",
+      message: " Started a new chat",
     );
 
     if (success) {
@@ -586,7 +586,7 @@ class _SearchUserDialogState extends State<_SearchUserDialog> {
 //     final success = await _chatService.createChat(
 //       senderId: _userId,
 //       receiverId: receiver.employeeId,
-//       message: "👋 Started a new chat",
+//       message: " Started a new chat",
 //     );
 
 //     if (success) {
@@ -988,7 +988,7 @@ class _SearchUserDialogState extends State<_SearchUserDialog> {
 //     final success = await _chatService.createChat(
 //       senderId: _userId,
 //       receiverId: receiver.employeeId,
-//       message: "👋 Started a new chat",
+//       message: " Started a new chat",
 //     );
 
 //     if (success) {

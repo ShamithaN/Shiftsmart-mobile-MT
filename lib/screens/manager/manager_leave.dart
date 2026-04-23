@@ -10,6 +10,8 @@ import 'package:shiftsmart/models/leave_request.dart';
 import 'package:shiftsmart/models/employee.dart';
 import 'package:shiftsmart/services/leave_service.dart';
 import 'package:shiftsmart/services/employee_service.dart';
+import 'package:provider/provider.dart';
+import 'package:shiftsmart/providers/tenant_provider.dart';
 
 class Managerleave extends StatefulWidget {
   const Managerleave({super.key});
@@ -31,6 +33,7 @@ class _ManagerleaveState extends State<Managerleave> {
   List<Employee> _allEmployees = [];
   final EmployeeService _employeeService = EmployeeService();
   final NotificationService _notificationService = NotificationService();
+  String _lastTenant = '';
 
 
   @override
@@ -47,8 +50,8 @@ class _ManagerleaveState extends State<Managerleave> {
 
   Future<void> _refreshData() async {
     setState(() => _isLoading = true);
+    await _fetchAllEmployees(); // Fetch employees first to get tenant scope
     await _fetchLeaveRequests();
-    await _fetchAllEmployees();
     if (!mounted) return;
     setState(() => _isLoading = false);
   }
@@ -58,7 +61,9 @@ class _ManagerleaveState extends State<Managerleave> {
       final leaveRequests = await _leaveService.fetchLeaveRequests();
       if (!mounted) return;
       setState(() {
-        _leaveRequests = leaveRequests;
+        final tenantEmployeeIds = _allEmployees.map((e) => e.employeeId).toSet();
+        _leaveRequests = leaveRequests.where((req) => tenantEmployeeIds.contains(req.employeeId)).toList();
+        
         _pendingRequests =
             _leaveRequests.where((req) => req.isPending).toList();
         _acceptedRejectedRequests = _leaveRequests
@@ -92,7 +97,7 @@ Future<void> _updateLeaveStatus(String id, String newStatus) async {
       (req) => req.leaveRequestId.toString() == id,
     );
 
-    // 🔔 Send notification using employeeId from the request model
+    //  Send notification using employeeId from the request model
     await _notificationService.leaveNotification(updatedRequest.employeeId, newStatus);
 
     // Show feedback
@@ -159,8 +164,19 @@ Future<void> _updateLeaveStatus(String id, String newStatus) async {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
+    return Consumer<TenantProvider>(
+      builder: (context, tp, _) {
+        if (tp.selectedOrganization != _lastTenant) {
+          _lastTenant = tp.selectedOrganization;
+          if (_lastTenant.isNotEmpty && mounted && !_isLoading) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _refreshData();
+            });
+          }
+        }
+        
+        return Stack(
+          children: [
         const Positioned.fill(child: Background()),
         Scaffold(
           backgroundColor: Colors.transparent,
@@ -300,6 +316,8 @@ Future<void> _updateLeaveStatus(String id, String newStatus) async {
                 ),
         ),
       ],
+    );
+      },
     );
   }
 

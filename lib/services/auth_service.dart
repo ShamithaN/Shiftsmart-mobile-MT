@@ -33,13 +33,13 @@ class AuthService {
     if (baseUrl.isEmpty) {
       return {
         'Message':
-            '❌ Configuration Error: BASE_URL is not configured. Please check .env.'
+            ' Configuration Error: BASE_URL is not configured. Please check .env.'
       };
     }
 
     if (loginKey.isEmpty) {
       print(
-          "⚠️  Warning: LOGIN_KEY is empty in .env. Login endpoint will be called without function key.");
+          "  Warning: LOGIN_KEY is empty in .env. Login endpoint will be called without function key.");
     }
 
     String loginUrl = '$baseUrl/employee/login';
@@ -51,8 +51,8 @@ class AuthService {
     // Align with that format to reduce possible mismatch issues.
     final requestBody = {'email': email, 'Password': password};
 
-    print("🔹 Login URL: ${loginUrl.replaceAll(RegExp(r'code=.*'), 'code=***')}");
-    print("🔹 Attempting login for email: $email");
+    print(" Login URL: ${loginUrl.replaceAll(RegExp(r'code=.*'), 'code=***')}");
+    print(" Attempting login for email: $email");
 
     try {
       final response = await _apiClient.post(
@@ -61,7 +61,7 @@ class AuthService {
         useAuth: false,
       );
 
-      print("✅ Login Response (${response.statusCode}): ${response.body}");
+      print(" Login Response (${response.statusCode}): ${response.body}");
 
       if (response.statusCode == 200) {
         try {
@@ -69,12 +69,12 @@ class AuthService {
           final token = decodedBody['token'] ?? decodedBody['Token'];
           if (token != null) {
             await _storage.write(key: 'appToken', value: token);
-            print("✅ Token saved successfully");
+            print(" Token saved successfully");
             return decodedBody;
           }
           return decodedBody;
         } catch (e) {
-          print("❌ JSON Decode Error: $e. Body: ${response.body}");
+          print(" JSON Decode Error: $e. Body: ${response.body}");
           return {'Message': 'Server error: Invalid response format.'};
         }
       } else {
@@ -91,16 +91,16 @@ class AuthService {
       }
     } on SocketException catch (e) {
       // Network connectivity error
-      print("❌ Network Error - SocketException: $e");
+      print(" Network Error - SocketException: $e");
       return {
         'Message':
-            '🔌 Network Error: Failed to connect to server.\n\nChecklist:\n✓ Check internet connection\n✓ Verify WiFi/Mobile data is enabled\n✓ Check firewall/proxy settings\n✓ Try again or contact support\n\nDetails: $e'
+            ' Network Error: Failed to connect to server.\n\nChecklist:\n Check internet connection\n Verify WiFi/Mobile data is enabled\n Check firewall/proxy settings\n Try again or contact support\n\nDetails: $e'
       };
     } catch (e) {
-      print("❌ Login error: $e");
+      print(" Login error: $e");
       return {
         'Message':
-            '❌ Login Error: ${e.toString()}\n\nIf this persists, please contact support.'
+            ' Login Error: ${e.toString()}\n\nIf this persists, please contact support.'
       };
     }
   }
@@ -111,7 +111,7 @@ class AuthService {
     final String exchangeUrl = '$baseUrl/auth/exchange-password';
 
     try {
-      final requestBody = {'Email': email, 'Password': password};
+      final requestBody = {'email': email, 'Password': password};
 
       final response = await _apiClient.post(
         exchangeUrl,
@@ -128,11 +128,11 @@ class AuthService {
               decodedResponse['appToken'] ?? decodedResponse['AppToken'];
           if (token != null) {
             await _storage.write(key: 'appToken', value: token);
-            print("✅ AppToken saved.");
+            print(" AppToken saved.");
           }
           return decodedResponse;
         } catch (e) {
-          print("❌ JSON Decode Error in Exchange: $e. Body: ${response.body}");
+          print(" JSON Decode Error in Exchange: $e. Body: ${response.body}");
           return {"Message": "Server error: Invalid response format."};
         }
       } else {
@@ -147,15 +147,15 @@ class AuthService {
   }
 
   /// Fetch Rejected Data (For Resubmission)
-  /// 🛠️ HEAVILY UPDATED with Debugging
+  ///  HEAVILY UPDATED with Debugging
   Future<Map<String, dynamic>?> fetchRejectedProfileData(int employeeId) async {
     print(
-        "🔹 AuthService: Starting fetchRejectedProfileData for ID: $employeeId");
+        " AuthService: Starting fetchRejectedProfileData for ID: $employeeId");
 
     // 1. Check Key
     if (fetchRejectedKey.isEmpty) {
       print(
-          "❌ CRITICAL ERROR: FETCH_REJECTED_KEY is missing in .env or AuthService!");
+          " CRITICAL ERROR: FETCH_REJECTED_KEY is missing in .env or AuthService!");
       return null;
     }
 
@@ -164,23 +164,23 @@ class AuthService {
         '$baseUrl/employee/rejected-info/$employeeId?code=$fetchRejectedKey';
 
     // Debug print (Hide actual key for logs)
-    print("🔹 Requesting URL: .../employee/rejected-info/$employeeId?code=***");
+    print(" Requesting URL: .../employee/rejected-info/$employeeId?code=***");
 
     try {
       // 3. Make Request (useAuth: false is mandatory here)
       final response = await _apiClient.get(url, useAuth: false);
 
-      print("🔹 Rejected Data Response Status: ${response.statusCode}");
-      print("🔹 Rejected Data Response Body: ${response.body}");
+      print(" Rejected Data Response Status: ${response.statusCode}");
+      print(" Rejected Data Response Body: ${response.body}");
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        print("❌ Failed to fetch data. Status: ${response.statusCode}");
+        print(" Failed to fetch data. Status: ${response.statusCode}");
         return null;
       }
     } catch (e) {
-      print("❌ Exception in fetchRejectedProfileData: $e");
+      print(" Exception in fetchRejectedProfileData: $e");
       return null;
     }
   }
@@ -270,10 +270,10 @@ class AuthService {
         useAuth: true,
       );
 
-      print('🔹 Change Password Status: ${response.statusCode}');
+      print(' Change Password Status: ${response.statusCode}');
       return response.statusCode == 200;
     } catch (e) {
-      print('❌ Change Password Error: $e');
+      print(' Change Password Error: $e');
       return false;
     }
   }
@@ -306,12 +306,12 @@ class AuthService {
   // 1. Request OTP (Returns the Reset Token ID)
   Future<String?> requestPasswordReset(String email) async {
     if (forgotRequestKey.isEmpty) {
-      print("❌ CRITICAL: FORGOT_PASS_REQUEST_KEY is missing in .env!");
+      print(" CRITICAL: FORGOT_PASS_REQUEST_KEY is missing in .env!");
       return null;
     }
 
     final url = '$baseUrl/employee/forgot-password/request?code=$forgotRequestKey';
-    print("🔹 Requesting OTP for: $email");
+    print(" Requesting OTP for: $email");
 
     try {
       final response = await _apiClient.post(
@@ -320,19 +320,19 @@ class AuthService {
         useAuth: false,
       );
 
-      print("🔹 OTP Request Status: ${response.statusCode}");
+      print(" OTP Request Status: ${response.statusCode}");
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final token = data['resetTokenId'];
-        print("✅ Received Reset Token: $token");
+        print(" Received Reset Token: $token");
         return token.toString();
       } else {
-        print("🔹 OTP Request Failed: ${response.body}");
+        print(" OTP Request Failed: ${response.body}");
         return null;
       }
     } catch (e) {
-      print("🔴 Request OTP Exception: $e");
+      print(" Request OTP Exception: $e");
       return null;
     }
   }
@@ -342,8 +342,8 @@ class AuthService {
     final url = '$baseUrl/employee/forgot-password/verify?code=$forgotVerifyKey';
     final body = {"ResetTokenId": resetTokenId, "Code": otp};
 
-    print("🔹 Verifying OTP...");
-    print("🔹 Body: $body");
+    print(" Verifying OTP...");
+    print(" Body: $body");
 
     try {
       final response = await _apiClient.post(
@@ -353,7 +353,7 @@ class AuthService {
       );
 
       if (response.statusCode != 200) {
-        print("🔹 Verify Failed: ${response.body}");
+        print(" Verify Failed: ${response.body}");
       }
       return response.statusCode == 200;
     } catch (e) {
@@ -371,7 +371,7 @@ class AuthService {
       "NewPassword": newPassword
     };
 
-    print("🔹 Resetting Password...");
+    print(" Resetting Password...");
 
     try {
       final response = await _apiClient.post(
@@ -381,11 +381,23 @@ class AuthService {
       );
 
       if (response.statusCode != 200) {
-        print("🔹 Reset Failed: ${response.body}");
+        print(" Reset Failed: ${response.body}");
       }
       return response.statusCode == 200;
     } catch (e) {
       print("Reset Password Error: $e");
+      return false;
+    }
+  }
+
+  /// Ping the Auth Service
+  Future<bool> ping() async {
+    final url = '$baseUrl/auth/ping'; // No code needed as per user list
+    try {
+      final response = await _apiClient.get(url, useAuth: false);
+      return response.statusCode == 200;
+    } catch (e) {
+      print(" Ping error: $e");
       return false;
     }
   }

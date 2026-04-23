@@ -332,7 +332,7 @@ class _EmployeeleaveState extends State<Employeeleave> {
                       color: Colors.white54, size: 14),
                   const SizedBox(width: 6),
                   Text(
-                    "${DateFormat('MMM dd, yyyy').format(leaveRequest['StartDate'])}  —  ${DateFormat('MMM dd, yyyy').format(leaveRequest['EndDate'])}",
+                    "${DateFormat('MMM dd, yyyy').format(leaveRequest['StartDate'])}    ${DateFormat('MMM dd, yyyy').format(leaveRequest['EndDate'])}",
                     style: const TextStyle(color: Colors.white70, fontSize: 13),
                   ),
                 ],

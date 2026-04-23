@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:shiftsmart/providers/tenant_provider.dart';
+import 'package:shiftsmart/screens/manager/manager_tenant_details.dart';
 import 'package:shiftsmart/screens/manager/manager_employee.dart';
 import 'package:shiftsmart/screens/manager/manager_leave.dart';
 import 'package:shiftsmart/screens/manager/manager_jobs.dart';
@@ -6,7 +9,7 @@ import 'package:shiftsmart/screens/manager/manager_projects.dart';
 import 'package:shiftsmart/screens/manager/managerdashboard.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
- 
+
 class Bottomnavbar extends StatefulWidget {
   final int selectedIndex;
 
@@ -22,7 +25,12 @@ class _BottomnavbarState extends State<Bottomnavbar> {
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.selectedIndex; // Set the initial selected index from the constructor
+    _selectedIndex = widget.selectedIndex;
+
+    // Load available tenants once the navbar is mounted
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<TenantProvider>().loadTenants();
+    });
   }
 
   final List<Widget> _pages = [
@@ -46,6 +54,191 @@ class _BottomnavbarState extends State<Bottomnavbar> {
     'assets/employee.png',
     'assets/request.png',
   ];
+
+  String _getPageTitle() {
+    switch (_selectedIndex) {
+      case 0:
+        return "Manager Dashboard";
+      case 1:
+        return "Projects";
+      case 2:
+        return "Jobs";
+      case 3:
+        return "Employees";
+      case 4:
+        return "Leave Requests";
+      default:
+        return "";
+    }
+  }
+
+  // ── Tenant picker sheet ────────────────────────────────────────────────────
+  void _showTenantPicker(BuildContext context) {
+    final tenantProvider = context.read<TenantProvider>();
+    final tenants = tenantProvider.tenants;
+
+    if (tenants.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No organisations available.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetCtx) {
+        return Consumer<TenantProvider>(
+          builder: (_, tp, __) {
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.6,
+              ),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF262A34), Color(0xFF1C2230)],
+                ),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border(
+                  top: BorderSide(color: Colors.white12, width: 1),
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Handle
+                  Container(
+                    margin: const EdgeInsets.only(top: 12, bottom: 8),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    child: Row(
+                      children: [
+                        Icon(Icons.business_rounded,
+                            color: Colors.blueAccent, size: 22),
+                        SizedBox(width: 10),
+                        Text(
+                          'SELECT ORGANISATION',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(color: Colors.white12, height: 1),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: tp.tenants.length,
+                      itemBuilder: (_, i) {
+                        final tenant = tp.tenants[i];
+                        final name = (tenant['name'] ??
+                                tenant['Name'] ??
+                                'Unnamed')
+                            .toString();
+                        final isSelected =
+                            name.toLowerCase() ==
+                            tp.selectedOrganization.toLowerCase();
+
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 4),
+                          leading: Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Colors.blueAccent.withOpacity(0.2)
+                                  : Colors.white.withOpacity(0.05),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isSelected
+                                    ? Colors.blueAccent
+                                    : Colors.white24,
+                                width: 1.5,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              name.isNotEmpty ? name[0].toUpperCase() : '?',
+                              style: TextStyle(
+                                color: isSelected
+                                    ? Colors.blueAccent
+                                    : Colors.white70,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                          title: Text(
+                            name,
+                            style: TextStyle(
+                              color: isSelected ? Colors.blueAccent : Colors.white,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              fontSize: 15,
+                            ),
+                          ),
+                          trailing: isSelected
+                              ? const Icon(Icons.check_circle,
+                                  color: Colors.blueAccent, size: 20)
+                              : null,
+                          onTap: () async {
+                            Navigator.pop(sheetCtx);
+                            if (!isSelected) {
+                              final success =
+                                  await context
+                                      .read<TenantProvider>()
+                                      .switchTenant(tenant);
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      success
+                                          ? 'Switched to $name'
+                                          : 'Switched to $name (Offline Mode)',
+                                    ),
+                                    backgroundColor: success
+                                        ? Colors.green
+                                        : Colors.orange,
+                                    duration:
+                                        const Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -132,14 +325,13 @@ class RightCornerClipper extends CustomClipper<Path> {
   Path getClip(Size size) {
     final path = Path();
     path.lineTo(0, size.height * 0.4); // Slant up from top-left
-    path.lineTo(size.width, 0);       // Top-right
+    path.lineTo(size.width, 0); // Top-right
     path.lineTo(size.width, size.height); // Bottom-right
-    path.lineTo(0, size.height);      // Bottom-left
+    path.lineTo(0, size.height); // Bottom-left
     path.close();
     return path;
   }
- 
+
   @override
   bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
- 

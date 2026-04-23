@@ -104,7 +104,7 @@ class _ManagerProfileState extends State<ManagerProfile> {
     });
   }
 
-  // ── INLINE VALIDATION ─────────────────────────────────
+  //  INLINE VALIDATION 
   /// Returns true if all fields in the current step are valid.
   bool _validateStep() {
     final errors = <String, String>{};
@@ -113,13 +113,13 @@ class _ManagerProfileState extends State<ManagerProfile> {
       final first = _firstNameController.text.trim();
       if (first.isEmpty)
         errors['firstName'] = 'First Name is required.';
-      else if (!RegExp(r"^[a-zA-ZÀ-ÿ\s.'-]{2,50}$").hasMatch(first))
-        errors['firstName'] = '2–50 letters only.';
+      else if (!RegExp(r"^[a-zA-Z-\s.'-]{2,50}$").hasMatch(first))
+        errors['firstName'] = '250 letters only.';
 
       final last = _lastNameController.text.trim();
       if (last.isEmpty)
         errors['lastName'] = 'Last Name is required.';
-      else if (!RegExp(r"^[a-zA-ZÀ-ÿ\s.'-]{1,50}$").hasMatch(last))
+      else if (!RegExp(r"^[a-zA-Z-\s.'-]{1,50}$").hasMatch(last))
         errors['lastName'] = 'Letters only.';
 
       if (_genderController.text.trim().isEmpty)
@@ -168,7 +168,7 @@ class _ManagerProfileState extends State<ManagerProfile> {
       if (accNo.isEmpty)
         errors['accountNumber'] = 'Account Number is required.';
       else if (!RegExp(r'^[0-9A-Za-z\-]{4,34}$').hasMatch(accNo))
-        errors['accountNumber'] = 'Enter a valid account number (4–34 chars).';
+        errors['accountNumber'] = 'Enter a valid account number (434 chars).';
       if (_bankNameController.text.trim().isEmpty)
         errors['bankName'] = 'Bank Name is required.';
       if (_jobroleController.text.trim().isEmpty)

@@ -5,32 +5,41 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
+import 'api_client.dart';
 
 class OnboardingService {
+  final ApiClient _apiClient = ApiClient();
+  
   final String baseUrl = dotenv.env['BASE_URL'] ?? '';
-
   final String fetchInviteKey = dotenv.env['FETCH_INVITE_KEY'] ?? '';
   final String onboardingKey = dotenv.env['SUBMIT_ONBOARD_KEY'] ?? '';
+  final String empResubmitKey = dotenv.env['RESUBMIT_KEY'] ?? '';
   final String resubmitDocKey = dotenv.env['DOCUMENT_RESUBMIT_KEY'] ?? '';
 
   // Step A: Fetch Invitation
   Future<Map<String, dynamic>?> fetchInvitation(String email) async {
     final encodedEmail = Uri.encodeComponent(email);
-    final url =
-        '$baseUrl/employee/invitation/$encodedEmail?code=$fetchInviteKey';
+    String url = '$baseUrl/employee/invitation/$encodedEmail';
+    if (fetchInviteKey.isNotEmpty) {
+      url += '?code=$fetchInviteKey';
+    }
 
     try {
-      print("🔹 Fetching Invitation: $url");
-      final response = await http.get(Uri.parse(url));
+      print(" Fetching Invitation: $url");
+      // Use ApiClient to ensure headers (like Bearer token) are sent if available
+      final response = await _apiClient.get(url, useAuth: true);
 
-      print("🔹 Fetch Status: ${response.statusCode}");
+      print(" Fetch Status: ${response.statusCode}");
+      print(" Fetch Body: ${response.body}");
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
+      } else {
+        print(" Fetch failed. Status: ${response.statusCode}. Body: ${response.body}");
       }
       return null;
     } catch (e) {
-      print("🔴 Fetch Error: $e");
+      print(" Fetch Error: $e");
       return null;
     }
   }
@@ -48,19 +57,25 @@ class OnboardingService {
 
     // 1. DETERMINE URL
     if (isResubmission) {
-      url = '$baseUrl/document/resubmit?code=$resubmitDocKey';
+      url = '$baseUrl/employee/resubmit';
+      if (empResubmitKey.isNotEmpty) {
+        url += '?code=$empResubmitKey';
+      }
     } else {
-      url = '$baseUrl/employee/onboarding-complete?code=$onboardingKey';
+      url = '$baseUrl/employee/onboarding-complete';
+      if (onboardingKey.isNotEmpty) {
+        url += '?code=$onboardingKey';
+      }
     }
 
-    print("🔹 Submitting Multipart Request to: $url");
+    print(" Submitting Multipart Request to: $url");
     print(
-        "🔹 Mode: ${isResubmission ? 'RESUBMISSION (Partial)' : 'NEW ONBOARDING (Full)'}");
+        " Mode: ${isResubmission ? 'RESUBMISSION (Partial)' : 'NEW ONBOARDING (Full)'}");
 
     try {
       var request = http.MultipartRequest('POST', Uri.parse(url));
 
-      // 2. AUTH TOKEN — read from FlutterSecureStorage (same place auth_service.dart writes it)
+      // 2. AUTH TOKEN  read from FlutterSecureStorage (same place auth_service.dart writes it)
       const storage = FlutterSecureStorage();
       final String? token = await storage.read(key: 'appToken');
 
@@ -68,7 +83,7 @@ class OnboardingService {
         request.headers['Authorization'] = 'Bearer $token';
       } else {
         print(
-            "⚠️ Warning: No Auth Token found. Proceeding without it (as allowed by backend).");
+            " Warning: No Auth Token found. Proceeding without it (as allowed by backend).");
       }
 
       // 3. ADD DATA FIELDS
@@ -101,7 +116,7 @@ class OnboardingService {
           final mimeType =
               lookupMimeType(entry.value.path) ?? 'application/pdf';
 
-          print("📎 Attaching File: ${entry.key}");
+          print(" Attaching File: ${entry.key}");
 
           request.files.add(await http.MultipartFile.fromPath(
             entry.key,
@@ -115,12 +130,12 @@ class OnboardingService {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
-      print("📥 Submit Status: ${response.statusCode}");
-      print("📥 Submit Body: ${response.body}");
+      print(" Submit Status: ${response.statusCode}");
+      print(" Submit Body: ${response.body}");
 
       return response;
     } catch (e) {
-      print("❌ Submit Error: $e");
+      print(" Submit Error: $e");
       return http.Response('Error: $e', 500);
     }
   }

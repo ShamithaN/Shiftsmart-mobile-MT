@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:shiftsmart/providers/tenant_provider.dart';
 import 'package:shiftsmart/screens/manager/manager_comapny.dart';
 import 'package:shiftsmart/screens/manager/manager_create_project1.dart';
 import 'package:shiftsmart/screens/manager/manager_projectview.dart';
@@ -21,17 +23,17 @@ class _Managerprojectstate extends State<Managerprojects> {
   final GlobalKey<RefreshIndicatorState> _refreshKey =
       GlobalKey<RefreshIndicatorState>();
   final ProjectService _projectService = ProjectService();
-  List<Project> allProjects = [];
-  List<Project> filteredProjects = [];
+  List<Project> allProjects = [];      // All fetched from API
+  List<Project> filteredProjects = []; // Filtered by tenant + search
+  String _lastTenant = '';             // Track last tenant for re-filter
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     enableFullScreen();
-    fetchProjects();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshKey.currentState?.show(); // optional spinner
+      _refreshKey.currentState?.show();
       _refreshData();
     });
   }
@@ -39,51 +41,81 @@ class _Managerprojectstate extends State<Managerprojects> {
   Future<void> _refreshData() async {
     setState(() => _isLoading = true);
     await fetchProjects();
-
-    // if you want to show current shift too
     setState(() => _isLoading = false);
   }
 
   Future<void> fetchProjects() async {
+    final tenantProvider = context.read<TenantProvider>();
+    final selectedOrg = tenantProvider.selectedOrganization;
     final projects = await _projectService.fetchAllProjects();
 
     setState(() {
       allProjects = projects;
-      filteredProjects = List.from(projects);
+      _lastTenant = selectedOrg;
+      // Filter by selected tenant if one is set
+      final tenantFiltered = selectedOrg.isNotEmpty
+          ? projects
+              .where((p) =>
+                  p.companyName.toLowerCase() == selectedOrg.toLowerCase())
+              .toList()
+          : projects;
+      filteredProjects = tenantFiltered;
       _isLoading = false;
     });
   }
 
-  void onQueryChanged(String query) {
+  /// Re-applies the tenant filter whenever the active organisation changes.
+  void _applyTenantFilter(String selectedOrg) {
     setState(() {
-      if (query.isEmpty) {
-        filteredProjects = List.from(allProjects);
-      } else {
-        filteredProjects = allProjects.where((project) {
-          bool matches =
-              project.name.toLowerCase().contains(query.toLowerCase());
-          print(
-              "Checking: ${project.name} | Query: $query | Matches: $matches");
-          return matches;
-        }).toList();
-      }
+      _lastTenant = selectedOrg;
+      filteredProjects = selectedOrg.isNotEmpty
+          ? allProjects
+              .where((p) =>
+                  p.companyName.toLowerCase() == selectedOrg.toLowerCase())
+              .toList()
+          : List<Project>.from(allProjects);
     });
+  }
 
-    print("Filtered Projects: $filteredProjects");
+  void onQueryChanged(String query) {
+    final selectedOrg = context.read<TenantProvider>().selectedOrganization;
+    // Start from the tenant-filtered base list
+    final List<Project> tenantBase = selectedOrg.isNotEmpty
+        ? allProjects
+            .where((p) =>
+                p.companyName.toLowerCase() == selectedOrg.toLowerCase())
+            .toList()
+        : List<Project>.from(allProjects);
+
+    setState(() {
+      filteredProjects = query.isEmpty
+          ? tenantBase
+          : tenantBase.where((project) {
+              return project.name.toLowerCase().contains(query.toLowerCase());
+            }).toList();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          const Background(),
-          _isLoading
-              ? const Center(
-                  child: CircularProgressIndicator(color: Color(0xFF724584)),
-                )
-              : Column(
-                  children: [
+    return Consumer<TenantProvider>(
+      builder: (context, tp, _) {
+        // Re-apply tenant filter whenever the active organisation changes
+        if (tp.selectedOrganization != _lastTenant && allProjects.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback(
+              (_) => _applyTenantFilter(tp.selectedOrganization));
+        }
+        return Scaffold(
+          body: Stack(
+            children: [
+              const Background(),
+              _isLoading
+                  ? const Center(
+                      child:
+                          CircularProgressIndicator(color: Color(0xFF724584)),
+                    )
+                  : Column(
+                      children: [
                     Expanded(
                       child: RefreshIndicator(
                         key: _refreshKey,
@@ -134,8 +166,10 @@ class _Managerprojectstate extends State<Managerprojects> {
                     )
                   ],
                 )
-        ],
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 

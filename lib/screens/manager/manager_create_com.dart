@@ -9,7 +9,7 @@ import 'package:shiftsmart/widgets/gradient_button.dart';
 import 'package:shiftsmart/widgets/gradienthorizontal.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
-import 'package:shiftsmart/widgets/success_dialog.dart'; // 👈 Import Success Dialog
+import 'package:shiftsmart/widgets/success_dialog.dart'; //  Import Success Dialog
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:uuid/uuid.dart';
 

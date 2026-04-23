@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:shiftsmart/providers/tenant_provider.dart';
 import 'package:shiftsmart/models/job.dart';
 import 'package:shiftsmart/screens/manager/manager_all_shifts.dart';
 import 'package:shiftsmart/screens/manager/manager_create_job.dart';
@@ -25,6 +27,7 @@ class _ManagerjobsState extends State<Managerjobs>
 
   bool _isLoading = true;
   Map<int, model.Project> projectMap = {};
+  String _lastTenant = '';
 
 
   @override
@@ -46,27 +49,39 @@ class _ManagerjobsState extends State<Managerjobs>
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
+    final tenantProvider = context.read<TenantProvider>();
+    final selectedOrg = tenantProvider.selectedOrganization;
+
     try {
-      debugPrint("🔹 managerJobs: Fetching projects...");
+      debugPrint(" managerJobs: Fetching projects...");
       //fetch projects from service
       final projects = await ProjectService().fetchAllProjects();
-      debugPrint("✅ managerJobs: Found ${projects.length} projects.");
+      debugPrint(" managerJobs: Found ${projects.length} projects.");
       
       setState(() {
         projectMap = {for (var p in projects) p.projectId: p};
       });
 
-      debugPrint("🔹 managerJobs: Fetching jobs...");
+      debugPrint(" managerJobs: Fetching jobs...");
       //fetch jobs from service file
       final jobs = await JobService().fetchAllJobs();
-      debugPrint("✅ managerJobs: Found ${jobs.length} jobs.");
+      debugPrint(" managerJobs: Found ${jobs.length} jobs.");
       
       setState(() {
         allJobs = jobs;
-        filteredJobs = List.from(jobs);
+        _lastTenant = selectedOrg;
+        
+        final tenantFiltered = selectedOrg.isNotEmpty
+            ? jobs.where((j) {
+                final proj = projectMap[j.projectId];
+                return proj != null && proj.companyName.toLowerCase() == selectedOrg.toLowerCase();
+              }).toList()
+            : jobs;
+            
+        filteredJobs = tenantFiltered;
       });
     } catch (e) {
-      debugPrint("❌ managerJobs Error: $e");
+      debugPrint(" managerJobs Error: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
            SnackBar(content: Text('Error loading data: $e')),
@@ -79,15 +94,33 @@ class _ManagerjobsState extends State<Managerjobs>
     }
   }
 
-  void onQueryChanged(String query) {
+  void _applyTenantFilter(String selectedOrg) {
     setState(() {
-      if (query.isEmpty) {
-        filteredJobs = List.from(allJobs);
-      } else {
-        filteredJobs = allJobs.where((job) {
-          return job.title.toLowerCase().contains(query.toLowerCase());
-        }).toList();
-      }
+      _lastTenant = selectedOrg;
+      filteredJobs = selectedOrg.isNotEmpty
+          ? allJobs.where((j) {
+              final proj = projectMap[j.projectId];
+              return proj != null && proj.companyName.toLowerCase() == selectedOrg.toLowerCase();
+            }).toList()
+          : List<Job>.from(allJobs);
+    });
+  }
+
+  void onQueryChanged(String query) {
+    final selectedOrg = context.read<TenantProvider>().selectedOrganization;
+    final List<Job> tenantBase = selectedOrg.isNotEmpty
+          ? allJobs.where((j) {
+              final proj = projectMap[j.projectId];
+              return proj != null && proj.companyName.toLowerCase() == selectedOrg.toLowerCase();
+            }).toList()
+          : List<Job>.from(allJobs);
+
+    setState(() {
+      filteredJobs = query.isEmpty 
+          ? tenantBase 
+          : tenantBase.where((job) {
+              return job.title.toLowerCase().contains(query.toLowerCase());
+            }).toList();
     });
   }
 
@@ -96,8 +129,14 @@ class _ManagerjobsState extends State<Managerjobs>
     super.build(context);
     final screenWidth = MediaQuery.of(context).size.width;
 
-    return Stack(
-      children: [
+    return Consumer<TenantProvider>(
+      builder: (context, tp, _) {
+        if (tp.selectedOrganization != _lastTenant && projectMap.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => _applyTenantFilter(tp.selectedOrganization));
+        }
+
+        return Stack(
+          children: [
         const Positioned.fill(child: Background()),
         Scaffold(
           backgroundColor: Colors.transparent,
@@ -138,6 +177,8 @@ class _ManagerjobsState extends State<Managerjobs>
           ),
         ),
       ],
+    );
+      },
     );
   }
 

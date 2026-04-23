@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:shiftsmart/providers/tenant_provider.dart';
 import 'package:shiftsmart/models/employee.dart';
 import 'package:shiftsmart/screens/manager/manager_view_employee.dart';
 import 'package:shiftsmart/services/employee_service.dart';
@@ -18,6 +20,7 @@ class _ManageremployeeState extends State<Manageremployee> {
   List<Employee> filteredEmployees = [];
 
   bool _isLoading = true;
+  String _lastTenant = '';
 
   @override
   void initState() {
@@ -56,9 +59,20 @@ class _ManageremployeeState extends State<Manageremployee> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(children: [
-        const Positioned.fill(child: Background()),
+    return Consumer<TenantProvider>(
+      builder: (context, tp, _) {
+        if (tp.selectedOrganization != _lastTenant) {
+          _lastTenant = tp.selectedOrganization;
+          if (_lastTenant.isNotEmpty && mounted && !_isLoading) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              fetchEmployee();
+            });
+          }
+        }
+        
+        return Scaffold(
+          body: Stack(children: [
+            const Positioned.fill(child: Background()),
         SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -84,6 +98,8 @@ class _ManageremployeeState extends State<Manageremployee> {
           ),
         ),
       ]),
+    );
+      },
     );
   }
 

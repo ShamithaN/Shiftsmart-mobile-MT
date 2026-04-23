@@ -182,7 +182,7 @@ class Shift {
     } catch (e, stack) {
       // debugPrint is not defined in this context, assuming print is intended or debugPrint needs to be imported.
       // Keeping original print for now to avoid introducing new dependencies without explicit instruction.
-      print("🔥 ERROR in Shift.fromJson(): $e\n$stack");
+      print(" ERROR in Shift.fromJson(): $e\n$stack");
       // Don't rethrow, return a fallback empty shift if possible, or let the caller handle []
       rethrow;
     }

@@ -26,7 +26,7 @@ class _SearchState extends State<Search> {
   }
 
   void _clearSearch() {
-    _controller.clear(); // Triggers listener → setState → rebuild
+    _controller.clear(); // Triggers listener  setState  rebuild
     widget.onQueryChanged('');
   }
 

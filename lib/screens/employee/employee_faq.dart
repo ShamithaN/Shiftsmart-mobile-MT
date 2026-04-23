@@ -219,7 +219,7 @@ class _EmployeeFaqState extends State<EmployeeFaq> {
   }
 
   Widget _buildAnswerContent(String answerText) {
-    // Basic step detection based on punctuation – feel free to customize this.
+    // Basic step detection based on punctuation  feel free to customize this.
     List<String> steps =
         answerText.split(RegExp(r'\.\s+')).where((s) => s.isNotEmpty).toList();
 
@@ -231,7 +231,7 @@ class _EmployeeFaqState extends State<EmployeeFaq> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("• ",
+              const Text(" ",
                   style: TextStyle(color: Colors.cyanAccent, fontSize: 16)),
               Expanded(
                 child: Text(

@@ -24,7 +24,7 @@ class ApiClient {
       final String decoded = utf8.decode(base64Url.decode(normalized));
       return jsonDecode(decoded) as Map<String, dynamic>;
     } catch (e) {
-      debugPrint("❌ Error decoding JWT: $e");
+      debugPrint(" Error decoding JWT: $e");
       return null;
     }
   }
@@ -48,9 +48,9 @@ class ApiClient {
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
         // Only log the first few characters for security
-        debugPrint("🔑 ApiClient: Token found. Prefix: ${token.substring(0, 10)}...");
+        debugPrint(" ApiClient: Token found. Prefix: ${token.substring(0, 10)}...");
       } else {
-        debugPrint("⚠️ ApiClient: useAuth=true but NO TOKEN found in storage.");
+        debugPrint(" ApiClient: useAuth=true but NO TOKEN found in storage.");
       }
     }
     return headers;

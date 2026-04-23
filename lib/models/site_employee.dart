@@ -32,8 +32,8 @@
 //     final siteLng =
 //         site.longitude != null ? double.tryParse(site.longitude!) : null;
 
-//     print('📍 Site Coordinates: ${site.latitude}, ${site.longitude}');
-//     print('📍 Parsed Site LatLng: $siteLat, $siteLng');
+//     print(' Site Coordinates: ${site.latitude}, ${site.longitude}');
+//     print(' Parsed Site LatLng: $siteLat, $siteLng');
 
 //     if (lat != null &&
 //         lng != null &&

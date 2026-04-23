@@ -15,7 +15,7 @@ class JobService {
   // Base URL may be from JOB_BASE_URL or a general base URL
   final String baseUrl = dotenv.env['JOB_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
 
-  // ✅ Endpoint keys (func-jobs)
+  //  Endpoint keys (func-jobs)
   final String jobGetAllKey = dotenv.env['JOB_GET_ALL_KEY'] ?? "";
   final String jobCreateKey = dotenv.env['JOB_CREATE_KEY'] ?? "";
   final String jobUpdateKey = dotenv.env['JOB_UPDATE_KEY'] ?? "";
@@ -34,8 +34,8 @@ class JobService {
   }
 
   void _debugEnv() {
-    if (baseUrl.isEmpty) debugPrint("❌ JobService: JOB_BASE_URL is missing");
-    if (jobGetAllKey.isEmpty) debugPrint("❌ JobService: JOB_GET_ALL_KEY is missing");
+    if (baseUrl.isEmpty) debugPrint(" JobService: JOB_BASE_URL is missing");
+    if (jobGetAllKey.isEmpty) debugPrint(" JobService: JOB_GET_ALL_KEY is missing");
     // ... adding more checks if needed, but the ?? "" is already safer
   }
 
@@ -75,10 +75,14 @@ class JobService {
   }
 
   // --- ADD JOB (Data Only) ---
+  // Note: Standard job/create is reported missing. Use createJobWithImage if an image is available.
   Future<int?> addJob(Map<String, dynamic> jobData) async {
+    if (jobCreateKey.isEmpty) {
+      debugPrint(" JobService: JOB_CREATE_KEY is missing. This endpoint might be deprecated.");
+      return null;
+    }
     final url = '$baseUrl/job/create?code=$jobCreateKey';
     try {
-      // FIX: Use ApiClient with useAuth: true
       final response = await _apiClient.post(
         url,
         body: jobData,
@@ -88,6 +92,7 @@ class JobService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return 1;
       } else {
+        debugPrint("Failed to add job data. Status: ${response.statusCode}");
         return null;
       }
     } catch (e) {

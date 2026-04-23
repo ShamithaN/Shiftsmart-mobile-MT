@@ -65,7 +65,7 @@ class ProfileService {
       String userEmail, String currentPassword, String newPassword) async {
     // Check if key exists
     if (updatePassKey.isEmpty) {
-      debugPrint("❌ Error: Missing UPDATE_PASS_KEY in .env");
+      debugPrint(" Error: Missing UPDATE_PASS_KEY in .env");
       return false;
     }
 

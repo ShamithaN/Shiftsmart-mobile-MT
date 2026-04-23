@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // 👈 Added for Session Check
+import 'package:shared_preferences/shared_preferences.dart'; //  Added for Session Check
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 // Screen Imports
@@ -14,8 +14,9 @@ import 'package:shiftsmart/screens/login.dart';
 
 // Service & Provider Imports
 import 'package:shiftsmart/providers/user_provider.dart';
+import 'package:shiftsmart/providers/tenant_provider.dart';
 import 'package:shiftsmart/services/notification_service.dart';
-import 'package:shiftsmart/services/auth_service.dart'; // 👈 Added for Profile Fetch
+import 'package:shiftsmart/services/auth_service.dart'; //  Added for Profile Fetch
 
 // --- 1. Background Message Handler ---
 @pragma('vm:entry-point')
@@ -122,6 +123,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider(create: (_) => TenantProvider()),
       ],
       child: const MyApp(),
     ),
@@ -160,7 +162,7 @@ class _MyHomePageState extends State<MyHomePage> {
     _checkLoginStatus();
   }
 
-  // 🚀 LOGIC: Check Disk for Token -> Restore Session -> Navigate
+  //  LOGIC: Check Disk for Token -> Restore Session -> Navigate
   Future<void> _checkLoginStatus() async {
     // 1. Give the splash screen a visual delay (2 seconds)
     await Future.delayed(const Duration(seconds: 2));
@@ -177,7 +179,7 @@ class _MyHomePageState extends State<MyHomePage> {
         final bool biometricEnabled = prefs.getBool('biometric_enabled') ?? false;
 
         if (biometricEnabled) {
-          print("🔹 Biometrics enabled. Redirecting to Biometric Login...");
+          print(" Biometrics enabled. Redirecting to Biometric Login...");
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -185,7 +187,7 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
           );
         } else {
-          print("🔹 Biometrics disabled. Standard Login.");
+          print(" Biometrics disabled. Standard Login.");
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -196,12 +198,12 @@ class _MyHomePageState extends State<MyHomePage> {
         return;
       }
     } catch (e) {
-      print("⚠️ Session check failed: $e");
+      print(" Session check failed: $e");
     }
 
     // 4. Fallback: If no token or invalid token, go to Login (Standard)
     if (mounted) {
-      print("🔸 No valid session found. Going to Standard Login.");
+      print(" No valid session found. Going to Standard Login.");
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const Login(promptBiometric: false)),

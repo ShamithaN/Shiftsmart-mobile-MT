@@ -12,7 +12,7 @@ class ChatService {
   // Standard Base URL
   final String baseUrl = dotenv.env['BASE_URL']!;
 
-  // 🚨 SPECIAL URL FOR MESSAGES (From your Master List & .env)
+  //  SPECIAL URL FOR MESSAGES (From your Master List & .env)
   // If MESSAGE_BASE_URL is missing in .env, fallback to baseUrl
   String get messageBaseUrl =>
       dotenv.env['MESSAGE_BASE_URL'] ?? baseUrl;
@@ -28,7 +28,7 @@ class ChatService {
   // --- 1. FETCH CHAT LIST ---
   Future<List<ChatListItem>> fetchChatList() async {
     final url = '$messageBaseUrl/chat/all?code=$chatAllKey';
-    debugPrint("🔎 Fetching Chat List"); // Log added
+    debugPrint(" Fetching Chat List"); // Log added
 
     try {
       final response = await _apiClient.get(url, useAuth: true);
@@ -37,10 +37,10 @@ class ChatService {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((item) => ChatListItem.fromJson(item)).toList();
       }
-      debugPrint("❌ Chat List Error: ${response.statusCode}");
+      debugPrint(" Chat List Error: ${response.statusCode}");
       return [];
     } catch (e) {
-      debugPrint("❌ Error fetching chats: $e");
+      debugPrint(" Error fetching chats: $e");
       return [];
     }
   }
@@ -58,17 +58,17 @@ class ChatService {
       }
       return [];
     } catch (e) {
-      debugPrint("❌ Error searching employees: $e");
+      debugPrint(" Error searching employees: $e");
       return [];
     }
   }
 
   // --- 3. FETCH MESSAGES (FIXED URL & LOGS) ---
   Future<List<Message>> fetchMessages(int chatParticipantId) async {
-    // 🔴 USE THE SPECIAL MESSAGE URL HERE
+    //  USE THE SPECIAL MESSAGE URL HERE
     final url = '$messageBaseUrl/chat/messages/$chatParticipantId?code=$fetchMsgKey';
 
-    // debugPrint("📨 Fetching Messages from: $url"); // Uncomment to see full URL if needed
+    // debugPrint(" Fetching Messages from: $url"); // Uncomment to see full URL if needed
 
     try {
       final response = await _apiClient.get(url, useAuth: true);
@@ -77,12 +77,12 @@ class ChatService {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((m) => Message.fromJson(m)).toList();
       } else {
-        debugPrint("📨 Message Status: ${response.statusCode}");
-        debugPrint("📨 Failed to load messages. Body: ${response.body}");
+        debugPrint(" Message Status: ${response.statusCode}");
+        debugPrint(" Failed to load messages. Body: ${response.body}");
         return [];
       }
     } catch (e) {
-      debugPrint("❌ Error fetching messages: $e");
+      debugPrint(" Error fetching messages: $e");
       return [];
     }
   }
@@ -102,20 +102,20 @@ class ChatService {
       'Message': text,
     };
 
-    debugPrint("📤 Sending Message to $url");
+    debugPrint(" Sending Message to $url");
 
     try {
       final response = await _apiClient.post(url, body: body, useAuth: true);
 
       if (response.statusCode == 200) {
-        debugPrint("✅ Message Sent!");
+        debugPrint(" Message Sent!");
         return true;
       } else {
-        debugPrint("❌ Send Failed: ${response.statusCode} - ${response.body}");
+        debugPrint(" Send Failed: ${response.statusCode} - ${response.body}");
         return false;
       }
     } catch (e) {
-      debugPrint("❌ Error sending message: $e");
+      debugPrint(" Error sending message: $e");
       return false;
     }
   }
@@ -134,10 +134,10 @@ class ChatService {
     };
     try {
       final response = await _apiClient.post(url, body: body, useAuth: true);
-      debugPrint("💬 Create Chat Status: ${response.statusCode}");
+      debugPrint(" Create Chat Status: ${response.statusCode}");
       return response.statusCode == 200;
     } catch (e) {
-      debugPrint("❌ Error creating chat: $e");
+      debugPrint(" Error creating chat: $e");
       return false;
     }
   }

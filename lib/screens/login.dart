@@ -501,16 +501,37 @@ class _LoginState extends State<Login> {
 
       // Check login success or onboarding requirement
       final String backendMsg = (loginResponse['message'] ?? loginResponse['Message'] ?? '').toString();
+      
+      // Extract tenants list for deeper inspection
+      final dynamic tenants = loginResponse['tenants'];
+      dynamic targetTenant;
+      if (tenants is List && tenants.isNotEmpty) {
+        // Prefer the tenant that explicitly requires onboarding
+        try {
+          targetTenant = tenants.firstWhere(
+            (t) => (t['onboardingRequired'] == true || 
+                   t['OnboardingRequired'] == true || 
+                   t['onboardingRequired'].toString().toLowerCase() == 'true'),
+            orElse: () => tenants[0],
+          );
+        } catch (_) {
+          targetTenant = tenants[0];
+        }
+      }
+
       final bool isSuccess = backendMsg.toLowerCase().contains('login successful') ||
           loginResponse['status'] == 1 ||
           loginResponse['isSuccess'] == true ||
           loginResponse['Success'] == true ||
           loginResponse['statusCode'] == 200;
 
-      // Null-safe onboarding flag evaluation — avoids "null".toString() matching bugs
+      // Null-safe onboarding flag evaluation - checks top level and target tenant
       final dynamic onboardingFlag = loginResponse['onboardingRequired'] ??
           loginResponse['OnboardingRequired'] ??
-          loginResponse['onboarding_required'];
+          loginResponse['onboarding_required'] ??
+          targetTenant?['onboardingRequired'] ??
+          targetTenant?['OnboardingRequired'];
+          
       final bool isOnboarding = onboardingFlag != null &&
           (onboardingFlag == true ||
               onboardingFlag.toString().toLowerCase() == 'true' ||
@@ -545,20 +566,36 @@ class _LoginState extends State<Login> {
 
       // Handle onboarding flow
       if (isOnboarding) {
-        // Try all case variants the backend might return
+        // Try all case variants the backend might return, prioritizing the identified tenant
         final int? idToPass = loginResponse["employeeId"] ??
             loginResponse["EmployeeId"] ??
+            targetTenant?["employeeId"] ??
+            targetTenant?["EmployeeId"] ??
             loginResponse['userId'] ??
-            loginResponse['UserId'];
+            loginResponse['UserId'] ??
+            targetTenant?['userId'] ??
+            targetTenant?['UserId'];
 
         final String onboardingMode =
-            (loginResponse["onboardingMode"] ?? loginResponse["OnboardingMode"] ?? "none")
+            (loginResponse["onboardingMode"] ?? 
+             loginResponse["OnboardingMode"] ?? 
+             targetTenant?["onboardingMode"] ?? 
+             targetTenant?["OnboardingMode"] ?? 
+             "none")
                 .toString()
                 .toLowerCase();
 
+        if (onboardingMode == "pending") {
+          _showStylishDialog(
+            "Review in Progress",
+            "Your onboarding details have been submitted and are currently being reviewed by our team. We will notify you once your account is active."
+          );
+          return;
+        }
+
         Map<String, dynamic>? existingProfile;
 
-        if (onboardingMode == "resubmission" && idToPass != null) {
+        if ((onboardingMode == "resubmission" || onboardingMode == "pending") && idToPass != null) {
           existingProfile = await _authService.fetchRejectedProfileData(idToPass);
         }
 
@@ -585,7 +622,7 @@ class _LoginState extends State<Login> {
       final String? appToken = exchangeResponse?['appToken'] ?? exchangeResponse?['AppToken'];
 
       if (exchangeResponse == null || appToken == null) {
-        print("❌ Exchange Response Failed: $exchangeResponse");
+        print(" Exchange Response Failed: $exchangeResponse");
         _showStylishDialog(
           "Authentication Failed",
           "Could not verify credentials.",
@@ -593,9 +630,9 @@ class _LoginState extends State<Login> {
         return;
       }
 
-      print("✅ Exchange Success. userId: ${exchangeResponse["userId"]}, role: ${exchangeResponse["userRole"]}");
+      print(" Exchange Success. userId: ${exchangeResponse["userId"]}, role: ${exchangeResponse["userRole"]}");
 
-      // Store user ID and role — fall back to loginResponse or JWT if exchange omits them
+      // Store user ID and role  fall back to loginResponse or JWT if exchange omits them
       final Map<String, dynamic>? jwtPayload = _apiClient.decodeJwt(appToken);
       
       int? userId = exchangeResponse["userId"] ??
@@ -620,7 +657,7 @@ class _LoginState extends State<Login> {
           .toString();
 
       if (userId == null) {
-        print("❌ CRITICAL: userId NULL after all fallbacks (Exchange, Login, JWT).");
+        print(" CRITICAL: userId NULL after all fallbacks (Exchange, Login, JWT).");
         _showStylishDialog("Profile Error", "User data is inconsistent. Please contact support.");
         return;
       }
@@ -630,7 +667,7 @@ class _LoginState extends State<Login> {
 
       // Fetch complete user profile
       final fullProfile = await _authService.fetchFullEmployeeProfile(email);
-      print("🔹 Full Profile Response: $fullProfile");
+      print(" Full Profile Response: $fullProfile");
 
       if (fullProfile != null) {
         // Store employee details
@@ -698,11 +735,11 @@ class _LoginState extends State<Login> {
 
       // Navigate to appropriate dashboard based on role
       if (!mounted) return;
-      print("🚀 FINAL ROUTING CHECK: Evaluating role '$role'"); // DEBUG
+      print(" FINAL ROUTING CHECK: Evaluating role '$role'"); // DEBUG
       final String normalizedRole = role.trim().toLowerCase();
       
       if (normalizedRole.contains("manager") || normalizedRole.contains("admin")) {
-        print("➡️ Routing to Manager/Admin Dashboard"); // DEBUG
+        print(" Routing to Manager/Admin Dashboard"); // DEBUG
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -710,7 +747,7 @@ class _LoginState extends State<Login> {
           ),
         );
       } else {
-        print("➡️ Routing to Employee Dashboard (Fallback). Normalized string was: $normalizedRole"); // DEBUG
+        print(" Routing to Employee Dashboard (Fallback). Normalized string was: $normalizedRole"); // DEBUG
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const EmpBottomnavbar()),

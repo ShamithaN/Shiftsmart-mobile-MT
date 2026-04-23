@@ -7,10 +7,10 @@ import 'api_client.dart';
 class ProjectService {
   final ApiClient _apiClient = ApiClient();
 
-  // ✅ PROD ENDPOINT CONFIGURATION (from func-projects)
+  //  PROD ENDPOINT CONFIGURATION (from func-projects)
   final String baseUrl = dotenv.env['PROJECT_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
   
-  // ✅ PROD ENDPOINT KEYS (from func-projects)
+  //  PROD ENDPOINT KEYS (from func-projects)
   final String projectCreateKey = dotenv.env['PROJECT_CREATE_KEY'] ?? "";
   final String projectUpdateKey = dotenv.env['PROJECT_UPDATE_KEY'] ?? "";
   final String projectGetAllKey = dotenv.env['PROJECT_GET_ALL_KEY'] ?? "";
@@ -28,7 +28,7 @@ class ProjectService {
   final String locationUpdateKey = dotenv.env['LOCATION_UPDATE_KEY'] ?? "";
 
   ProjectService() {
-    if (baseUrl.isEmpty) debugPrint("❌ ProjectService: PROJECT_BASE_URL is missing");
+    if (baseUrl.isEmpty) debugPrint(" ProjectService: PROJECT_BASE_URL is missing");
   }
 
   // --- ADD PROJECT ---
@@ -36,11 +36,11 @@ class ProjectService {
     final String createUrl = '$baseUrl/project/create?code=$projectCreateKey';
 
     try {
-      // FIX: Use ApiClient with useAuth: false to bypass JWT crash
+      // FIX: Enable authentication for tenant context
       final response = await _apiClient.post(
         createUrl,
         body: projectData,
-        useAuth: false,
+        useAuth: true,
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -60,11 +60,11 @@ class ProjectService {
 final updateUrl = '$baseUrl/project/update/$id?code=$projectUpdateKey';
 
     try {
-      // FIX: Use ApiClient with useAuth: false
+      // FIX: Enable authentication for tenant context
       final response = await _apiClient.put(
         updateUrl,
         body: projectData,
-        useAuth: false,
+        useAuth: true,
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -84,8 +84,8 @@ final updateUrl = '$baseUrl/project/update/$id?code=$projectUpdateKey';
     final geturl = '$baseUrl/project/all?code=$projectGetAllKey';
 
     try {
-      // FIX: Use ApiClient with useAuth: false
-      final response = await _apiClient.get(geturl, useAuth: false);
+      // FIX: Enable authentication for tenant context
+      final response = await _apiClient.get(geturl, useAuth: true);
 
       debugPrint("Project response: ${response.body}");
 

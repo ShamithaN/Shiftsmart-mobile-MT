@@ -17,7 +17,7 @@ class EmployeeService {
   final String baseUrl = dotenv.env['BASE_URL'] ?? "";
   final String certBaseUrl = dotenv.env['CERT_BASE_URL'] ?? "";
 
-  // ✅ PROD ENDPOINT KEYS (from func-employees)
+  //  PROD ENDPOINT KEYS (from func-employees)
   final String fetchEmpKey = dotenv.env['FETCH_EMP_KEY'] ?? "";
   final String bankLookupKey = dotenv.env['BANK_LOOKUP_KEY'] ?? '';
   final String empNameMap = dotenv.env['FETCH_EMP_KEY'] ?? ""; // Map to FETCH_EMP_KEY as fallback
@@ -28,21 +28,21 @@ class EmployeeService {
   final String certificateGetKey = dotenv.env['CERTIFICATE_GET_KEY'] ?? '';
 
   EmployeeService() {
-    if (baseUrl.isEmpty) debugPrint("❌ EmployeeService: BASE_URL is missing");
+    if (baseUrl.isEmpty) debugPrint(" EmployeeService: BASE_URL is missing");
   }
 
   // --- 1. Fetch All Employees ---
   Future<List<Employee>> fetchAllEmployees() async {
     final url = '$baseUrl/employee/all?code=$fetchEmpKey';
-    debugPrint("🔍 EmployeeService: Fetching all employees from $url");
+    debugPrint(" EmployeeService: Fetching all employees from $url");
     try {
-      final response = await _apiClient.get(url, useAuth: false);
-      debugPrint("📡 EmployeeService Status: ${response.statusCode}");
-      debugPrint("📄 EmployeeService Body: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}");
+      final response = await _apiClient.get(url, useAuth: true);
+      debugPrint(" EmployeeService Status: ${response.statusCode}");
+      debugPrint(" EmployeeService Body: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}");
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = jsonDecode(response.body);
-        debugPrint("✅ EmployeeService: Found ${jsonData.length} employees.");
+        debugPrint(" EmployeeService: Found ${jsonData.length} employees.");
         final filtered = jsonData.where((e) {
           final role = (e['userRole'] ?? '').toString().toLowerCase();
           return role != 'manager' && role != 'admin';
@@ -62,7 +62,7 @@ class EmployeeService {
   Future<Map<int, String>> fetchEmployeeNameMap() async {
     final url = '$baseUrl/employee/all?code=$empNameMap';
     try {
-      final response = await _apiClient.get(url, useAuth: false);
+      final response = await _apiClient.get(url, useAuth: true);
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = jsonDecode(response.body);
         return {
@@ -92,7 +92,7 @@ class EmployeeService {
   // --- 3. Bank Lookup ---
   Future<Map<String, dynamic>> lookupBank(String bsb) async {
     final String url = '$baseUrl/utility/bank-lookup/$bsb?code=$bankLookupKey';
-    debugPrint("🚀 Calling Bank Lookup: $url");
+    debugPrint(" Calling Bank Lookup: $url");
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -102,12 +102,12 @@ class EmployeeService {
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
       } else {
-        debugPrint("⚠️ Warning: No Auth Token found locally. Attempting request with API Key only.");
+        debugPrint(" Warning: No Auth Token found locally. Attempting request with API Key only.");
       }
 
       final response = await http.get(Uri.parse(url), headers: headers);
 
-      debugPrint("📡 Response Status: ${response.statusCode}");
+      debugPrint(" Response Status: ${response.statusCode}");
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -123,7 +123,7 @@ class EmployeeService {
         };
       }
     } catch (e) {
-      debugPrint("❌ Exception: $e");
+      debugPrint(" Exception: $e");
       return {'status': 'Error', 'message': "Connection error"};
     }
   }
@@ -132,14 +132,14 @@ class EmployeeService {
   Future<List<EmployeeCertificate>> fetchEmployeeDocuments(int empId) async {
     // Official Endpoint: /api/employee/documents/{employeeId}?code=CERTIFICATE_GET_KEY
     final url = '$baseUrl/employee/documents/$empId?code=$fetchDocsKey';
-    debugPrint("🔍 Fetching Documents from: $url");
+    debugPrint(" Fetching Documents from: $url");
 
     try {
       final response = await _apiClient.get(url, useAuth: true);
 
       if (response.statusCode == 200) {
         final dynamic data = jsonDecode(response.body);
-        debugPrint("📦 Documents Found (Raw Count): ${data is List ? data.length : 'Object'}");
+        debugPrint(" Documents Found (Raw Count): ${data is List ? data.length : 'Object'}");
 
         List<dynamic> rawDocs = [];
 
@@ -167,11 +167,11 @@ class EmployeeService {
           );
         }).toList();
       } else {
-        debugPrint("⚠️ Failed to fetch docs. Status: ${response.statusCode}");
+        debugPrint(" Failed to fetch docs. Status: ${response.statusCode}");
         return [];
       }
     } catch (e) {
-      debugPrint("❌ Error fetching profile docs: $e");
+      debugPrint(" Error fetching profile docs: $e");
       return [];
     }
   }
@@ -179,7 +179,7 @@ class EmployeeService {
   // --- 5. Add Certificate ---
   Future<Map<String, dynamic>?> addCertificate(Map<String, dynamic> certData) async {
     final url = '$baseUrl/certificates/add?code=$certificateAddKey';
-    debugPrint("🚀 Adding Certificate...");
+    debugPrint(" Adding Certificate...");
 
     try {
       final response = await _apiClient.post(url, body: certData, useAuth: true);
@@ -187,11 +187,11 @@ class EmployeeService {
       if (response.statusCode == 201 || response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        debugPrint("❌ Failed to add certificate: ${response.statusCode}");
+        debugPrint(" Failed to add certificate: ${response.statusCode}");
         return null;
       }
     } catch (e) {
-      debugPrint("❌ Error adding certificate: $e");
+      debugPrint(" Error adding certificate: $e");
       return null;
     }
   }
@@ -199,7 +199,7 @@ class EmployeeService {
   // --- 6. Get All Certificates ---
   Future<List<EmployeeCertificate>> getAllCertificates() async {
     final url = '$baseUrl/certificates?code=$certificateGetKey';
-    debugPrint("🔍 Fetching all certificates...");
+    debugPrint(" Fetching all certificates...");
 
     try {
       final response = await _apiClient.get(url, useAuth: true);
@@ -221,11 +221,11 @@ class EmployeeService {
           );
         }).toList();
       } else {
-        debugPrint("❌ Failed to fetch certificates: ${response.statusCode}");
+        debugPrint(" Failed to fetch certificates: ${response.statusCode}");
         return [];
       }
     } catch (e) {
-      debugPrint("❌ Error fetching certificates: $e");
+      debugPrint(" Error fetching certificates: $e");
       return [];
     }
   }
@@ -233,13 +233,13 @@ class EmployeeService {
   // --- 7. Update Certificate ---
   Future<bool> updateCertificate(int certId, Map<String, dynamic> certData) async {
     final url = '$baseUrl/certificates/update/$certId?code=$certificateUpdateKey';
-    debugPrint("🔄 Updating Certificate ID: $certId");
+    debugPrint(" Updating Certificate ID: $certId");
 
     try {
       final response = await _apiClient.put(url, body: certData, useAuth: true);
       return response.statusCode == 200;
     } catch (e) {
-      debugPrint("❌ Error updating certificate: $e");
+      debugPrint(" Error updating certificate: $e");
       return false;
     }
   }
@@ -247,13 +247,13 @@ class EmployeeService {
   // --- 8. Delete Certificate ---
   Future<bool> deleteCertificate(int certId) async {
     final url = '$baseUrl/certificates/delete/$certId?code=$certificateDeleteKey';
-    debugPrint("🗑️ Deleting Certificate ID: $certId");
+    debugPrint(" Deleting Certificate ID: $certId");
 
     try {
       final response = await _apiClient.delete(url, useAuth: true);
       return response.statusCode == 200;
     } catch (e) {
-      debugPrint("❌ Error deleting certificate: $e");
+      debugPrint(" Error deleting certificate: $e");
       return false;
     }
   }

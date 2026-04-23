@@ -373,9 +373,9 @@ class _ChatboxState extends State<Chatbox> {
 //       _receiverName = name;
 //     });
 
-//     debugPrint('✅ Receiver: $_receiverId ($_receiverName)');
+//     debugPrint(' Receiver: $_receiverId ($_receiverName)');
 //   } else {
-//     debugPrint('❌ No participant found for ChatParticipantId ${widget.chatParticipantId}');
+//     debugPrint(' No participant found for ChatParticipantId ${widget.chatParticipantId}');
 //   }
 // }
 

@@ -278,7 +278,7 @@
 //                     context,
 //                     MaterialPageRoute(
 //                       builder: (context) =>
-//                           Managercreatesite(site: site), // 👈 pass the site
+//                           Managercreatesite(site: site), //  pass the site
 //                     ),
 //                   );
 //                 },
@@ -357,7 +357,7 @@ class _ManagersiteState extends State<Managersite> {
       // Step 1: Fetch all projects
       final projects = await _projectService.fetchAllProjects();
 
-      // 🛠️ FIX: Don't filter out completed projects yet, or allow both.
+      //  FIX: Don't filter out completed projects yet, or allow both.
       // For now, let's keep ALL projects so you can see your new site.
       activeProjects = projects;
 
@@ -378,9 +378,9 @@ class _ManagersiteState extends State<Managersite> {
           .where((site) => projectIdsToCheck.contains(site.projectId))
           .toList();
 
-      debugPrint("✅ Total Projects: ${projects.length}");
-      debugPrint("✅ Total Sites: ${allSites.length}");
-      debugPrint("✅ Visible Sites: ${filteredSites.length}");
+      debugPrint(" Total Projects: ${projects.length}");
+      debugPrint(" Total Sites: ${allSites.length}");
+      debugPrint(" Visible Sites: ${filteredSites.length}");
 
       setState(() => _isLoading = false);
     } catch (e) {
@@ -495,7 +495,7 @@ class _ManagersiteState extends State<Managersite> {
           ],
         ),
         GestureDetector(
-          // 🚀 KEY FIX: Wait for result and refresh
+          //  KEY FIX: Wait for result and refresh
           onTap: () async {
             final result = await Navigator.push(
               context,
@@ -505,7 +505,7 @@ class _ManagersiteState extends State<Managersite> {
 
             // If we come back with 'true', refresh the list!
             if (result == true) {
-              debugPrint("🔄 Refreshing Site List...");
+              debugPrint(" Refreshing Site List...");
               _refreshKey.currentState?.show();
               _refreshData();
             }
@@ -586,7 +586,7 @@ class _ManagersiteState extends State<Managersite> {
                   size: 24,
                 ),
                 onPressed: () async {
-                  // 🚀 KEY FIX: Refresh on Update too
+                  //  KEY FIX: Refresh on Update too
                   final result = await Navigator.push(
                     context,
                     MaterialPageRoute(
