@@ -47,8 +47,13 @@ class _OrganizationSelectorState extends State<OrganizationSelector> {
           elevation: 10,
           padding: EdgeInsets.zero,
           onSelected: (Map<String, dynamic> tenant) async {
-            final name = (tenant['name'] ?? tenant['Name'] ?? '').toString();
-            if (name == selectedOrg) return;
+            final name = (tenant['name'] ?? 
+                          tenant['Name'] ?? 
+                          tenant['tenantName'] ?? 
+                          tenant['TenantName'] ?? 
+                          tenant['organizationName'] ?? 
+                          '').toString();
+            if (name == selectedOrg && name.isNotEmpty) return;
 
             // When the user picks a new organization, ask TenantProvider
             // to switch tenant context. The provider handles backend
