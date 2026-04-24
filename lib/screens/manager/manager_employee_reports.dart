@@ -5,6 +5,9 @@ import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
+import 'package:provider/provider.dart';
+import 'package:shiftsmart/providers/tenant_provider.dart';
+import 'package:shiftsmart/widgets/premium_feature_gate.dart';
 
 class ManagerEmployeeReports extends StatefulWidget {
   const ManagerEmployeeReports({super.key});
@@ -21,56 +24,89 @@ class _ManagerEmployeeReportsState extends State<ManagerEmployeeReports> {
     
   }
   @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    backgroundColor: const Color(0xFF1C2230),
-    appBar: const Uppernavbar(),
-    drawer: const Sidenav(currentScreen: 'ManagerReports',),
-    body: Stack(
-      children: [
-        const Positioned(child: Background()),
-        Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                child: Column(
-                  children: [
-                    _buildReportCard(
-                      icon: Icons.line_axis_sharp,
-                      title: "Employee Performance Reports",
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ManagerEmployeePerformanceReport(),
-                          ),
-                        );
-                      },
+  Widget build(BuildContext context) {
+    return Consumer<TenantProvider>(
+      builder: (context, tp, _) {
+        if (!tp.isFeatureEnabled('reporting_analytics')) {
+          return Stack(
+            children: [
+              const Positioned.fill(child: Background()),
+              Scaffold(
+                backgroundColor: Colors.transparent,
+                appBar: const Uppernavbar(),
+                drawer: const Sidenav(currentScreen: 'ManagerReports'),
+                body: SafeArea(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: PremiumFeatureGate(
+                        featureName: 'Reporting & Analytics',
+                        blockedEndpoint: '/api/report/generate',
+                      ),
                     ),
-                    const SizedBox(height: 20),
-                    _buildReportCard(
-                      icon: Icons.fact_check_outlined,
-                      title: "Shift Attendance Report",
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const Managerattendancereport(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
-}
+            ],
+          );
+        }
+
+        return Scaffold(
+          backgroundColor: const Color(0xFF1C2230),
+          appBar: const Uppernavbar(),
+          drawer: const Sidenav(
+            currentScreen: 'ManagerReports',
+          ),
+          body: Stack(
+            children: [
+              const Positioned(child: Background()),
+              Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 20),
+                      child: Column(
+                        children: [
+                          _buildReportCard(
+                            icon: Icons.line_axis_sharp,
+                            title: "Employee Performance Reports",
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const ManagerEmployeePerformanceReport(),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          _buildReportCard(
+                            icon: Icons.fact_check_outlined,
+                            title: "Shift Attendance Report",
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const Managerattendancereport(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 Widget _buildReportCard({
   required IconData icon,
   required String title,

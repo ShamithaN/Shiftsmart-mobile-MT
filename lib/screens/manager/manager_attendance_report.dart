@@ -7,6 +7,9 @@ import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/search.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
+import 'package:provider/provider.dart';
+import 'package:shiftsmart/providers/tenant_provider.dart';
+import 'package:shiftsmart/widgets/premium_feature_gate.dart';
 
 class Managerattendancereport extends StatefulWidget {
   const Managerattendancereport({super.key});
@@ -77,52 +80,80 @@ class _ManagerattendancereportState extends State<Managerattendancereport> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF1C2230),
-      appBar: const Uppernavbar(
-        showBackButton: true,
-      ),
-      drawer: const Sidenav(),
-      body: Stack(
-        children: [
-          const Positioned.fill(child: Background()),
-          SafeArea(
-            child: Column(
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 15),
-
-                        // Search Bar
-                        Search(onQueryChanged: _onQueryChanged),
-
-                        const SizedBox(height: 20),
-                        const Text(
-                          "Attendance Reports",
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-
-                        // List of Reports
-                        Expanded(child: _attendanceList()),
-                      ],
+    return Consumer<TenantProvider>(
+      builder: (context, tp, _) {
+        if (!tp.isFeatureEnabled('attendance_tracking')) {
+          return Stack(
+            children: [
+              const Positioned.fill(child: Background()),
+              Scaffold(
+                backgroundColor: Colors.transparent,
+                appBar: const Uppernavbar(showBackButton: true),
+                drawer: const Sidenav(),
+                body: SafeArea(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: PremiumFeatureGate(
+                        featureName: 'Attendance Tracking',
+                        blockedEndpoint: '/api/attendance/list',
+                      ),
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
+          );
+        }
+
+        return Scaffold(
+          backgroundColor: const Color(0xFF1C2230),
+          appBar: const Uppernavbar(
+            showBackButton: true,
           ),
-        ],
-      ),
+          drawer: const Sidenav(),
+          body: Stack(
+            children: [
+              const Positioned.fill(child: Background()),
+              SafeArea(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: screenWidth * 0.05),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 15),
+
+                            // Search Bar
+                            Search(onQueryChanged: _onQueryChanged),
+
+                            const SizedBox(height: 20),
+                            const Text(
+                              "Attendance Reports",
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+
+                            // List of Reports
+                            Expanded(child: _attendanceList()),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

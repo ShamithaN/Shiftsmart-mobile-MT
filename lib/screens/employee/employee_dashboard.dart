@@ -11,7 +11,7 @@ import 'package:shiftsmart/services/shift_service.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/responsive.dart';
-
+import 'package:shiftsmart/widgets/search.dart';
 
 class Employeedashboard extends StatefulWidget {
   const Employeedashboard({super.key});
@@ -40,15 +40,11 @@ class _EmployeedashboardState extends State<Employeedashboard> {
   Map<int, List<Map<String, dynamic>>> jobShifts =
       {}; // Store all shifts grouped by job ID
 
-
-
-
   @override
   void initState() {
     super.initState();
     enableFullScreen();
     _loadEmployeeId().then((_) {
-
       if (employeeId != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _refreshKey.currentState?.show(); // optional spinner
@@ -81,8 +77,6 @@ class _EmployeedashboardState extends State<Employeedashboard> {
       );
     }
   }
-
-
 
   Future<void> fetchJobs() async {
     final jobService = JobService();
@@ -218,7 +212,6 @@ class _EmployeedashboardState extends State<Employeedashboard> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
     return Stack(
       children: [
         const Positioned.fill(child: Background()),
@@ -249,7 +242,8 @@ class _EmployeedashboardState extends State<Employeedashboard> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-
+                              Search(onQueryChanged: onQueryChanged),
+                              const SizedBox(height: 10),
                               upcomingJobCard(),
                               const SizedBox(height: 20),
                               jobListCard(),

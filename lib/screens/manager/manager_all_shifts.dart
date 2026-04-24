@@ -9,6 +9,9 @@ import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/search.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
+import 'package:provider/provider.dart';
+import 'package:shiftsmart/providers/tenant_provider.dart';
+import 'package:shiftsmart/widgets/premium_feature_gate.dart';
 
 class Managerallshifts extends StatefulWidget {
   const Managerallshifts({super.key});
@@ -86,54 +89,82 @@ class _ManagerallshiftsState extends State<Managerallshifts> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
 
-    return Scaffold(
-      drawer: const Sidenav(),
-      backgroundColor: const Color(0xFF1C2230),
-      appBar: const Uppernavbar(
-        showBackButton: true,
-      ),
-      body: Stack(
-        children: [
-          const Positioned.fill(child: Background()),
-          SafeArea(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
-              child: Column(
-                children: [
-                  const SizedBox(height: 10),
-                  Search(onQueryChanged: onQueryChanged),
-
-                  // "Create Shift" Button Area
-                  _createShift(),
-
-                  const SizedBox(height: 16),
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      "SHIFT LIST",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+    return Consumer<TenantProvider>(
+      builder: (context, tp, _) {
+        if (!tp.isFeatureEnabled('shift_scheduling')) {
+          return Stack(
+            children: [
+              const Positioned.fill(child: Background()),
+              Scaffold(
+                backgroundColor: Colors.transparent,
+                appBar: const Uppernavbar(showBackButton: true),
+                drawer: const Sidenav(),
+                body: SafeArea(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: PremiumFeatureGate(
+                        featureName: 'Shift Scheduling',
+                        blockedEndpoint: '/api/shift/list',
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-
-                  // Shift List
-                  Expanded(
-                    child: _isLoading
-                        ? const Center(
-                            child: CircularProgressIndicator(
-                                color: Color(0xFF724584)))
-                        : _shiftList(),
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
+          );
+        }
+
+        return Scaffold(
+          drawer: const Sidenav(),
+          backgroundColor: const Color(0xFF1C2230),
+          appBar: const Uppernavbar(
+            showBackButton: true,
           ),
-        ],
-      ),
+          body: Stack(
+            children: [
+              const Positioned.fill(child: Background()),
+              SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 10),
+                      Search(onQueryChanged: onQueryChanged),
+
+                      // "Create Shift" Button Area
+                      _createShift(),
+
+                      const SizedBox(height: 16),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          "SHIFT LIST",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Shift List
+                      Expanded(
+                        child: _isLoading
+                            ? const Center(
+                                child: CircularProgressIndicator(
+                                    color: Color(0xFF724584)))
+                            : _shiftList(),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

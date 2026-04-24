@@ -712,10 +712,11 @@ class _LoginState extends State<Login> {
 
         // Update global user provider
         if (mounted) {
-          Provider.of<UserProvider>(
-            context,
-            listen: false,
-          ).setUserProfile(userProfile);
+          final up = Provider.of<UserProvider>(context, listen: false);
+          up.setUserProfile(userProfile);
+          if (loginResponse['tenants'] != null) {
+            up.setTenants(loginResponse['tenants']);
+          }
         }
 
         // Initialize push notifications

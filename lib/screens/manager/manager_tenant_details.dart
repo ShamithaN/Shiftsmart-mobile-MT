@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shiftsmart/screens/manager/super_admin_manage_features.dart';
 import 'package:shiftsmart/services/super_admin_service.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
@@ -119,6 +120,29 @@ class _ManagerTenantDetailsState extends State<ManagerTenantDetails>
       drawer: const Sidenav(),
       backgroundColor: const Color(0xFF1C2230),
       appBar: const Uppernavbar(showBackButton: true),
+      floatingActionButton: _details == null
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => SuperAdminManageFeatures(
+                      tenant: _details ?? widget.tenant,
+                    ),
+                  ),
+                );
+              },
+              backgroundColor: const Color(0xFF2DA6FF),
+              icon: const Icon(Icons.tune_rounded, color: Colors.white),
+              label: const Text(
+                'Manage Features',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
       body: Stack(
         children: [
           const Positioned.fill(child: Background()),
@@ -211,6 +235,11 @@ class _ManagerTenantDetailsState extends State<ManagerTenantDetails>
                           _buildSectionTitle('Status & Subscription'),
                           const SizedBox(height: 10),
                           _buildStatusCard(),
+
+                          const SizedBox(height: 20),
+
+                          // ── Manage Features shortcut card ─────────────
+                          _buildManageFeaturesCard(),
 
                           const SizedBox(height: 20),
 
@@ -584,6 +613,79 @@ class _ManagerTenantDetailsState extends State<ManagerTenantDetails>
           ],
         ),
       ],
+    );
+  }
+
+  // ── Manage Features shortcut card ──────────────────────────────────────
+  Widget _buildManageFeaturesCard() {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SuperAdminManageFeatures(
+              tenant: _details ?? widget.tenant,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color.fromARGB(180, 30, 42, 65),
+              Color.fromARGB(160, 20, 30, 50),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFF2DA6FF).withOpacity(0.35)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2DA6FF).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.workspace_premium_rounded,
+                color: Color(0xFF2DA6FF),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Premium Features',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 3),
+                  Text(
+                    'Enable or disable modules for this tenant.',
+                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: Color(0xFF2DA6FF),
+              size: 22,
+            ),
+          ],
+        ),
+      ),
     );
   }
 

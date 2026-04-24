@@ -292,6 +292,8 @@
 // }
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:shiftsmart/providers/tenant_provider.dart';
 import 'package:shiftsmart/models/project.dart';
 import 'package:shiftsmart/models/site.dart';
 import 'package:shiftsmart/screens/manager/manager_create_site.dart';
@@ -320,6 +322,7 @@ class _ManagersiteState extends State<Managersite> {
   List<Site> allSites = [];
   List<Site> filteredSites = [];
   bool _isLoading = true;
+  String _lastTenant = '';
 
   void onQueryChanged(String query) {
     setState(() {
@@ -391,72 +394,85 @@ class _ManagersiteState extends State<Managersite> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      drawer: const Sidenav(),
-      backgroundColor: const Color(0xFF1C2230),
-      appBar: const Uppernavbar(
-        showBackButton: true,
-      ),
-      body: Stack(
-        children: [
-          const Positioned.fill(child: Background()),
-          _isLoading
-              ? const Center(
-                  child: CircularProgressIndicator(color: Color(0xFF724584)),
-                )
-              : Column(
-                  children: [
-                    Expanded(
-                      child: RefreshIndicator(
-                        key: _refreshKey,
-                        onRefresh: _refreshData,
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Search(onQueryChanged: onQueryChanged),
-                              _createSite(),
-                              const SizedBox(height: 20),
-                              Container(
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      Color.fromARGB(180, 42, 50, 67),
-                                      Color.fromARGB(180, 34, 40, 52),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      "SITE LIST",
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    _taskList(),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                            ],
-                          ),
-                        ),
-                      ),
+    return Consumer<TenantProvider>(
+      builder: (context, tp, _) {
+        if (tp.selectedOrganization != _lastTenant) {
+          _lastTenant = tp.selectedOrganization;
+          if (_lastTenant.isNotEmpty && mounted && !_isLoading) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _refreshData());
+          }
+        }
+        return Scaffold(
+          drawer: const Sidenav(),
+          backgroundColor: const Color(0xFF1C2230),
+          appBar: const Uppernavbar(
+            showBackButton: true,
+          ),
+          body: Stack(
+            children: [
+              const Positioned.fill(child: Background()),
+              _isLoading
+                  ? const Center(
+                      child:
+                          CircularProgressIndicator(color: Color(0xFF724584)),
                     )
-                  ],
-                )
-        ],
-      ),
+                  : Column(
+                      children: [
+                        Expanded(
+                          child: RefreshIndicator(
+                            key: _refreshKey,
+                            onRefresh: _refreshData,
+                            child: SingleChildScrollView(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Search(onQueryChanged: onQueryChanged),
+                                  _createSite(),
+                                  const SizedBox(height: 20),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Color.fromARGB(180, 42, 50, 67),
+                                          Color.fromARGB(180, 34, 40, 52),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          "SITE LIST",
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        _taskList(),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )
+                      ],
+                    )
+            ],
+          ),
+        );
+      },
     );
   }
 

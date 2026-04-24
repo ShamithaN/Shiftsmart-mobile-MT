@@ -10,6 +10,7 @@ import 'package:shiftsmart/services/project_service.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/gradienthorizontal.dart';
+import 'package:shiftsmart/widgets/premium_feature_gate.dart';
 import 'package:shiftsmart/widgets/search.dart';
 import 'package:shiftsmart/models/project.dart' as model;
 
@@ -70,15 +71,7 @@ class _ManagerjobsState extends State<Managerjobs>
       setState(() {
         allJobs = jobs;
         _lastTenant = selectedOrg;
-        
-        final tenantFiltered = selectedOrg.isNotEmpty
-            ? jobs.where((j) {
-                final proj = projectMap[j.projectId];
-                return proj != null && proj.companyName.toLowerCase() == selectedOrg.toLowerCase();
-              }).toList()
-            : jobs;
-            
-        filteredJobs = tenantFiltered;
+        filteredJobs = jobs;
       });
     } catch (e) {
       debugPrint(" managerJobs Error: $e");
@@ -108,12 +101,7 @@ class _ManagerjobsState extends State<Managerjobs>
 
   void onQueryChanged(String query) {
     final selectedOrg = context.read<TenantProvider>().selectedOrganization;
-    final List<Job> tenantBase = selectedOrg.isNotEmpty
-          ? allJobs.where((j) {
-              final proj = projectMap[j.projectId];
-              return proj != null && proj.companyName.toLowerCase() == selectedOrg.toLowerCase();
-            }).toList()
-          : List<Job>.from(allJobs);
+    final List<Job> tenantBase = allJobs;
 
     setState(() {
       filteredJobs = query.isEmpty 
@@ -131,53 +119,81 @@ class _ManagerjobsState extends State<Managerjobs>
 
     return Consumer<TenantProvider>(
       builder: (context, tp, _) {
-        if (tp.selectedOrganization != _lastTenant && projectMap.isNotEmpty) {
-          WidgetsBinding.instance.addPostFrameCallback((_) => _applyTenantFilter(tp.selectedOrganization));
+        if (tp.selectedOrganization != _lastTenant) {
+          _lastTenant = tp.selectedOrganization;
+          if (_lastTenant.isNotEmpty && mounted && !_isLoading) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
+          }
         }
 
-        return Stack(
-          children: [
-        const Positioned.fill(child: Background()),
-        Scaffold(
-          backgroundColor: Colors.transparent,
-          body: SafeArea(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
-              child: ListView(
-                padding: const EdgeInsets.only(bottom: 24),
-                children: [
-                  const SizedBox(height: 10),
-                  _createJob(),
-                  _createShift(),
-                  const SizedBox(height: 16),
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      "JOB LIST",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+        // ── Premium Feature Gate ──────────────────────────────────────────
+        if (!tp.isFeatureEnabled('job_management')) {
+          return Stack(
+            children: [
+              const Positioned.fill(child: Background()),
+              Scaffold(
+                backgroundColor: Colors.transparent,
+                body: SafeArea(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: PremiumFeatureGate(
+                        featureName: 'Job Management',
+                        blockedEndpoint: '/api/job/list',
+                        customMessage:
+                            'Contact your administrator to enable this module for your tenant.',
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: MediaQuery.of(context).size.height *
-                        0.58, // or adjust as needed
-                    child: _isLoading
-                        ? const Center(
-                            child: CircularProgressIndicator(
-                                color: Color(0xFF724584)))
-                        : _jobList(),
+                ),
+              ),
+            ],
+          );
+        }
+
+        // ── Normal job screen ─────────────────────────────────────────────
+        return Stack(
+          children: [
+            const Positioned.fill(child: Background()),
+            Scaffold(
+              backgroundColor: Colors.transparent,
+              body: SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
+                  child: ListView(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    children: [
+                      const SizedBox(height: 10),
+                      _createJob(),
+                      _createShift(),
+                      const SizedBox(height: 16),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          "JOB LIST",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.58,
+                        child: _isLoading
+                            ? const Center(
+                                child: CircularProgressIndicator(
+                                    color: Color(0xFF724584)))
+                            : _jobList(),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
-      ],
-    );
+          ],
+        );
       },
     );
   }

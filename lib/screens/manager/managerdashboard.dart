@@ -18,10 +18,14 @@ import 'package:shiftsmart/models/project.dart';
 import 'package:shiftsmart/services/attendance_service.dart';
 import 'package:shiftsmart/screens/manager/manager_pending_requests.dart';
 import 'package:provider/provider.dart';
+import 'package:shiftsmart/providers/tenant_provider.dart';
 import 'package:shiftsmart/providers/user_provider.dart';
 import 'package:shiftsmart/services/super_admin_service.dart';
 import 'package:shiftsmart/services/auth_service.dart';
+import 'package:shiftsmart/screens/manager/manager_tenant_details.dart';
 import 'dart:ui';
+import 'package:shiftsmart/widgets/organization_selector.dart';
+
 
 class Managerdashboard extends StatefulWidget {
   const Managerdashboard({super.key});
@@ -45,9 +49,7 @@ class _ManagerdashboardState extends State<Managerdashboard> {
   List<Shift> _todayShifts = [];
   int _pendingCount = 0;
 
-  String _selectedOrganization = 'codebase Ltd';
-  List<Map<String, dynamic>> _tenants = [];
-  final List<String> _organizations = ['Vel Ltd', 'codebase Ltd', 'SK Ltd', 'CodegenX Ltd'];
+  // Local tenant state removed in favor of global TenantProvider
 
   final SuperAdminService _superAdminService = SuperAdminService();
 
@@ -62,6 +64,8 @@ class _ManagerdashboardState extends State<Managerdashboard> {
     super.initState();
     enableFullScreen();
 
+    // After the first frame, show the pull-to-refresh indicator
+    // and perform the initial tenant/data setup for the dashboard.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshKey.currentState?.show();
       _initializeDashboard();
@@ -70,30 +74,55 @@ class _ManagerdashboardState extends State<Managerdashboard> {
 
   Future<void> _initializeDashboard() async {
     setState(() => _isLoading = true);
-    
-    // 1. Fetch current tenant info from token/profile
+
     try {
-      final userInfo = await _authService.getCurrentUserInfo();
-      if (userInfo != null) {
-        final currentTenant = userInfo['tenantName'] ?? userInfo['TenantName'];
-        if (currentTenant != null) {
-          setState(() {
-            _selectedOrganization = currentTenant.toString();
-          });
+      final tp = context.read<TenantProvider>();
+      
+      // 1. Load tenant list if not already loaded.
+      //    TenantProvider stores available organizations globally.
+      if (tp.tenants.isEmpty) {
+        await tp.loadTenants();
+      }
+
+      // 1.5 If the tenant list is still empty, use cached user tenant data.
+      if (tp.tenants.isEmpty) {
+        final up = context.read<UserProvider>();
+        if (up.tenants.isNotEmpty) {
+          tp.setTenants(up.tenants.map((t) => t as Map<String, dynamic>).toList());
+          debugPrint("Initialized TenantProvider from UserProvider tenants");
         }
       }
-    } catch (e) {
-      debugPrint("Error fetching current user info: $e");
-    }
 
-    // 2. Fetch all available tenants for the dropdown
-    await _fetchTenants();
-    
-    // 3. Refresh all dashboard data
-    await _refreshData();
-    
-    if (!mounted) return;
-    setState(() => _isLoading = false);
+      // 2. If the user does not yet have a selected tenant, try to infer it from the current user info.
+      if (!tp.hasTenant) {
+        try {
+          final userInfo = await _authService.getCurrentUserInfo();
+          if (userInfo != null) {
+            final currentTenantName = userInfo['tenantName'] ?? userInfo['TenantName'];
+            if (currentTenantName != null) {
+              final tenantMap = userInfo['tenant'] ?? userInfo['Tenant'] ?? tp.findTenantByName(currentTenantName.toString());
+              tp.initFromCurrentTenant(currentTenantName.toString(), tenantMap);
+            }
+          }
+        } catch (e) {
+          debugPrint("Error fetching current user info: $e");
+        }
+      }
+
+      // 3. Fallback: if no tenant is selected yet, choose the first available tenant automatically.
+      if (!tp.hasTenant && tp.tenants.isNotEmpty) {
+        final first = tp.tenants.first;
+        final name = (first['name'] ?? first['Name'] ?? 'Unnamed').toString();
+        tp.initFromCurrentTenant(name, first);
+      }
+
+      // 4. Load dashboard data using the current tenant context.
+      await _refreshData();
+    } catch (e) {
+      debugPrint("Error initializing dashboard: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _refreshData() async {
@@ -134,11 +163,11 @@ class _ManagerdashboardState extends State<Managerdashboard> {
   Future<void> fetchProjects() async {
     final projects = await _projectService.fetchAllProjects();
     if (!mounted) return;
+    final currentOrg = context.read<TenantProvider>().selectedOrganization;
     setState(() {
-      // Filter projects by selected organization name to show ONLY relevant details
-      allProjects = projects.where((p) => 
-        p.companyName.toLowerCase() == _selectedOrganization.toLowerCase()
-      ).toList();
+      // The backend is tenant-isolated via the JWT token.
+      // We rely on the API to return only projects for the active tenant.
+      allProjects = projects;
       
       total = allProjects.length;
       completed = getCompletedProjectsCount();
@@ -188,25 +217,7 @@ class _ManagerdashboardState extends State<Managerdashboard> {
 
   Future<void> _fetchTenants() async {
     try {
-      final tenants = await _superAdminService.getAllTenants();
-      if (tenants.isNotEmpty) {
-        setState(() {
-          _tenants = tenants.map((t) => t as Map<String, dynamic>).toList();
-          
-          // Synchronize _selectedOrganization with the fetched list
-          final tenantNames = _tenants.map((t) => (t['name'] ?? t['Name'] ?? '').toString().toLowerCase()).toList();
-          if (!tenantNames.contains(_selectedOrganization.toLowerCase())) {
-            // Fallback to the first tenant if current selection is not in the list
-            _selectedOrganization = (_tenants[0]['name'] ?? _tenants[0]['Name'] ?? 'Unnamed').toString();
-          } else {
-            // Ensure exact casing from the list
-            final foundOrg = _tenants.firstWhere(
-              (t) => (t['name'] ?? t['Name'] ?? '').toString().toLowerCase() == _selectedOrganization.toLowerCase()
-            );
-            _selectedOrganization = (foundOrg['name'] ?? foundOrg['Name']).toString();
-          }
-        });
-      }
+      await context.read<TenantProvider>().loadTenants();
     } catch (e) {
       debugPrint("Error fetching tenants: $e");
     }
@@ -214,31 +225,24 @@ class _ManagerdashboardState extends State<Managerdashboard> {
 
   Future<void> _handleTenantSwitch(String? orgName) async {
     if (orgName == null) return;
-
-    final tenant = _tenants.firstWhere(
+    
+    final tp = context.read<TenantProvider>();
+    final tenant = tp.tenants.firstWhere(
       (t) => (t['name'] ?? t['Name'] ?? '').toString().toLowerCase() == orgName.toLowerCase(),
       orElse: () => {},
     );
 
-    // Expand ID lookup for reliability
-    final tenantId = tenant['tenantId'] ?? tenant['TenantId'] ?? tenant['id'] ?? tenant['ID'];
-
-    // Update UI name immediately so the dropdown shows the change
-    setState(() {
-      _selectedOrganization = orgName;
-    });
-
-    if (tenantId == null) {
-      debugPrint("Warning: No tenantId found for $orgName. Proceeding with client-side filter only.");
-      await _refreshData(); // Still refresh data to trigger client-side filtering
-      return;
-    }
+    if (tenant.isEmpty) return;
 
     setState(() => _isLoading = true);
+    
     try {
-      final result = await _superAdminService.switchTenant(tenantId);
+      // Use TenantProvider to switch tenant so feature flags are updated globally
+      final success = await context.read<TenantProvider>().switchTenant(tenant);
       
-      if (result != null) {
+      if (success) {
+        // The provider already updates the selected tenant state.
+        // Refresh dashboard content so it matches the new tenant context.
         await _refreshData();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -246,11 +250,11 @@ class _ManagerdashboardState extends State<Managerdashboard> {
           );
         }
       } else {
-        // Even if API switch fails, we already updated name so client-side filter works
+        // Even if the backend switch fails, refresh local data to keep UI stable.
         await _refreshData();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Switched to $orgName (Offline Mode)'), backgroundColor: Colors.orange),
+            SnackBar(content: Text('Failed to switch tenant context completely.'), backgroundColor: Colors.orange),
           );
         }
       }
@@ -317,81 +321,19 @@ class _ManagerdashboardState extends State<Managerdashboard> {
                     return Column(
                       children: [
                         // Organization Selection Bar
+                        // This is the tenant picker displayed at the top of the dashboard.
+                        // When the user chooses a new organization, the dashboard refreshes
+                        // using the selected tenant context from TenantProvider.
                         Padding(
-                          padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05, vertical: 8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF262A34),
-                              borderRadius: BorderRadius.circular(25),
-                              border: Border.all(color: Colors.white24, width: 1),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: _selectedOrganization,
-                                icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 24),
-                                dropdownColor: const Color(0xFF1C2230),
-                                isExpanded: true,
-                                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-                                items: [
-                                  const DropdownMenuItem<String>(
-                                    value: 'HEADER',
-                                    enabled: false,
-                                    child: Text(
-                                      'ACTIVE ORGANIZATION',
-                                      style: TextStyle(
-                                        color: Colors.white54,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1.0,
-                                      ),
-                                    ),
-                                  ),
-                                  ...(_tenants.isNotEmpty 
-                                      ? _tenants.map((t) => (t['name'] ?? t['Name'] ?? 'Unnamed').toString()).toList()
-                                      : _organizations).map((String org) {
-                                        return DropdownMenuItem<String>(
-                                          value: org,
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                Icons.business, 
-                                                color: _selectedOrganization == org ? Colors.blueAccent : Colors.white70, 
-                                                size: 20
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: Text(
-                                                  org,
-                                                  style: TextStyle(
-                                                    color: _selectedOrganization == org ? Colors.blueAccent : Colors.white,
-                                                    fontSize: 15,
-                                                  ),
-                                                ),
-                                              ),
-                                              if (_selectedOrganization == org)
-                                                const Icon(Icons.check, color: Colors.blueAccent, size: 20),
-                                            ],
-                                          ),
-                                        );
-                                      }),
-                                ],
-                                onChanged: (String? newValue) {
-                                  if (newValue != null && newValue != 'HEADER') {
-                                    _handleTenantSwitch(newValue);
-                                  }
-                                },
-                              ),
-                            ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 0, vertical: 8),
+                          child: OrganizationSelector(
+                            onTenantSwitched: () {
+                              _refreshData();
+                            },
                           ),
                         ),
+
                         Expanded(
                           child: RefreshIndicator(
                         key: _refreshKey,
@@ -399,9 +341,9 @@ class _ManagerdashboardState extends State<Managerdashboard> {
                         child: SingleChildScrollView(
                           physics: const BouncingScrollPhysics(),
                           child: Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: screenWidth * 0.04,
-                              vertical: screenHeight * 0.02,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                              vertical: 16.0,
                             ),
                             child: Column(
                               children: [

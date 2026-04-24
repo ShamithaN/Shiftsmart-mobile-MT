@@ -5,6 +5,9 @@ import 'package:shiftsmart/services/notification_service.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/gradient_button.dart';
+import 'package:shiftsmart/widgets/uppernavbar.dart';
+import 'package:shiftsmart/widgets/sidenav.dart';
+import 'package:shiftsmart/widgets/premium_feature_gate.dart';
 
 import 'package:shiftsmart/models/leave_request.dart';
 import 'package:shiftsmart/models/employee.dart';
@@ -175,6 +178,30 @@ Future<void> _updateLeaveStatus(String id, String newStatus) async {
           }
         }
         
+        if (!tp.isFeatureEnabled('leave_management')) {
+          return Stack(
+            children: [
+              const Positioned.fill(child: Background()),
+              Scaffold(
+                backgroundColor: Colors.transparent,
+                appBar: const Uppernavbar(showBackButton: true),
+                drawer: const Sidenav(),
+                body: SafeArea(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: PremiumFeatureGate(
+                        featureName: 'Leave Management',
+                        blockedEndpoint: '/api/leave/list',
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
         return Stack(
           children: [
         const Positioned.fill(child: Background()),

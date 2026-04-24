@@ -52,14 +52,7 @@ class _Managerprojectstate extends State<Managerprojects> {
     setState(() {
       allProjects = projects;
       _lastTenant = selectedOrg;
-      // Filter by selected tenant if one is set
-      final tenantFiltered = selectedOrg.isNotEmpty
-          ? projects
-              .where((p) =>
-                  p.companyName.toLowerCase() == selectedOrg.toLowerCase())
-              .toList()
-          : projects;
-      filteredProjects = tenantFiltered;
+      filteredProjects = projects;
       _isLoading = false;
     });
   }
@@ -68,12 +61,7 @@ class _Managerprojectstate extends State<Managerprojects> {
   void _applyTenantFilter(String selectedOrg) {
     setState(() {
       _lastTenant = selectedOrg;
-      filteredProjects = selectedOrg.isNotEmpty
-          ? allProjects
-              .where((p) =>
-                  p.companyName.toLowerCase() == selectedOrg.toLowerCase())
-              .toList()
-          : List<Project>.from(allProjects);
+      filteredProjects = List<Project>.from(allProjects);
     });
   }
 
@@ -100,10 +88,12 @@ class _Managerprojectstate extends State<Managerprojects> {
   Widget build(BuildContext context) {
     return Consumer<TenantProvider>(
       builder: (context, tp, _) {
-        // Re-apply tenant filter whenever the active organisation changes
-        if (tp.selectedOrganization != _lastTenant && allProjects.isNotEmpty) {
-          WidgetsBinding.instance.addPostFrameCallback(
-              (_) => _applyTenantFilter(tp.selectedOrganization));
+        // Re-fetch data whenever the active organisation changes
+        if (tp.selectedOrganization != _lastTenant) {
+          _lastTenant = tp.selectedOrganization;
+          if (_lastTenant.isNotEmpty && mounted && !_isLoading) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _refreshData());
+          }
         }
         return Scaffold(
           body: Stack(

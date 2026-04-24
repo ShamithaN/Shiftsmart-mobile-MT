@@ -42,7 +42,7 @@ class SuperAdminService {
   }
 
   /// Switch to a target tenant
-  Future<Map<String, dynamic>?> switchTenant(int targetTenantId) async {
+  Future<Map<String, dynamic>?> switchTenant(dynamic targetTenantId) async {
     final url = '$baseUrl/tenant/switch/$targetTenantId?code=$switchTenantKey';
     try {
       final response = await _apiClient.post(url, useAuth: true);
@@ -94,7 +94,7 @@ class SuperAdminService {
   }
 
   /// Get specific tenant details
-  Future<Map<String, dynamic>?> getTenantDetails(int tenantId) async {
+  Future<Map<String, dynamic>?> getTenantDetails(dynamic tenantId) async {
     final url = '$baseUrl/superadmin/tenants/$tenantId?code=$getTenantDetailsKey';
     try {
       final response = await _apiClient.get(url, useAuth: true);
@@ -127,7 +127,12 @@ class SuperAdminService {
     try {
       final response = await _apiClient.get(url, useAuth: true);
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final decoded = jsonDecode(response.body);
+        if (decoded is List) return decoded;
+        if (decoded is Map && (decoded['announcements'] != null || decoded['Announcements'] != null)) {
+          return decoded['announcements'] ?? decoded['Announcements'];
+        }
+        return [];
       }
       return [];
     } catch (e) {
@@ -141,7 +146,13 @@ class SuperAdminService {
     try {
       final response = await _apiClient.get(url, useAuth: true);
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final decoded = jsonDecode(response.body);
+        if (decoded is List) {
+          return decoded;
+        } else if (decoded is Map && (decoded['tenants'] != null || decoded['Tenants'] != null)) {
+          return decoded['tenants'] ?? decoded['Tenants'];
+        }
+        return [];
       }
       return [];
     } catch (e) {
@@ -150,7 +161,7 @@ class SuperAdminService {
   }
 
   /// Soft delete a tenant
-  Future<bool> softDeleteTenant(int tenantId) async {
+  Future<bool> softDeleteTenant(dynamic tenantId) async {
     final url = '$baseUrl/superadmin/tenants/$tenantId/soft-delete?code=$softDeleteTenantKey';
     try {
       final response = await _apiClient.delete(url, useAuth: true);
@@ -161,7 +172,7 @@ class SuperAdminService {
   }
 
   /// Restore a deleted tenant
-  Future<bool> restoreTenant(int tenantId) async {
+  Future<bool> restoreTenant(dynamic tenantId) async {
     final url = '$baseUrl/superadmin/tenants/$tenantId/restore?code=$restoreTenantKey';
     try {
       final response = await _apiClient.post(url, useAuth: true);
@@ -177,7 +188,12 @@ class SuperAdminService {
     try {
       final response = await _apiClient.get(url, useAuth: true);
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        final decoded = jsonDecode(response.body);
+        if (decoded is List) return decoded;
+        if (decoded is Map && (decoded['tenants'] != null || decoded['Tenants'] != null)) {
+          return decoded['tenants'] ?? decoded['Tenants'];
+        }
+        return [];
       }
       return [];
     } catch (e) {
