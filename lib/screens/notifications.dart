@@ -6,6 +6,10 @@ import 'package:shiftsmart/models/notification.dart';
 import 'package:shiftsmart/services/notification_service.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
+import 'package:intl/intl.dart'; // Add this for formatting dates
+import 'package:shiftsmart/services/super_admin_service.dart'; // Add this to call your active announcements API
+import 'package:provider/provider.dart';
+import 'package:shiftsmart/providers/tenant_provider.dart';
 
 class Notifications extends StatefulWidget {
   const Notifications({super.key});
@@ -17,10 +21,14 @@ class Notifications extends StatefulWidget {
 class _NotificationsState extends State<Notifications> {
   List<NotificationItem> allNotifications = [];
   List<int> unreadNotificationIds = [];
+  List<dynamic> activeAnnouncements =
+      []; // NEW: Array for real DB announcements
   bool isLoading = true;
-  int _selectedTabIndex = 2; // 0 for Unread, 1 for Read, 2 for Announcements
+  int _selectedTabIndex = 0; // Defaulting to 0 (Unread) is usually better UX
 
   final NotificationService _notificationService = NotificationService();
+  final SuperAdminService _superAdminService =
+      SuperAdminService(); // NEW: The announcement service
 
   @override
   void initState() {
@@ -38,27 +46,61 @@ class _NotificationsState extends State<Notifications> {
         throw Exception("Employee ID not found in SharedPreferences");
       }
 
-      // Fetch read and unread notifications separately
-      final readNotifications =
-          await _notificationService.fetchNotificationsread(employeeId);
-      final unreadNotifications =
-          await _notificationService.fetchNotificationsUnread(employeeId);
+      // --- Grab the actively selected organization's tenant Id ---
+      final tp = context.read<TenantProvider>();
+      final selectedTenant = tp.selectedTenant;
+
+      int? currentTenantId;
+      if (selectedTenant != null) {
+        final idRaw = selectedTenant['tenantId'] ??
+            selectedTenant['TenantId'] ??
+            selectedTenant['id'] ??
+            selectedTenant['ID'];
+        if (idRaw != null) {
+          currentTenantId = int.tryParse(idRaw.toString());
+        }
+      }
+
+      final List<NotificationItem> fetchedRead = [];
+      final List<NotificationItem> fetchedUnread = [];
+      List<dynamic> fetchedAnnouncements = [];
+
+      // 1. Fetch Notifications independently (safely caught)
+      try {
+        // REMOVED tenantId: currentTenantId from these two calls
+        final read =
+            await _notificationService.fetchNotificationsread(employeeId);
+        fetchedRead.addAll(read);
+
+        final unread =
+            await _notificationService.fetchNotificationsUnread(employeeId);
+        fetchedUnread.addAll(unread);
+      } catch (e) {
+        debugPrint("Error fetching normal notifications: $e");
+      }
+
+      // 2. Fetch Announcements independently (safely caught)
+      try {
+        fetchedAnnouncements = await _superAdminService.getActiveAnnouncements(
+            tenantId: currentTenantId);
+      } catch (e) {
+        debugPrint("Error fetching announcements: $e");
+      }
 
       // Store unread IDs for marking later
-      unreadNotificationIds = unreadNotifications.map((n) => n.id).toList();
+      unreadNotificationIds = fetchedUnread.map((n) => n.id).toList();
 
-      final result = [...readNotifications, ...unreadNotifications];
-
-      debugPrint(' Notifications fetched: ${result.length}');
-
-      setState(() {
-        allNotifications = result;
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          allNotifications = [...fetchedRead, ...fetchedUnread];
+          activeAnnouncements = fetchedAnnouncements;
+          isLoading = false;
+        });
+      }
     } catch (e, stack) {
-      debugPrint(" Error loading notifications: $e");
+      debugPrint(" Error loading setup: $e");
       debugPrint(stack.toString());
-      setState(() => isLoading = false);
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
@@ -186,27 +228,15 @@ class _NotificationsState extends State<Notifications> {
     return widgets;
   }
 
-  // Mock Announcements
-  final List<Map<String, String>> mockAnnouncements = [
-    {
-      "title": "Reminders",
-      "body": "Don't forget to complete your profile.",
-      "date": "01/04/2026, 03:19:46"
-    },
-    {
-      "title": "Billing alert",
-      "body": "please aware of the billing date",
-      "date": "01/04/2026, 03:05:27"
-    }
-  ];
-
   Widget _buildTabButton(String title, int index, {IconData? icon}) {
     final isActive = _selectedTabIndex == index;
     final content = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (icon != null) ...[
-          Icon(icon, color: isActive ? const Color(0xFFFFD700) : Colors.white, size: 16),
+          Icon(icon,
+              color: isActive ? const Color(0xFFFFD700) : Colors.white,
+              size: 16),
           const SizedBox(width: 6),
         ],
         Text(
@@ -245,11 +275,37 @@ class _NotificationsState extends State<Notifications> {
   }
 
   Widget _buildAnnouncementsList() {
+    if (isLoading) {
+      return const Center(
+          child: CircularProgressIndicator(color: Colors.blueAccent));
+    }
+
+    if (activeAnnouncements.isEmpty) {
+      return const Center(
+          child: Text("No active announcements.",
+              style: TextStyle(color: Colors.white70)));
+    }
+
     return ListView.builder(
       padding: EdgeInsets.zero,
-      itemCount: mockAnnouncements.length,
+      itemCount: activeAnnouncements.length,
       itemBuilder: (context, index) {
-        final ann = mockAnnouncements[index];
+        final ann = activeAnnouncements[index];
+
+        // Safely extract properties accommodating backend case-naming variations
+        final title = ann['title'] ?? ann['Title'] ?? 'Announcement';
+        final body = ann['body'] ??
+            ann['Body'] ??
+            ann['message'] ??
+            ann['Message'] ??
+            '';
+
+        // Format the date securely
+        final rawDate = ann['createdAt'] ?? ann['CreatedAt'] ?? '';
+        final dateInfo =
+            DateTime.tryParse(rawDate.toString()) ?? DateTime.now();
+        final displayDate = DateFormat('MM/dd/yyyy, HH:mm:ss').format(dateInfo);
+
         return Container(
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
@@ -277,14 +333,15 @@ class _NotificationsState extends State<Notifications> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.campaign, color: Color(0xFFFFD700), size: 20),
+                      const Icon(Icons.campaign,
+                          color: Color(0xFFFFD700), size: 20),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              ann['title']!,
+                              title,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -293,7 +350,7 @@ class _NotificationsState extends State<Notifications> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              ann['body']!,
+                              body,
                               style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 13,
@@ -301,7 +358,7 @@ class _NotificationsState extends State<Notifications> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              ann['date']!,
+                              displayDate,
                               style: const TextStyle(
                                 color: Colors.white38,
                                 fontSize: 11,
@@ -323,7 +380,16 @@ class _NotificationsState extends State<Notifications> {
 
   @override
   Widget build(BuildContext context) {
-    final grouped = groupNotifications(allNotifications);
+    // NEW: Filter notifications before sending them to the group builder
+    final filteredNotifications = allNotifications.where((notif) {
+      final isUnread = unreadNotificationIds.contains(notif.id);
+      if (_selectedTabIndex == 0)
+        return isUnread; // If 'Unread' tab, only show unread
+      if (_selectedTabIndex == 1)
+        return !isUnread; // If 'Read' tab, only show already read
+      return false; // Tab 2 is announcements
+    }).toList();
+    final grouped = groupNotifications(filteredNotifications);
 
     return Stack(
       children: [
@@ -332,14 +398,16 @@ class _NotificationsState extends State<Notifications> {
           backgroundColor: Colors.transparent,
           body: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 20.0),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20.0, vertical: 20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Title row
                   Row(
                     children: [
-                      const Icon(Icons.notifications, color: Colors.blueAccent, size: 28),
+                      const Icon(Icons.notifications,
+                          color: Colors.blueAccent, size: 28),
                       const SizedBox(width: 10),
                       const Text(
                         "Notifications",
@@ -352,17 +420,19 @@ class _NotificationsState extends State<Notifications> {
                       const SizedBox(width: 10),
                       GestureDetector(
                         onTap: loadNotifications,
-                        child: const Icon(Icons.refresh, color: Colors.white54, size: 20),
+                        child: const Icon(Icons.refresh,
+                            color: Colors.white54, size: 20),
                       ),
                     ],
                   ),
                   const SizedBox(height: 20),
-                  
+
                   // Main container box
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2D3243).withOpacity(0.9), // Dark grayish blue
+                        color: const Color(0xFF2D3243)
+                            .withOpacity(0.9), // Dark grayish blue
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -370,39 +440,54 @@ class _NotificationsState extends State<Notifications> {
                         children: [
                           // Tabs
                           Padding(
-                            padding: const EdgeInsets.only(left: 20, top: 20, bottom: 10),
+                            padding: const EdgeInsets.only(
+                                left: 20, top: 20, bottom: 10),
                             child: Row(
                               children: [
                                 _buildTabButton("Unread", 0),
                                 const SizedBox(width: 20),
                                 _buildTabButton("Read", 1),
                                 const SizedBox(width: 20),
-                                _buildTabButton("Announcements", 2, icon: Icons.campaign),
+                                _buildTabButton("Announcements", 2,
+                                    icon: Icons.campaign),
                               ],
                             ),
                           ),
                           // Content area
                           Expanded(
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 20.0),
                               child: _selectedTabIndex == 2
-                                ? _buildAnnouncementsList()
-                                : (isLoading 
-                                    ? const Center(child: CircularProgressIndicator(color: Colors.blueAccent))
-                                    : ListView(
-                                        padding: const EdgeInsets.only(top: 10),
-                                        children: [
-                                          if (_selectedTabIndex == 0 && unreadNotificationIds.isNotEmpty)
-                                            Align(
-                                              alignment: Alignment.centerRight,
-                                              child: TextButton(
-                                                onPressed: _markAllUnreadAsRead,
-                                                child: const Text("Mark all as read", style: TextStyle(color: Colors.blueAccent)),
+                                  ? _buildAnnouncementsList()
+                                  : (isLoading
+                                      ? const Center(
+                                          child: CircularProgressIndicator(
+                                              color: Colors.blueAccent))
+                                      : ListView(
+                                          padding:
+                                              const EdgeInsets.only(top: 10),
+                                          children: [
+                                            if (_selectedTabIndex == 0 &&
+                                                unreadNotificationIds
+                                                    .isNotEmpty)
+                                              Align(
+                                                alignment:
+                                                    Alignment.centerRight,
+                                                child: TextButton(
+                                                  onPressed:
+                                                      _markAllUnreadAsRead,
+                                                  child: const Text(
+                                                      "Mark all as read",
+                                                      style: TextStyle(
+                                                          color: Colors
+                                                              .blueAccent)),
+                                                ),
                                               ),
-                                            ),
-                                          ...buildGroupedNotifications(grouped)
-                                        ],
-                                      )),
+                                            ...buildGroupedNotifications(
+                                                grouped)
+                                          ],
+                                        )),
                             ),
                           ),
                         ],
@@ -416,12 +501,15 @@ class _NotificationsState extends State<Notifications> {
                     onPressed: () => Navigator.pop(context),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF4A8B9C), // Teal button
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
                     ),
                     child: const Text(
                       "Close",
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],

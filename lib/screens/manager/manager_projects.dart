@@ -52,33 +52,26 @@ class _Managerprojectstate extends State<Managerprojects> {
     setState(() {
       allProjects = projects;
       _lastTenant = selectedOrg;
-      filteredProjects = projects;
+      // Simply show all projects the backend returned for the active tenant
+      filteredProjects = List<Project>.from(projects);
       _isLoading = false;
     });
   }
 
   /// Re-applies the tenant filter whenever the active organisation changes.
-  void _applyTenantFilter(String selectedOrg) {
+    void _applyTenantFilter(String selectedOrg) {
     setState(() {
       _lastTenant = selectedOrg;
+      // Assign all projects from the backend without front-end exclusion
       filteredProjects = List<Project>.from(allProjects);
     });
   }
 
-  void onQueryChanged(String query) {
-    final selectedOrg = context.read<TenantProvider>().selectedOrganization;
-    // Start from the tenant-filtered base list
-    final List<Project> tenantBase = selectedOrg.isNotEmpty
-        ? allProjects
-            .where((p) =>
-                p.companyName.toLowerCase() == selectedOrg.toLowerCase())
-            .toList()
-        : List<Project>.from(allProjects);
-
+    void onQueryChanged(String query) {
     setState(() {
       filteredProjects = query.isEmpty
-          ? tenantBase
-          : tenantBase.where((project) {
+          ? List<Project>.from(allProjects)
+          : allProjects.where((project) {
               return project.name.toLowerCase().contains(query.toLowerCase());
             }).toList();
     });

@@ -1,280 +1,4 @@
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -428,15 +152,17 @@ class NotificationService {
   }
 
   
-  Future<List<NotificationItem>> fetchNotificationsread(int employeeId) async {
+    Future<List<NotificationItem>> fetchNotificationsread(int employeeId) async {
     if (mainKey.isEmpty) throw Exception("Missing NOTIFI_MAIN_KEY");
 
-    final uri = Uri.parse('$baseUrl/notifications').replace(queryParameters: {
+    final Map<String, String> queryParams = {
       'code': mainKey,
       'employeeId': employeeId.toString(),
       'status': 'read',
-    });
-
+    };
+    
+    final uri = Uri.parse('$baseUrl/notifications').replace(queryParameters: queryParams);
+    
     final response = await _apiClient.get(uri.toString(), useAuth: true);
 
     if (response.statusCode == 200) {
@@ -452,16 +178,16 @@ class NotificationService {
     }
   }
 
-  
-  Future<List<NotificationItem>> fetchNotificationsUnread(
-      int employeeId) async {
+  Future<List<NotificationItem>> fetchNotificationsUnread(int employeeId) async {
     if (mainKey.isEmpty) throw Exception("Missing NOTIFI_MAIN_KEY");
 
-    final uri = Uri.parse('$baseUrl/notifications').replace(queryParameters: {
+    final Map<String, String> queryParams = {
       'code': mainKey,
       'employeeId': employeeId.toString(),
       'status': 'unread',
-    });
+    };
+
+    final uri = Uri.parse('$baseUrl/notifications').replace(queryParameters: queryParams);
 
     final response = await _apiClient.get(uri.toString(), useAuth: true);
 

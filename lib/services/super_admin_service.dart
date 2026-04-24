@@ -122,10 +122,15 @@ class SuperAdminService {
   }
 
   /// Get active announcements
-  Future<List<dynamic>> getActiveAnnouncements() async {
-    final url = '$baseUrl/announcements/active?code=$activeAnnouncementsKey';
+  Future<List<dynamic>> getActiveAnnouncements({int? tenantId}) async {
+    Uri uri = Uri.parse('$baseUrl/announcements/active');
+    Map<String, String> queryParams = {'code': activeAnnouncementsKey};
+    if (tenantId != null && tenantId != 0) queryParams['tenantId'] = tenantId.toString();
+    
+    uri = uri.replace(queryParameters: queryParams);
+
     try {
-      final response = await _apiClient.get(url, useAuth: true);
+      final response = await _apiClient.get(uri.toString(), useAuth: true);
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
         if (decoded is List) return decoded;
