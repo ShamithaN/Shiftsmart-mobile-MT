@@ -4,19 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:shared_preferences/shared_preferences.dart'; //  Added for Session Check
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 // Screen Imports
 import 'package:shiftsmart/screens/login.dart';
-// Manager Dashboard
-// Employee Dashboard
 
 // Service & Provider Imports
 import 'package:shiftsmart/providers/user_provider.dart';
 import 'package:shiftsmart/providers/tenant_provider.dart';
 import 'package:shiftsmart/services/notification_service.dart';
-import 'package:shiftsmart/services/auth_service.dart'; //  Added for Profile Fetch
+import 'package:shiftsmart/services/auth_service.dart';
+
+// Global navigator key for showing dialogs without context (e.g. from services)
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 // --- 1. Background Message Handler ---
 @pragma('vm:entry-point')
@@ -135,7 +136,8 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       home: MyHomePage(title: 'Welcome'),
     );

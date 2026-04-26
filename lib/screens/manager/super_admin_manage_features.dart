@@ -74,6 +74,12 @@ const List<_FeatureDef> _allFeatures = [
     description: 'Push & in-app notifications for all events.',
     icon: Icons.notifications_outlined,
   ),
+  _FeatureDef(
+    name: 'Project Management',
+    key: 'project_management',
+    description: 'Manage projects, work sites, and partner companies.',
+    icon: Icons.inventory_2_rounded,
+  ),
 ];
 
 // ---------------------------------------------------------------------------

@@ -9,6 +9,7 @@ import 'package:shiftsmart/screens/manager/manager_site.dart';
 import 'package:shiftsmart/services/project_service.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
+import 'package:shiftsmart/widgets/feature_gate.dart';
 import 'package:shiftsmart/widgets/search.dart';
 import 'package:shiftsmart/models/project.dart';
 
@@ -79,80 +80,85 @@ class _Managerprojectstate extends State<Managerprojects> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<TenantProvider>(
-      builder: (context, tp, _) {
-        // Re-fetch data whenever the active organisation changes
-        if (tp.selectedOrganization != _lastTenant) {
-          _lastTenant = tp.selectedOrganization;
-          if (_lastTenant.isNotEmpty && mounted && !_isLoading) {
-            WidgetsBinding.instance.addPostFrameCallback((_) => _refreshData());
+    return FeatureGate(
+      featureKey: 'project_management',
+      featureName: 'Project Management',
+      currentScreen: 'ManagerProjects',
+      child: Consumer<TenantProvider>(
+        builder: (context, tp, _) {
+          // Re-fetch data whenever the active organisation changes
+          if (tp.selectedOrganization != _lastTenant) {
+            _lastTenant = tp.selectedOrganization;
+            if (_lastTenant.isNotEmpty && mounted && !_isLoading) {
+              WidgetsBinding.instance.addPostFrameCallback((_) => _refreshData());
+            }
           }
-        }
-        return Scaffold(
-          body: Stack(
-            children: [
-              const Background(),
-              _isLoading
-                  ? const Center(
-                      child:
-                          CircularProgressIndicator(color: Color(0xFF724584)),
-                    )
-                  : Column(
-                      children: [
-                    Expanded(
-                      child: RefreshIndicator(
-                        key: _refreshKey,
-                        onRefresh: _refreshData,
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _createProject(),
-                              _createSite(),
-                              _createCompany(),
-                              const SizedBox(height: 10),
-                              Container(
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      Color.fromARGB(180, 42, 50, 67),
-                                      Color.fromARGB(180, 34, 40, 52),
+          return Scaffold(
+            body: Stack(
+              children: [
+                const Background(),
+                _isLoading
+                    ? const Center(
+                        child:
+                            CircularProgressIndicator(color: Color(0xFF724584)),
+                      )
+                    : Column(
+                        children: [
+                      Expanded(
+                        child: RefreshIndicator(
+                          key: _refreshKey,
+                          onRefresh: _refreshData,
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _createProject(),
+                                _createSite(),
+                                _createCompany(),
+                                const SizedBox(height: 10),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Color.fromARGB(180, 42, 50, 67),
+                                        Color.fromARGB(180, 34, 40, 52),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        "PROJECTS LIST",
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      _taskList(),
                                     ],
                                   ),
-                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      "PROJECTS LIST",
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    _taskList(),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                            ],
+                                const SizedBox(height: 10),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    )
-                  ],
-                )
-            ],
-          ),
-        );
-      },
+                      )
+                    ],
+                  )
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 

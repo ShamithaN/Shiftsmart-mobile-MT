@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shiftsmart/main.dart';
+import 'package:shiftsmart/widgets/premium_feature_gate.dart';
 
 class ApiClient {
   // Use FlutterSecureStorage (consistent with AuthService)
@@ -47,63 +49,93 @@ class ApiClient {
       final token = await getAppToken();
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
-        // Only log the first few characters for security
-        debugPrint(" ApiClient: Token found. Prefix: ${token.substring(0, 10)}...");
-      } else {
-        debugPrint(" ApiClient: useAuth=true but NO TOKEN found in storage.");
       }
     }
     return headers;
   }
 
+  /// Handles 403 Forbidden errors globally
+  void _handleForbidden(http.Response response) {
+    if (response.statusCode == 403) {
+      debugPrint(" ApiClient: 403 Forbidden detected. Showing Premium Access dialog.");
+      
+      final context = navigatorKey.currentContext;
+      if (context != null) {
+        // Try to parse the feature name from response if possible, 
+        // otherwise use a generic message.
+        String featureName = 'This feature';
+        try {
+          final body = jsonDecode(response.body);
+          featureName = body['featureName'] ?? body['FeatureName'] ?? 'This feature';
+        } catch (_) {}
+
+        PremiumFeatureGate.showDialog(
+          context,
+          featureName: featureName,
+          blockedEndpoint: response.request?.url.path,
+        );
+      }
+    }
+  }
+
   /// Performs a GET request
   Future<http.Response> get(String url, {bool useAuth = false}) async {
     final headers = await _getHeaders(useAuth);
-    return await http.get(
+    final response = await http.get(
       Uri.parse(url),
       headers: headers,
     );
+    _handleForbidden(response);
+    return response;
   }
 
   /// Performs a POST request
   Future<http.Response> post(String url,
       {dynamic body, bool useAuth = false}) async {
     final headers = await _getHeaders(useAuth);
-    return await http.post(
+    final response = await http.post(
       Uri.parse(url),
       headers: headers,
       body: body != null ? jsonEncode(body) : null,
     );
+    _handleForbidden(response);
+    return response;
   }
 
   /// Performs a PUT request
   Future<http.Response> put(String url,
       {dynamic body, bool useAuth = false}) async {
     final headers = await _getHeaders(useAuth);
-    return await http.put(
+    final response = await http.put(
       Uri.parse(url),
       headers: headers,
       body: body != null ? jsonEncode(body) : null,
     );
+    _handleForbidden(response);
+    return response;
   }
 
   /// Performs a DELETE request
   Future<http.Response> delete(String url, {bool useAuth = false}) async {
     final headers = await _getHeaders(useAuth);
-    return await http.delete(
+    final response = await http.delete(
       Uri.parse(url),
       headers: headers,
     );
+    _handleForbidden(response);
+    return response;
   }
 
   /// Performs a PATCH request
   Future<http.Response> patch(String url,
       {dynamic body, bool useAuth = false}) async {
     final headers = await _getHeaders(useAuth);
-    return await http.patch(
+    final response = await http.patch(
       Uri.parse(url),
       headers: headers,
       body: body != null ? jsonEncode(body) : null,
     );
+    _handleForbidden(response);
+    return response;
   }
 }
