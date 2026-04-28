@@ -74,9 +74,10 @@ class _EmployeeshiftsState extends State<Employeeshifts> {
       // 3. Fetch the full list of jobs
       final allJobsData = await _jobService.fetchAllJobs();
 
-      // 4. Filter the full list to keep only jobs matching our IDs
-      final assignedJobs =
-          allJobsData.where((job) => myJobIds.contains(job.jobId)).toList();
+      // 4. Filter the full list to keep only jobs matching our IDs or assigned directly
+      final assignedJobs = allJobsData.where((job) {
+        return myJobIds.contains(job.jobId) || job.employeeId == employeeId;
+      }).toList();
 
       if (mounted) {
         setState(() {

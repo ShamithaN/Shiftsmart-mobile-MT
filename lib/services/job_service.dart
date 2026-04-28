@@ -42,7 +42,7 @@ class JobService {
 
   // --- FETCH ALL JOBS ---
   Future<List<Job>> fetchAllJobs() async {
-      final geturl = '$baseUrl/job/all?code=$jobGetAllKey';
+      final geturl = '$baseUrl/job/list?code=$jobGetAllKey';
     debugPrint("Fetching Jobs from: $geturl");
     try {
       // Re-enabling useAuth: true as per approved plan

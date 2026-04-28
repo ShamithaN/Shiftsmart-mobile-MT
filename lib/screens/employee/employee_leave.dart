@@ -210,6 +210,23 @@ class _EmployeeleaveState extends State<Employeeleave> {
   }
 
   Widget _leaveList() {
+    if (_leaveRequests.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.only(top: 20),
+        alignment: Alignment.center,
+        child: Column(
+          children: [
+            const Icon(Icons.history, color: Colors.white54, size: 50),
+            const SizedBox(height: 10),
+            const Text(
+              "No leave history found",
+              style: TextStyle(color: Colors.white70, fontSize: 16),
+            ),
+          ],
+        ),
+      );
+    }
+
     final reversedRequests = _leaveRequests.reversed.toList();
 
     return ListView.builder(
