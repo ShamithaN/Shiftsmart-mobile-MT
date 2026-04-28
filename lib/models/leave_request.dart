@@ -20,15 +20,23 @@ class LeaveRequest {
   });
 
   factory LeaveRequest.fromJson(Map<String, dynamic> json) {
+    int parseId(dynamic val) {
+      if (val == null) return 0;
+      if (val is int) return val;
+      if (val is String) return int.tryParse(val) ?? 0;
+      if (val is num) return val.toInt();
+      return 0;
+    }
+
     return LeaveRequest(
-      leaveRequestId: json['LeaveRequestId'],
-      employeeId: json['EmployeeId'],
-      leaveType: json['LeaveType'],
-      startDate: DateTime.parse(json['StartDate']),
-      endDate: DateTime.parse(json['EndDate']),
-      reason: json['Reason'],
-      status: json['Status'],
-      requestedAt: DateTime.parse(json['RequestedAt']),
+      leaveRequestId: parseId(json['LeaveRequestId'] ?? json['leaveRequestId'] ?? json['leave_request_id'] ?? json['id'] ?? json['Id']),
+      employeeId: parseId(json['EmployeeId'] ?? json['employeeId'] ?? json['employee_id']),
+      leaveType: json['LeaveType'] ?? json['leaveType'] ?? json['leave_type'] ?? '',
+      startDate: DateTime.tryParse(json['StartDate']?.toString() ?? json['startDate']?.toString() ?? json['start_date']?.toString() ?? '') ?? DateTime.now(),
+      endDate: DateTime.tryParse(json['EndDate']?.toString() ?? json['endDate']?.toString() ?? json['end_date']?.toString() ?? '') ?? DateTime.now(),
+      reason: json['Reason'] ?? json['reason'] ?? '',
+      status: json['Status'] ?? json['status'] ?? 'Pending',
+      requestedAt: DateTime.tryParse(json['RequestedAt']?.toString() ?? json['requestedAt']?.toString() ?? json['requested_at']?.toString() ?? '') ?? DateTime.now(),
     );
   }
   bool get isPending {
