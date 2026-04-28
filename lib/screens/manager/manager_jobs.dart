@@ -74,6 +74,7 @@ class _ManagerjobsState extends State<Managerjobs>
   Future<void> _fetchProjects() async {
     try {
       final projects = await ProjectService().fetchAllProjects();
+      debugPrint(" managerJobs: Fetched ${projects.length} projects to map");
       setState(() {
         projectMap = {for (var p in projects) p.projectId: p};
       });
@@ -86,6 +87,7 @@ class _ManagerjobsState extends State<Managerjobs>
     final selectedOrg = context.read<TenantProvider>().selectedOrganization;
     try {
       final jobs = await JobService().fetchAllJobs();
+      debugPrint(" managerJobs: Fetched ${jobs.length} total jobs from API");
       setState(() {
         allJobs = jobs;
         _lastTenant = selectedOrg;
@@ -109,15 +111,35 @@ class _ManagerjobsState extends State<Managerjobs>
   }
 
   void _applyFilters() {
+    debugPrint(" managerJobs: Applying filters. Total raw jobs: ${allJobs.length}, Tenant: '$_lastTenant', ProjectMap size: ${projectMap.length}");
+    
     setState(() {
       // Jobs filter (tenant + search)
-      List<Job> tempJobs = _lastTenant.isNotEmpty
-          ? allJobs.where((j) {
-              final proj = projectMap[j.projectId];
-              return proj != null &&
-                  proj.companyName.toLowerCase() == _lastTenant.toLowerCase();
-            }).toList()
-          : List.from(allJobs);
+      List<Job> tempJobs = [];
+      
+      if (_lastTenant.isNotEmpty) {
+        tempJobs = allJobs.where((j) {
+          final proj = projectMap[j.projectId];
+          if (proj == null) {
+            debugPrint(" managerJobs: Job \${j.jobId} ('\${j.title}') filtered out because ProjectId \${j.projectId} not found in projectMap");
+            return false;
+          }
+          bool match = proj.companyName.toLowerCase() == _lastTenant.toLowerCase();
+          if (!match) {
+            debugPrint(" managerJobs: Job \${j.jobId} ('\${j.title}') filtered out: Project company '\${proj.companyName}' != tenant '$_lastTenant'");
+          }
+          return match;
+        }).toList();
+        
+        // FALLBACK: If filtering removed ALL jobs but allJobs was not empty, 
+        // show all jobs for debugging purposes.
+        if (tempJobs.isEmpty && allJobs.isNotEmpty) {
+          debugPrint(" managerJobs: WARNING: Tenant filter removed all jobs. Showing all raw jobs instead for debugging.");
+          tempJobs = List.from(allJobs);
+        }
+      } else {
+        tempJobs = List.from(allJobs);
+      }
 
       filteredJobs = _searchQuery.isEmpty
           ? tempJobs
@@ -196,10 +218,10 @@ class _ManagerjobsState extends State<Managerjobs>
                         tabs: [
                           Tab(
                               icon: const Icon(Icons.build),
-                              text: "JOB \${filteredJobs.length}"),
+                              text: "JOB ${filteredJobs.length}"),
                           Tab(
                               icon: const Icon(Icons.access_time),
-                              text: "SHIFT \${filteredShifts.length}"),
+                              text: "SHIFT ${filteredShifts.length}"),
                         ],
                       ),
                       Padding(
@@ -297,7 +319,7 @@ class _ManagerjobsState extends State<Managerjobs>
     return Column(
       children: [
         _buildListHeader(
-            "JOB LIST", "Total: \${filteredJobs.length} Jobs", "Add Job",
+            "JOB LIST", "Total: ${filteredJobs.length} Jobs", "Add Job",
             () async {
           final result = await Navigator.push(
               context,
@@ -347,7 +369,7 @@ class _ManagerjobsState extends State<Managerjobs>
     return Column(
       children: [
         _buildListHeader("SHIFT LIST",
-            "Total: \${filteredShifts.length} Shifts", "Add Shift", () async {
+            "Total: ${filteredShifts.length} Shifts", "Add Shift", () async {
           final result = await Navigator.push(
               context,
               MaterialPageRoute(
@@ -424,7 +446,7 @@ class _ManagerjobsState extends State<Managerjobs>
                         fontSize: 15)),
                 const SizedBox(height: 6),
                 Text(
-                    "Due Date: \${job.jobDueDate.isNotEmpty ? _formatDate(job.jobDueDate) : 'No date'}",
+                    "Due Date: ${job.jobDueDate.isNotEmpty ? _formatDate(job.jobDueDate) : 'No date'}",
                     style:
                         const TextStyle(color: Colors.white70, fontSize: 13)),
               ],
