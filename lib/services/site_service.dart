@@ -9,7 +9,8 @@ class SiteService {
   final ApiClient _apiClient = ApiClient();
 
   //  PROD ENDPOINT CONFIGURATION (from func-projects)
-  final String baseUrl = dotenv.env['PROJECT_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
+  final String baseUrl =
+      dotenv.env['PROJECT_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
   final String attendanceBaseUrl = dotenv.env['ATTENDANCE_BASE_URL'] ?? "";
 
   //  PROD ENDPOINT KEYS (from func-projects)
@@ -18,11 +19,14 @@ class SiteService {
   final String siteGetAllKey = dotenv.env['SITE_GET_ALL_KEY'] ?? "";
   final String siteGetByIdKey = dotenv.env['SITE_GET_BY_ID_KEY'] ?? "";
   final String siteDeleteKey = dotenv.env['SITE_DELETE_KEY'] ?? "";
-  final String siteEmployeeLocationsKey = dotenv.env['SITE_EMPLOYEE_LOCATIONS_KEY'] ?? "";
-  final String activeLocationsBySiteKey = dotenv.env['ACTIVE_LOCATIONS_BY_SITE_KEY'] ?? "";
+  final String siteEmployeeLocationsKey =
+      dotenv.env['SITE_EMPLOYEE_LOCATIONS_KEY'] ?? "";
+  final String activeLocationsBySiteKey =
+      dotenv.env['ACTIVE_LOCATIONS_BY_SITE_KEY'] ?? "";
 
   SiteService() {
-    if (baseUrl.isEmpty) debugPrint(" SiteService: PROJECT_BASE_URL is missing");
+    if (baseUrl.isEmpty)
+      debugPrint(" SiteService: PROJECT_BASE_URL is missing");
   }
 
   // --- ADD SITE ---
@@ -58,7 +62,7 @@ class SiteService {
 
   // --- UPDATE SITE ---
   Future<bool> updateSite(int id, Map<String, dynamic> siteData) async {
-      final updateUrl = '$baseUrl/site/update/$id?code=$siteUpdateKey';
+    final updateUrl = '$baseUrl/site/update/$id?code=$siteUpdateKey';
     siteData['siteId'] = id;
 
     try {
@@ -102,23 +106,24 @@ class SiteService {
     }
   }
 
-
   // --- FETCH ALL SITES (Restricted to Managers) ---
   Future<List<Site>> fetchAllSites() async {
     final url = '$baseUrl/site/all?code=$siteGetAllKey';
     debugPrint(" SiteService: Fetching all sites from $url");
 
     try {
-      final response = await _apiClient.get(url, useAuth: false);
+      final response = await _apiClient.get(url, useAuth: true);
       debugPrint(" SiteService Status: ${response.statusCode}");
-      debugPrint(" SiteService Body Snippet: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}");
+      debugPrint(
+          " SiteService Body Snippet: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}");
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = jsonDecode(response.body);
         debugPrint(" SiteService: Found ${jsonData.length} sites.");
         return jsonData.map((e) => Site.fromJson(e)).toList();
       } else {
-        debugPrint(" SiteService: Failed to load sites. Status: ${response.statusCode}");
+        debugPrint(
+            " SiteService: Failed to load sites. Status: ${response.statusCode}");
         return [];
       }
     } catch (e) {
