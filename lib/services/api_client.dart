@@ -79,63 +79,75 @@ class ApiClient {
   }
 
   /// Performs a GET request
-  Future<http.Response> get(String url, {bool useAuth = false}) async {
+  Future<http.Response> get(String url,
+      {bool useAuth = false, bool handleForbidden = true}) async {
     final headers = await _getHeaders(useAuth);
     final response = await http.get(
       Uri.parse(url),
       headers: headers,
     );
-    _handleForbidden(response);
+    if (handleForbidden) {
+      _handleForbidden(response);
+    }
     return response;
   }
 
   /// Performs a POST request
   Future<http.Response> post(String url,
-      {dynamic body, bool useAuth = false}) async {
+      {dynamic body, bool useAuth = false, bool handleForbidden = true}) async {
     final headers = await _getHeaders(useAuth);
     final response = await http.post(
       Uri.parse(url),
       headers: headers,
       body: body != null ? jsonEncode(body) : null,
     );
-    _handleForbidden(response);
+    if (handleForbidden) {
+      _handleForbidden(response);
+    }
     return response;
   }
 
   /// Performs a PUT request
   Future<http.Response> put(String url,
-      {dynamic body, bool useAuth = false}) async {
+      {dynamic body, bool useAuth = false, bool handleForbidden = true}) async {
     final headers = await _getHeaders(useAuth);
     final response = await http.put(
       Uri.parse(url),
       headers: headers,
       body: body != null ? jsonEncode(body) : null,
     );
-    _handleForbidden(response);
+    if (handleForbidden) {
+      _handleForbidden(response);
+    }
     return response;
   }
 
   /// Performs a DELETE request
-  Future<http.Response> delete(String url, {bool useAuth = false}) async {
+  Future<http.Response> delete(String url,
+      {bool useAuth = false, bool handleForbidden = true}) async {
     final headers = await _getHeaders(useAuth);
     final response = await http.delete(
       Uri.parse(url),
       headers: headers,
     );
-    _handleForbidden(response);
+    if (handleForbidden) {
+      _handleForbidden(response);
+    }
     return response;
   }
 
   /// Performs a PATCH request
   Future<http.Response> patch(String url,
-      {dynamic body, bool useAuth = false}) async {
+      {dynamic body, bool useAuth = false, bool handleForbidden = true}) async {
     final headers = await _getHeaders(useAuth);
     final response = await http.patch(
       Uri.parse(url),
       headers: headers,
       body: body != null ? jsonEncode(body) : null,
     );
-    _handleForbidden(response);
+    if (handleForbidden) {
+      _handleForbidden(response);
+    }
     return response;
   }
 }

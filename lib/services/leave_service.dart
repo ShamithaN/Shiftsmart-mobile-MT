@@ -67,30 +67,62 @@ class LeaveService {
   }
 
   // --- FETCH ALL LEAVE REQUESTS ---
-  Future<List<LeaveRequest>> fetchLeaveRequests() async {
+  Future<List<LeaveRequest>> fetchLeaveRequests({int? employeeId}) async {
+    // Correct endpoint: GET /leave/all (requires Bearer token + code key)
     final String url = '$baseUrl/leave/all?code=$leaveGetAllKey';
+
+    debugPrint(" LeaveService: Fetching from $url (employeeId filter: $employeeId)");
 
     try {
       final response = await _apiClient.get(
         url,
         useAuth: true,
+        handleForbidden: false, // Don't show premium gate dialog for leave endpoint
       );
 
+      debugPrint(" LeaveService: Status ${response.statusCode}");
+
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((item) => LeaveRequest.fromJson(item)).toList();
+        final dynamic jsonData = jsonDecode(response.body);
+        List<dynamic> rawList = [];
+
+        if (jsonData is List) {
+          rawList = jsonData;
+        } else if (jsonData is Map) {
+          // Handle common object wrappers used in Azure Functions
+          rawList = jsonData['leaves'] ??
+                    jsonData['data'] ??
+                    jsonData['leaveRequests'] ??
+                    jsonData['value'] ?? [];
+        }
+
+        debugPrint(" LeaveService: Fetched ${rawList.length} total records.");
+
+        final allRequests = rawList.map((item) => LeaveRequest.fromJson(item)).toList();
+
+        // Filter by employeeId client-side if provided
+        if (employeeId != null) {
+          final filtered = allRequests.where((r) => r.employeeId == employeeId).toList();
+          debugPrint(" LeaveService: Filtered to ${filtered.length} records for employee $employeeId.");
+          return filtered;
+        }
+
+        return allRequests;
+      } else if (response.statusCode == 403) {
+        debugPrint(" LeaveService: 403 Forbidden — leave feature may not be enabled for this tenant.");
+        debugPrint(" LeaveService: Response: ${response.body}");
+        return [];
       } else {
-        // IMPORTANT: This prints the exact server error (e.g. "Invalid column name")
-        debugPrint("Failed to load leaves. Status: ${response.statusCode}");
-        debugPrint("Server Response: ${response.body}");
+        debugPrint(" LeaveService: Failed to load leaves. Status: ${response.statusCode}");
+        debugPrint(" LeaveService: Server Response: ${response.body}");
         return [];
       }
     } catch (e) {
       debugPrint("Error fetching leave requests: $e");
-      // Return empty list instead of throwing to prevent app crash
       return [];
     }
   }
+
 
   // --- FETCH LEAVE BALANCE ---
   Future<int?> fetchLeaveBalance(int employeeId) async {
