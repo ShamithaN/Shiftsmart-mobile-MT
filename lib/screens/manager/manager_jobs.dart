@@ -217,10 +217,12 @@ class _ManagerjobsState extends State<Managerjobs>
                         indicatorColor: Colors.blueAccent,
                         tabs: [
                           Tab(
-                              icon: const Icon(Icons.build),
+                              icon: _buildTabIconWithCrown(
+                                  tp, 'job', const Icon(Icons.build)),
                               text: "JOB ${filteredJobs.length}"),
                           Tab(
-                              icon: const Icon(Icons.access_time),
+                              icon: _buildTabIconWithCrown(
+                                  tp, 'shift', const Icon(Icons.access_time)),
                               text: "SHIFT ${filteredShifts.length}"),
                         ],
                       ),
@@ -267,6 +269,44 @@ class _ManagerjobsState extends State<Managerjobs>
           ),
         );
       },
+    );
+  }
+
+  Widget _buildTabIconWithCrown(
+      TenantProvider tp, String keyword, Icon baseIcon) {
+    bool isBlocked = tp.isEndpointBlocked(keyword);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        baseIcon,
+        if (isBlocked)
+          Positioned(
+            top: -4,
+            right: -8,
+            child: Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF7A5C00), Color(0xFFB8880A)],
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFB8880A).withOpacity(0.5),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.workspace_premium_rounded,
+                color: Color(0xFFFFD700),
+                size: 10,
+              ),
+            ),
+          ),
+      ],
     );
   }
 

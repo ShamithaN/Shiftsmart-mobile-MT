@@ -3,7 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:provider/provider.dart';
 import 'package:shiftsmart/main.dart';
+import 'package:shiftsmart/providers/tenant_provider.dart';
 import 'package:shiftsmart/widgets/premium_feature_gate.dart';
 
 class ApiClient {
@@ -61,6 +63,16 @@ class ApiClient {
       
       final context = navigatorKey.currentContext;
       if (context != null) {
+        // Record the blocked endpoint in TenantProvider so the bottom nav
+        // can show a crown icon on the corresponding tab.
+        final endpointPath = response.request?.url.path;
+        if (endpointPath != null && endpointPath.isNotEmpty) {
+          try {
+            Provider.of<TenantProvider>(context, listen: false)
+                .addBlockedEndpoint(endpointPath);
+          } catch (_) {}
+        }
+
         // Try to parse the feature name from response if possible, 
         // otherwise use a generic message.
         String featureName = 'This feature';
@@ -72,7 +84,7 @@ class ApiClient {
         PremiumFeatureGate.showDialog(
           context,
           featureName: featureName,
-          blockedEndpoint: response.request?.url.path,
+          blockedEndpoint: endpointPath,
         );
       }
     }

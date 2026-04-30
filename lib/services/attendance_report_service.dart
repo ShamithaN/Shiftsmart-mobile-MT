@@ -8,7 +8,7 @@ class AttendanceReportService {
   final ApiClient _apiClient = ApiClient(); // Initialize ApiClient
 
   final String baseUrl = dotenv.env['ATTENDANCE_BASE_URL'] ?? "";
-  String attendanceKey = dotenv.env['ATTENDANCE_KEY'] ?? "";
+  String attendanceKey = dotenv.env['ATTENDANCE_GET_ALL_KEY'] ?? "";
 
   Future<List<Attendance>> fetchAttendanceData() async {
     final url = '$baseUrl/attendance/all?code=$attendanceKey';

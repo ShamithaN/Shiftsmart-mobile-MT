@@ -265,53 +265,88 @@ class _BottomnavbarState extends State<Bottomnavbar> {
             bottom: 15,
             left: 1,
             right: 1,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(icons.length, (index) {
-                final bool isSelected = index == _selectedIndex;
+            child: Consumer<TenantProvider>(
+              builder: (context, tp, _) {
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: List.generate(icons.length, (index) {
+                    final bool isSelected = index == _selectedIndex;
+                    final bool isBlocked = tp.isNavIndexBlocked(index);
 
-                return GestureDetector(
-                  onTap: () => _onItemTapped(index),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // Active background
-                      if (isSelected)
-                        Transform(
-                          transform: Matrix4.identity()
-                            ..setEntry(3, 2, 0.001)
-                            ..multiply(Matrix4.skewX(-0.4))
-                            ..rotateZ(-15 * 3.1415927 / 180),
-                          alignment: Alignment.center,
-                          child: Container(
-                            width: 50,
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: Colors.blueAccent,
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color.fromARGB(255, 32, 34, 36)
-                                      .withValues(alpha: 0.4),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 6),
+                    return GestureDetector(
+                      onTap: () => _onItemTapped(index),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        alignment: Alignment.center,
+                        children: [
+                          // Active background
+                          if (isSelected)
+                            Transform(
+                              transform: Matrix4.identity()
+                                ..setEntry(3, 2, 0.001)
+                                ..multiply(Matrix4.skewX(-0.4))
+                                ..rotateZ(-15 * 3.1415927 / 180),
+                              alignment: Alignment.center,
+                              child: Container(
+                                width: 50,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  color: Colors.blueAccent,
+                                  borderRadius: BorderRadius.circular(10),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color.fromARGB(255, 32, 34, 36)
+                                          .withValues(alpha: 0.4),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
 
-                      // Icon (floats with active bg)
-                      Image.asset(
-                        icons[index],
-                        width: isSelected ? 30 : 25,
-                        height: isSelected ? 30 : 25,
-                        color: isSelected ? Colors.white : Colors.grey[400],
+                          // Icon (floats with active bg)
+                          Image.asset(
+                            icons[index],
+                            width: isSelected ? 30 : 25,
+                            height: isSelected ? 30 : 25,
+                            color: isSelected ? Colors.white : Colors.grey[400],
+                          ),
+
+                          // Crown badge for blocked endpoints
+                          if (isBlocked)
+                            Positioned(
+                              top: isSelected ? -10 : -8,
+                              right: isSelected ? -10 : -8,
+                              child: Container(
+                                width: 20,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF7A5C00), Color(0xFFB8880A)],
+                                  ),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFFB8880A).withOpacity(0.5),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.workspace_premium_rounded,
+                                  color: Color(0xFFFFD700),
+                                  size: 12,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  }),
                 );
-              }),
+              },
             ),
           ),
         ],

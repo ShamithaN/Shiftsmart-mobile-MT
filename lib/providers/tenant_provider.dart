@@ -28,6 +28,60 @@ class TenantProvider with ChangeNotifier {
   Set<String> _enabledFeatures = {}; // empty = "all enabled" sentinel
   bool get allFeaturesEnabled => _enabledFeatures.isEmpty;
 
+  // ── Blocked endpoints (403 tracking) ──────────────────────────────────────
+  /// Endpoint paths that returned 403 Forbidden for the current tenant.
+  final Set<String> _blockedEndpoints = {};
+  Set<String> get blockedEndpoints => Set.unmodifiable(_blockedEndpoints);
+
+  /// Record an endpoint as blocked (called from ApiClient on 403).
+  void addBlockedEndpoint(String endpointPath) {
+    final normalised = endpointPath.toLowerCase();
+    if (_blockedEndpoints.add(normalised)) {
+      notifyListeners();
+    }
+  }
+
+  /// Clear all blocked endpoints (called on tenant switch).
+  void clearBlockedEndpoints() {
+    if (_blockedEndpoints.isNotEmpty) {
+      _blockedEndpoints.clear();
+      notifyListeners();
+    }
+  }
+
+  /// Returns true when at least one blocked endpoint maps to the given
+  /// bottom-nav index.
+  ///
+  /// Mapping:
+  ///   0 = Dashboard  – no gating
+  ///   1 = Projects   – /company/, /site/, /project/
+  ///   2 = Jobs       – /job/
+  ///   3 = Employees  – (none currently)
+  ///   4 = Leave      – (none currently)
+  bool isNavIndexBlocked(int index) {
+    if (_blockedEndpoints.isEmpty) return false;
+    switch (index) {
+      case 1:
+        return _blockedEndpoints.any((e) =>
+            e.contains('/company/') ||
+            e.contains('/site/') ||
+            e.contains('/project/'));
+      case 3:
+        return _blockedEndpoints.any((e) => e.contains('/employee/'));
+      case 4:
+        return _blockedEndpoints.any((e) => e.contains('/leave/'));
+      default:
+        return false;
+    }
+  }
+
+  /// Returns true if any blocked endpoint contains the given keyword.
+  bool isEndpointBlocked(String keyword) {
+    if (_blockedEndpoints.isEmpty) return false;
+    final lowerKeyword = keyword.toLowerCase();
+    return _blockedEndpoints.any((e) => e.contains(lowerKeyword));
+  }
+
   /// Returns true when a feature is enabled for the current tenant.
   /// Returns true by default when no feature-list has been loaded yet.
   bool isFeatureEnabled(String featureKey) {
@@ -133,6 +187,7 @@ class TenantProvider with ChangeNotifier {
     _selectedOrganization = name;
     _selectedTenant = tenant;
     _isSwitching = true;
+    _blockedEndpoints.clear(); // reset on tenant switch
     notifyListeners();
 
     bool success = false;

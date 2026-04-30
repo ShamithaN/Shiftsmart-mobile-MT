@@ -149,13 +149,16 @@ class _Managerprojectstate extends State<Managerprojects> {
                           indicatorColor: Colors.blueAccent,
                           tabs: [
                             Tab(
-                                icon: const Icon(Icons.business),
+                                icon: _buildTabIconWithCrown(
+                                    tp, 'company', const Icon(Icons.business)),
                                 text: "COMPANY ${allCompanies.length}"),
                             Tab(
-                                icon: const Icon(Icons.assignment),
+                                icon: _buildTabIconWithCrown(
+                                    tp, 'project', const Icon(Icons.assignment)),
                                 text: "PROJECT ${allProjects.length}"),
                             Tab(
-                                icon: const Icon(Icons.location_on),
+                                icon: _buildTabIconWithCrown(
+                                    tp, 'site', const Icon(Icons.location_on)),
                                 text: "SITE ${allSites.length}"),
                           ],
                         ),
@@ -203,6 +206,43 @@ class _Managerprojectstate extends State<Managerprojects> {
     );
   }
 
+  Widget _buildTabIconWithCrown(
+      TenantProvider tp, String keyword, Icon baseIcon) {
+    bool isBlocked = tp.isEndpointBlocked(keyword);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        baseIcon,
+        if (isBlocked)
+          Positioned(
+            top: -4,
+            right: -8,
+            child: Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF7A5C00), Color(0xFFB8880A)],
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFB8880A).withOpacity(0.5),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.workspace_premium_rounded,
+                color: Color(0xFFFFD700),
+                size: 10,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
   Widget _buildCompanyView() {
     return Column(
       children: [

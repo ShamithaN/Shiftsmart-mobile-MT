@@ -53,9 +53,6 @@ class _ManagerattendancereportState extends State<Managerattendancereport> {
     } catch (e) {
       if (mounted) {
         setState(() => isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to load attendance reports.')),
-        );
       }
     }
   }
