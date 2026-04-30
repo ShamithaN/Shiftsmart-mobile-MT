@@ -21,17 +21,24 @@ class SuccessDialog extends StatelessWidget {
     required String title,
     required String message,
     required String buttonText,
-    required VoidCallback onPressed,
+    VoidCallback? onPressed,
   }) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return SuccessDialog(
           title: title,
           message: message,
           buttonText: buttonText,
-          onPressed: onPressed,
+          onPressed: () {
+            // Close the dialog using the dialog's own context
+            Navigator.of(dialogContext).pop();
+            // Then execute any additional logic if provided
+            if (onPressed != null) {
+              onPressed();
+            }
+          },
         );
       },
     );
@@ -80,10 +87,7 @@ class SuccessDialog extends StatelessWidget {
             width: double.infinity,
             child: GradientButton(
               text: buttonText,
-              onPressed: () {
-                // We handle the navigation or logic passed in, then close the dialog if needed
-                onPressed();
-              },
+              onPressed: onPressed, // Calls the internal wrapper that pops the dialog
             ),
           ),
         ],
