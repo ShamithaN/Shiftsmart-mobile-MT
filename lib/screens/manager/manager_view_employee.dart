@@ -341,10 +341,12 @@ class _ManagerviewemployeeState extends State<Managerviewemployee> {
                                               GestureDetector(
                                                 onTap: () async {
                                                   final url = cert.documentUrl;
-                                                  if (await canLaunch(url)) {
-                                                    await launch(url,
-                                                        forceWebView: true,
-                                                        forceSafariVC: true);
+                                                  final uri = Uri.parse(url);
+                                                  if (await canLaunchUrl(uri)) {
+                                                    await launchUrl(
+                                                      uri,
+                                                      mode: LaunchMode.externalApplication,
+                                                    );
                                                   } else {
                                                     ScaffoldMessenger.of(
                                                             context)
