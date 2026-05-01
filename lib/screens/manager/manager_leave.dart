@@ -8,6 +8,7 @@ import 'package:shiftsmart/widgets/gradient_button.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
 import 'package:shiftsmart/widgets/premium_feature_gate.dart';
+import 'package:shiftsmart/widgets/bottomnavbar.dart';
 
 import 'package:shiftsmart/models/leave_request.dart';
 import 'package:shiftsmart/models/employee.dart';
@@ -178,7 +179,7 @@ Future<void> _updateLeaveStatus(String id, String newStatus) async {
           }
         }
         
-        if (!tp.isFeatureEnabled('leave_management')) {
+        if (!tp.isFeatureEnabled('leave_management') || tp.isNavIndexBlocked(4)) {
           return Stack(
             children: [
               const Positioned.fill(child: Background()),
@@ -193,6 +194,13 @@ Future<void> _updateLeaveStatus(String id, String newStatus) async {
                       child: PremiumFeatureGate(
                         featureName: 'Leave Management',
                         blockedEndpoint: '/api/leave/list',
+                        onGotIt: () {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) => const Bottomnavbar(selectedIndex: 0),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),

@@ -33,7 +33,7 @@ class ShiftService {
     final String url = '$baseUrl/shift/employee/$employeeId?code=$shiftGetByEmployeeKey';
 
     try {
-      final response = await _apiClient.get(url, useAuth: true);
+      final response = await _apiClient.get(url, useAuth: true, showDialog: false);
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = jsonDecode(response.body);
@@ -54,7 +54,7 @@ class ShiftService {
     debugPrint(" ShiftService: Fetching shifts for employee $employeeId from $url");
 
     try {
-      final response = await _apiClient.get(url, useAuth: true);
+      final response = await _apiClient.get(url, useAuth: true, showDialog: false);
       debugPrint(" ShiftService Status (EmpId $employeeId): ${response.statusCode}");
       debugPrint(" ShiftService Body snippet: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}");
 
@@ -169,7 +169,7 @@ class ShiftService {
     final url = '$baseUrl/shift/getall?code=$shiftGetAllKey';
 
     try {
-      final response = await _apiClient.get(url, useAuth: true);
+      final response = await _apiClient.get(url, useAuth: true, showDialog: false);
 
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);
@@ -195,7 +195,7 @@ class ShiftService {
     final url = '$baseUrl/shift/getall?code=$shiftGetAllKey';
 
     try {
-      final response = await _apiClient.get(url, useAuth: true);
+      final response = await _apiClient.get(url, useAuth: true, showDialog: false);
 
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);

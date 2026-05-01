@@ -407,7 +407,7 @@ class AuthService {
     final url = '$baseUrl/me';
 
     try {
-      final response = await _apiClient.get(url, useAuth: true);
+      final response = await _apiClient.get(url, useAuth: true, showDialog: false);
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);

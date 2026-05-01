@@ -77,7 +77,7 @@ class LeaveService {
       final response = await _apiClient.get(
         url,
         useAuth: true,
-        handleForbidden: false, // Don't show premium gate dialog for leave endpoint
+        showDialog: false, // Don't show premium gate dialog for leave endpoint, but let it track in TenantProvider
       );
 
       debugPrint(" LeaveService: Status ${response.statusCode}");
@@ -133,6 +133,7 @@ class LeaveService {
       final response = await _apiClient.get(
         url,
         useAuth: true,
+        showDialog: false,
       );
 
       if (response.statusCode == 200) {

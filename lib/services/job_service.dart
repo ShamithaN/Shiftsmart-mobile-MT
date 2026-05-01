@@ -46,7 +46,7 @@ class JobService {
     debugPrint("Fetching Jobs from: $geturl");
     try {
       // Re-enabling useAuth: true as per approved plan
-      final response = await _apiClient.get(geturl, useAuth: true);
+      final response = await _apiClient.get(geturl, useAuth: true, showDialog: false);
 
       debugPrint("Job response status: ${response.statusCode}");
       debugPrint("Job response body: ${response.body}");
@@ -223,7 +223,7 @@ class JobService {
   Future<List<JobRoleType>> fetchJobRoleType() async {
     final url = '$baseUrl/jobroletype/list?code=$jobRoleTypeListKey';
     try {
-      final response = await _apiClient.get(url, useAuth: true);
+      final response = await _apiClient.get(url, useAuth: true, showDialog: false);
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = jsonDecode(response.body);

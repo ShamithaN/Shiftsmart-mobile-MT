@@ -57,9 +57,9 @@ class ApiClient {
   }
 
   /// Handles 403 Forbidden errors globally
-  void _handleForbidden(http.Response response) {
+  void _handleForbidden(http.Response response, {bool showDialog = true}) {
     if (response.statusCode == 403) {
-      debugPrint(" ApiClient: 403 Forbidden detected. Showing Premium Access dialog.");
+      debugPrint(" ApiClient: 403 Forbidden detected. showDialog: $showDialog");
       
       final context = navigatorKey.currentContext;
       if (context != null) {
@@ -81,32 +81,34 @@ class ApiClient {
           featureName = body['featureName'] ?? body['FeatureName'] ?? 'This feature';
         } catch (_) {}
 
-        PremiumFeatureGate.showDialog(
-          context,
-          featureName: featureName,
-          blockedEndpoint: endpointPath,
-        );
+        if (showDialog) {
+          PremiumFeatureGate.showDialog(
+            context,
+            featureName: featureName,
+            blockedEndpoint: endpointPath,
+          );
+        }
       }
     }
   }
 
   /// Performs a GET request
   Future<http.Response> get(String url,
-      {bool useAuth = false, bool handleForbidden = true}) async {
+      {bool useAuth = false, bool handleForbidden = true, bool showDialog = true}) async {
     final headers = await _getHeaders(useAuth);
     final response = await http.get(
       Uri.parse(url),
       headers: headers,
     );
     if (handleForbidden) {
-      _handleForbidden(response);
+      _handleForbidden(response, showDialog: showDialog);
     }
     return response;
   }
 
   /// Performs a POST request
   Future<http.Response> post(String url,
-      {dynamic body, bool useAuth = false, bool handleForbidden = true}) async {
+      {dynamic body, bool useAuth = false, bool handleForbidden = true, bool showDialog = true}) async {
     final headers = await _getHeaders(useAuth);
     final response = await http.post(
       Uri.parse(url),
@@ -114,14 +116,14 @@ class ApiClient {
       body: body != null ? jsonEncode(body) : null,
     );
     if (handleForbidden) {
-      _handleForbidden(response);
+      _handleForbidden(response, showDialog: showDialog);
     }
     return response;
   }
 
   /// Performs a PUT request
   Future<http.Response> put(String url,
-      {dynamic body, bool useAuth = false, bool handleForbidden = true}) async {
+      {dynamic body, bool useAuth = false, bool handleForbidden = true, bool showDialog = true}) async {
     final headers = await _getHeaders(useAuth);
     final response = await http.put(
       Uri.parse(url),
@@ -129,28 +131,28 @@ class ApiClient {
       body: body != null ? jsonEncode(body) : null,
     );
     if (handleForbidden) {
-      _handleForbidden(response);
+      _handleForbidden(response, showDialog: showDialog);
     }
     return response;
   }
 
   /// Performs a DELETE request
   Future<http.Response> delete(String url,
-      {bool useAuth = false, bool handleForbidden = true}) async {
+      {bool useAuth = false, bool handleForbidden = true, bool showDialog = true}) async {
     final headers = await _getHeaders(useAuth);
     final response = await http.delete(
       Uri.parse(url),
       headers: headers,
     );
     if (handleForbidden) {
-      _handleForbidden(response);
+      _handleForbidden(response, showDialog: showDialog);
     }
     return response;
   }
 
   /// Performs a PATCH request
   Future<http.Response> patch(String url,
-      {dynamic body, bool useAuth = false, bool handleForbidden = true}) async {
+      {dynamic body, bool useAuth = false, bool handleForbidden = true, bool showDialog = true}) async {
     final headers = await _getHeaders(useAuth);
     final response = await http.patch(
       Uri.parse(url),
@@ -158,7 +160,7 @@ class ApiClient {
       body: body != null ? jsonEncode(body) : null,
     );
     if (handleForbidden) {
-      _handleForbidden(response);
+      _handleForbidden(response, showDialog: showDialog);
     }
     return response;
   }

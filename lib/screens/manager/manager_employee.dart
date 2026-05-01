@@ -7,6 +7,8 @@ import 'package:shiftsmart/services/employee_service.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/search.dart';
+import 'package:shiftsmart/widgets/premium_feature_gate.dart';
+import 'package:shiftsmart/widgets/bottomnavbar.dart';
 
 class Manageremployee extends StatefulWidget {
   const Manageremployee({super.key});
@@ -70,6 +72,37 @@ class _ManageremployeeState extends State<Manageremployee> {
           }
         }
         
+        if (!tp.isFeatureEnabled('employee_management') || tp.isNavIndexBlocked(3)) {
+          return Stack(
+            children: [
+              const Positioned.fill(child: Background()),
+              Scaffold(
+                backgroundColor: Colors.transparent,
+                body: SafeArea(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: PremiumFeatureGate(
+                        featureName: 'Employee Management',
+                        blockedEndpoint: '/api/employee/list',
+                        customMessage:
+                            'Contact your administrator to enable this module for your tenant.',
+                        onGotIt: () {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) => const Bottomnavbar(selectedIndex: 0),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
         return Scaffold(
           body: Stack(children: [
             const Positioned.fill(child: Background()),

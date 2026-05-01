@@ -76,7 +76,7 @@ class CompanyService {
     final String url = '$baseUrl/company/all?code=$fetchCompanyKey';
 
     try {
-      final response = await _apiClient.get(url, useAuth: true);
+      final response = await _apiClient.get(url, useAuth: true, showDialog: false);
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = jsonDecode(response.body);

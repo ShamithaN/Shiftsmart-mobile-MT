@@ -85,7 +85,7 @@ final updateUrl = '$baseUrl/project/update/$id?code=$projectUpdateKey';
 
     try {
       // FIX: Enable authentication for tenant context
-      final response = await _apiClient.get(geturl, useAuth: true);
+      final response = await _apiClient.get(geturl, useAuth: true, showDialog: false);
 
       debugPrint("Project response: ${response.body}");
 

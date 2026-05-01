@@ -13,6 +13,7 @@ import 'package:shiftsmart/services/project_service.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/premium_feature_gate.dart';
+import 'package:shiftsmart/widgets/bottomnavbar.dart';
 import 'package:shiftsmart/models/project.dart' as model;
 
 class Managerjobs extends StatefulWidget {
@@ -192,6 +193,13 @@ class _ManagerjobsState extends State<Managerjobs>
                         blockedEndpoint: '/api/job/list',
                         customMessage:
                             'Contact your administrator to enable this module for your tenant.',
+                        onGotIt: () {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) => const Bottomnavbar(selectedIndex: 0),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),
@@ -255,8 +263,8 @@ class _ManagerjobsState extends State<Managerjobs>
                                 onRefresh: _loadData,
                                 child: TabBarView(
                                   children: [
-                                    _buildJobView(),
-                                    _buildShiftView(),
+                                    _buildJobView(tp),
+                                    _buildShiftView(tp),
                                   ],
                                 ),
                               ),
@@ -355,7 +363,29 @@ class _ManagerjobsState extends State<Managerjobs>
     );
   }
 
-  Widget _buildJobView() {
+  Widget _buildJobView(TenantProvider tp) {
+    if (tp.isEndpointBlocked('job')) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: PremiumFeatureGate(
+          featureName: 'Job Management',
+          blockedEndpoint: '/job/list',
+          customMessage: 'Contact your administrator to enable Job Management for your tenant.',
+          onGotIt: () {
+            if (!tp.isEndpointBlocked('shift')) {
+              DefaultTabController.of(context).animateTo(1);
+            } else {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => const Bottomnavbar(selectedIndex: 0),
+                ),
+              );
+            }
+          },
+        ),
+      );
+    }
+
     return Column(
       children: [
         _buildListHeader(
@@ -405,7 +435,25 @@ class _ManagerjobsState extends State<Managerjobs>
     );
   }
 
-  Widget _buildShiftView() {
+  Widget _buildShiftView(TenantProvider tp) {
+    if (tp.isEndpointBlocked('shift')) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: PremiumFeatureGate(
+          featureName: 'Shift Management',
+          blockedEndpoint: '/shift/list',
+          customMessage: 'Contact your administrator to enable Shift Management for your tenant.',
+          onGotIt: () {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => const Bottomnavbar(selectedIndex: 0),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
     return Column(
       children: [
         _buildListHeader("SHIFT LIST",

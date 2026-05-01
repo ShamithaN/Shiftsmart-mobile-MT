@@ -36,7 +36,7 @@ class EmployeeService {
     final url = '$baseUrl/employee/all?code=$fetchEmpKey';
     debugPrint(" EmployeeService: Fetching all employees from $url");
     try {
-      final response = await _apiClient.get(url, useAuth: true);
+      final response = await _apiClient.get(url, useAuth: true, showDialog: false);
       debugPrint(" EmployeeService Status: ${response.statusCode}");
       debugPrint(" EmployeeService Body: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}");
 
@@ -62,7 +62,7 @@ class EmployeeService {
   Future<Map<int, String>> fetchEmployeeNameMap() async {
     final url = '$baseUrl/employee/all?code=$empNameMap';
     try {
-      final response = await _apiClient.get(url, useAuth: true);
+      final response = await _apiClient.get(url, useAuth: true, showDialog: false);
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = jsonDecode(response.body);
         return {

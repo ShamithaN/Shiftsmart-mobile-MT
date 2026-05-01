@@ -112,7 +112,7 @@ class SiteService {
     debugPrint(" SiteService: Fetching all sites from $url");
 
     try {
-      final response = await _apiClient.get(url, useAuth: true);
+      final response = await _apiClient.get(url, useAuth: true, showDialog: false);
       debugPrint(" SiteService Status: ${response.statusCode}");
       debugPrint(
           " SiteService Body Snippet: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}");

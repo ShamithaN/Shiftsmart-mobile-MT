@@ -12,6 +12,8 @@ import 'package:shiftsmart/services/site_service.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/feature_gate.dart';
+import 'package:shiftsmart/widgets/premium_feature_gate.dart';
+import 'package:shiftsmart/widgets/bottomnavbar.dart';
 import 'package:shiftsmart/models/project.dart';
 import 'package:shiftsmart/models/company.dart';
 import 'package:shiftsmart/models/site.dart';
@@ -121,19 +123,47 @@ class _Managerprojectstate extends State<Managerprojects> {
 
   @override
   Widget build(BuildContext context) {
-    return FeatureGate(
-      featureKey: 'project_management',
-      featureName: 'Project Management',
-      currentScreen: 'ManagerProjects',
-      child: Consumer<TenantProvider>(
-        builder: (context, tp, _) {
-          if (tp.selectedOrganization != _lastTenant) {
-            _lastTenant = tp.selectedOrganization;
-            if (_lastTenant.isNotEmpty && mounted && !_isLoading) {
-              WidgetsBinding.instance
-                  .addPostFrameCallback((_) => _refreshData());
-            }
+    return Consumer<TenantProvider>(
+      builder: (context, tp, _) {
+        if (tp.selectedOrganization != _lastTenant) {
+          _lastTenant = tp.selectedOrganization;
+          if (_lastTenant.isNotEmpty && mounted && !_isLoading) {
+            WidgetsBinding.instance
+                .addPostFrameCallback((_) => _refreshData());
           }
+        }
+
+        // ── Premium Feature Gate ──────────────────────────────────────────
+        if (!tp.isFeatureEnabled('project_management') || tp.isNavIndexBlocked(1)) {
+          return Stack(
+            children: [
+              const Positioned.fill(child: Background()),
+              Scaffold(
+                backgroundColor: Colors.transparent,
+                body: SafeArea(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: PremiumFeatureGate(
+                        featureName: 'Project Management',
+                        blockedEndpoint: '/project/all',
+                        customMessage:
+                            'Contact your administrator to enable this module for your tenant.',
+                        onGotIt: () {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) => const Bottomnavbar(selectedIndex: 0),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
           return Scaffold(
             body: Stack(
               children: [
@@ -202,8 +232,7 @@ class _Managerprojectstate extends State<Managerprojects> {
             ),
           );
         },
-      ),
-    );
+      );
   }
 
   Widget _buildTabIconWithCrown(

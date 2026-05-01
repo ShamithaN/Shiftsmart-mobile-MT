@@ -149,7 +149,7 @@ class SuperAdminService {
   Future<List<dynamic>> getAllTenants() async {
     final url = '$baseUrl/superadmin/tenants/all?code=$getAllTenantsKey';
     try {
-      final response = await _apiClient.get(url, useAuth: true);
+      final response = await _apiClient.get(url, useAuth: true, showDialog: false);
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
         if (decoded is List) {

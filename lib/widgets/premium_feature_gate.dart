@@ -113,7 +113,8 @@ class PremiumFeatureGate extends StatelessWidget {
               children: [
                 // Crown + PREMIUM ACCESS badge
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFF7A5C00), Color(0xFFB8880A)],
@@ -152,7 +153,8 @@ class PremiumFeatureGate extends StatelessWidget {
                     onTap: onGotIt,
                     child: Container(
                       padding: const EdgeInsets.all(4),
-                      child: const Icon(Icons.close, color: Colors.white54, size: 20),
+                      child: const Icon(Icons.close,
+                          color: Colors.white54, size: 20),
                     ),
                   ),
               ],
@@ -171,7 +173,8 @@ class PremiumFeatureGate extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: const Color(0xFF1A3040),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.cyan.withOpacity(0.3), width: 1),
+                    border: Border.all(
+                        color: Colors.cyan.withOpacity(0.3), width: 1),
                   ),
                   child: const Icon(
                     Icons.lock_rounded,
@@ -210,40 +213,6 @@ class PremiumFeatureGate extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // ── Blocked endpoint chip ────────────────────────────────────
-            if (blockedEndpoint != null && blockedEndpoint!.isNotEmpty) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white12, width: 1),
-                ),
-                child: Row(
-                  children: [
-                    const Text(
-                      'Blocked endpoint: ',
-                      style: TextStyle(color: Colors.white60, fontSize: 13),
-                    ),
-                    Flexible(
-                      child: Text(
-                        blockedEndpoint!,
-                        style: const TextStyle(
-                          color: Color(0xFF5ECEFF),
-                          fontSize: 13,
-                          fontFamily: 'monospace',
-                          fontWeight: FontWeight.w600,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-
             // ── Admin contact message ────────────────────────────────────
             Container(
               width: double.infinity,
@@ -273,7 +242,8 @@ class PremiumFeatureGate extends StatelessWidget {
                 onTap: onGotIt ?? () => Navigator.of(context).pop(),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
-                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 13),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 30, vertical: 13),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFF2DA6C8), Color(0xFF1976D2)],
