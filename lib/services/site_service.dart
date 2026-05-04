@@ -90,7 +90,7 @@ class SiteService {
     try {
       final url = '$baseUrl/site/$siteId?code=$siteGetByIdKey';
 
-      final response = await _apiClient.get(url, useAuth: false);
+      final response = await _apiClient.get(url, useAuth: true);
 
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);

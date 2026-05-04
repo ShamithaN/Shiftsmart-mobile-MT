@@ -11,12 +11,12 @@ import 'package:shiftsmart/models/site.dart';
 import 'package:shiftsmart/providers/user_provider.dart';
 import 'package:shiftsmart/screens/employee/employee_tracking_screen.dart';
 import 'package:shiftsmart/services/attendance_service.dart';
-import 'package:shiftsmart/services/employee_service.dart';
 import 'package:shiftsmart/services/image_picker_service.dart';
 import 'package:shiftsmart/services/location_service.dart';
 import 'package:shiftsmart/services/shift_service.dart';
 import 'package:shiftsmart/services/site_service.dart';
 import 'package:shiftsmart/services/notification_service.dart';
+import 'package:shiftsmart/utils/date_time_parser.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/gradienthorizontal.dart';
@@ -87,6 +87,17 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
     } catch (e) {
       return timeString;
     }
+  }
+
+  double? _parseCoordinate(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    final cleaned = value.trim();
+    final normalized = cleaned.replaceAll(RegExp(r'[\s]+'), '');
+    if (normalized.contains(',') && !normalized.contains('.')) {
+      return double.tryParse(normalized.replaceAll(',', '.'));
+    }
+    final match = RegExp(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?').firstMatch(normalized);
+    return match != null ? double.tryParse(match.group(0)!) : null;
   }
 
   DateTime _getScheduledStartDateTime() {
@@ -179,8 +190,34 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
         setState(() {
           shiftDetails = shift;
           myStatus = shift['MyStatus'] ?? "Pending";
-          myRejectionReason = shift['MyRejectionReason'];
+          myRejectionReason =
+              (shift['MyRejectionReason'] ?? shift['RejectionReason'] ?? shift['Reason'] ??
+                      shift['DeclineReason'])
+                  ?.toString();
         });
+
+        // If SiteId was missing from Job object, try loading it from Shift details
+        if (currentSite == null) {
+          final int? siteIdFromShift = shift['SiteId'] ?? shift['siteId'];
+          final String? latFromShift = shift['Latitude']?.toString() ?? shift['latitude']?.toString();
+          final String? lngFromShift = shift['Longitude']?.toString() ?? shift['longitude']?.toString();
+
+          if (siteIdFromShift != null && siteIdFromShift != 0) {
+            debugPrint("Site Loading: Found SiteId in shift details: $siteIdFromShift. Retrying load.");
+            _loadSiteData(overrideSiteId: siteIdFromShift);
+          } else if (latFromShift != null && lngFromShift != null) {
+            debugPrint("Site Loading: Found Coordinates in shift details. Creating virtual site.");
+            setState(() {
+              currentSite = Site(
+                siteId: 0,
+                siteName: shift['Location'] ?? "Shift Site",
+                latitude: latFromShift,
+                longitude: lngFromShift,
+                radius: 150.0,
+              );
+            });
+          }
+        }
       }
     } catch (e) {
       debugPrint(' Error loading shift details & status: $e');
@@ -237,7 +274,14 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
                     bool success = await _shiftService.respondToShift(
                         widget.shiftId, "Decline",
                         reason: reasonCtrl.text);
-                    if (success) setState(() => myStatus = "Declined");
+                    if (success) {
+                      setState(() {
+                        myStatus = "Declined";
+                        myRejectionReason = reasonCtrl.text.trim().isEmpty
+                            ? null
+                            : reasonCtrl.text.trim();
+                      });
+                    }
                     setState(() => isActionLoading = false);
                   },
                   child: const Text("Decline"),
@@ -262,14 +306,29 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
     }
   }
 
-  Future<void> _loadSiteData() async {
-    setState(() => isLoading = true);
+  Future<void> _loadSiteData({int? overrideSiteId}) async {
+    final targetSiteId = overrideSiteId ?? widget.job.siteId;
+    
+    if (mounted) setState(() => isLoading = true);
+    debugPrint("Site Loading: Starting for SiteId: $targetSiteId");
     try {
-      if (widget.job.siteId == 0 || widget.job.siteId == null) return;
-      final site = await _siteService.fetchSiteById(widget.job.siteId!);
-      if (site != null) currentSite = site;
+      if (targetSiteId == 0) {
+        debugPrint("Site Loading: Aborted. SiteId is 0.");
+        return;
+      }
+      final site = await _siteService.fetchSiteById(targetSiteId);
+      if (site != null) {
+        if (mounted) {
+          setState(() {
+            currentSite = site;
+          });
+        }
+        debugPrint("Site Loading: Success! Site Name: ${site.siteName}");
+      } else {
+        debugPrint("Site Loading: Failed. Site not found for ID: $targetSiteId");
+      }
     } catch (e) {
-      debugPrint(' Error loading site data: $e');
+      debugPrint('Site Loading: Error: $e');
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -286,23 +345,18 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
       final progress = jsonDecode(progressData);
       if (mounted) {
         setState(() {
-          clockInTime = progress['clockInTime'] != null
-              ? DateTime.parse(progress['clockInTime'])
-              : null;
-          clockOutTime = progress['clockOutTime'] != null
-              ? DateTime.parse(progress['clockOutTime'])
-              : null;
+          clockInTime = parseServerDateTime(progress['clockInTime']);
+          clockOutTime = parseServerDateTime(progress['clockOutTime']);
           if (progress['breaks'] != null) {
             breaks = (progress['breaks'] as List<dynamic>).map((b) {
               return {
-                'start': DateTime.parse(b['start']),
-                'end': DateTime.parse(b['end']),
+                'start': parseServerDateTime(b['start']) ?? DateTime.parse(b['start']),
+                'end': parseServerDateTime(b['end']) ?? DateTime.parse(b['end']),
               };
             }).toList();
           }
           if (progress['currentBreakStart'] != null) {
-            currentBreakStart =
-                DateTime.tryParse(progress['currentBreakStart']);
+            currentBreakStart = parseServerDateTime(progress['currentBreakStart']);
           }
           attendanceId = progress['attendanceId'];
         });
@@ -317,20 +371,16 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
 
       if (shift != null && mounted) {
         // --- Parse Backend Times ---
-        final backendClockInTime = shift['ClockInTime'] != null
-            ? DateTime.tryParse(shift['ClockInTime'])
-            : null;
-        final backendClockOutTime = shift['ClockOutTime'] != null
-            ? DateTime.tryParse(shift['ClockOutTime'])
-            : null;
+        final backendClockInTime = parseServerDateTime(
+            shift['ClockInTime'] ?? shift['clockInTime'] ?? shift['ClockinTime']);
+        final backendClockOutTime = parseServerDateTime(
+            shift['ClockOutTime'] ?? shift['clockOutTime']);
 
         // --- NEW: Parse Backend Break Times ---
-        final backendBreakStart = shift['BreakStart'] != null
-            ? DateTime.tryParse(shift['BreakStart'])
-            : null;
-        final backendBreakEnd = shift['BreakEnd'] != null
-            ? DateTime.tryParse(shift['BreakEnd'])
-            : null;
+        final backendBreakStart = parseServerDateTime(
+            shift['BreakStart'] ?? shift['breakStart']);
+        final backendBreakEnd = parseServerDateTime(
+            shift['BreakEnd'] ?? shift['breakEnd']);
 
         if (mounted) {
           setState(() {
@@ -357,15 +407,16 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
               // Finished Break
               else {
                 currentBreakStart = null;
+                final DateTime backendBreakEndNonNull = backendBreakEnd;
                 // Add to history if unique
                 bool exists = breaks.any((b) =>
                     b['start']!.isAtSameMomentAs(backendBreakStart) &&
-                    b['end']!.isAtSameMomentAs(backendBreakEnd!));
+                    b['end']!.isAtSameMomentAs(backendBreakEndNonNull));
 
                 if (!exists) {
                   breaks.add({
                     'start': backendBreakStart,
-                    'end': backendBreakEnd,
+                    'end': backendBreakEndNonNull,
                   });
                 }
               }
@@ -410,16 +461,27 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
   }
 
   Future<bool> _validateGeofence() async {
-    if (currentSite == null) return false;
+    if (currentSite == null) {
+      debugPrint("Geofence Check: currentSite is null");
+      return false;
+    }
     try {
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
         timeLimit: const Duration(seconds: 5),
       );
-      final siteLat = double.tryParse(currentSite!.latitude ?? '');
-      final siteLng = double.tryParse(currentSite!.longitude ?? '');
+      final siteLatStr = currentSite!.latitude ?? '';
+      final siteLngStr = currentSite!.longitude ?? '';
+      final siteLat = _parseCoordinate(siteLatStr);
+      final siteLng = _parseCoordinate(siteLngStr);
 
-      if (siteLat == null || siteLng == null) return false;
+      debugPrint("Geofence Check: User Position: (${position.latitude}, ${position.longitude})");
+      debugPrint("Geofence Check: Site Position (ID: ${currentSite!.siteId}): ($siteLatStr, $siteLngStr)");
+
+      if (siteLat == null || siteLng == null) {
+        debugPrint("Geofence Check: Site coordinates are invalid (null)");
+        return false;
+      }
 
       final distance = Geolocator.distanceBetween(
         position.latitude,
@@ -427,9 +489,17 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
         siteLat,
         siteLng,
       );
-      return distance <= (currentSite!.radius ?? 150);
+      
+      final allowedRadius = currentSite!.radius ?? 150.0;
+      final tolerance = 20.0;
+      debugPrint("Geofence Check: Distance: ${distance.toStringAsFixed(2)}m, Allowed Radius: ${allowedRadius}m");
+
+      bool inRange = distance <= allowedRadius + tolerance;
+      debugPrint("Geofence Check: In Range: $inRange (with ${tolerance}m tolerance)");
+      
+      return inRange;
     } catch (e) {
-      debugPrint("Geofence Check Failed: $e");
+      debugPrint("Geofence Check Failed with error: $e");
       return false;
     }
   }
@@ -601,7 +671,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
       final result = await _attendanceService.clockIn(
         employeeId: widget.employeeId,
         shiftId: widget.shiftId,
-        siteId: widget.job.siteId ?? 0,
+        siteId: widget.job.siteId,
         scheduledStartTime: widget.scheduledStartTime,
         photos: _capturedPhotos,
         clockInTime: now,
@@ -611,9 +681,14 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
 
       if (result['success']) {
         final attendanceIdFromResponse = result['attendanceId'];
+        final serverClockInString = result['data']?['ClockInTime'] ?? result['data']?['clockInTime'];
+        final serverClockInTime = serverClockInString != null
+            ? DateTime.tryParse(serverClockInString.toString())
+            : null;
+
         if (mounted) {
           setState(() {
-            clockInTime = now;
+            clockInTime = serverClockInTime ?? now;
             attendanceId = attendanceIdFromResponse;
             clockInPhoto =
                 _capturedPhotos.isNotEmpty ? _capturedPhotos.first : null;
@@ -975,7 +1050,8 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
                             _buildAcknowledgementCard()
                           else if (myStatus == "Declined")
                             _buildStatusMessage(
-                                " You have declined this shift.", Colors.red)
+                                "You have declined this shift.${myRejectionReason != null && myRejectionReason!.isNotEmpty ? '\nReason: $myRejectionReason' : ''}",
+                                Colors.red)
                           else if (myStatus == "Swap Requested")
                             _buildStatusMessage(
                                 " Swap Requested. Waiting for approval.",

@@ -16,8 +16,9 @@ class AttendanceService {
   final String shiftBaseUrl = dotenv.env['SHIFT_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
 
   //  SHIFT ENDPOINT KEYS (for Cross-Service Updates)
-  final String shiftAttendanceKey = dotenv.env['SHIFT_ATTENDANCE_KEY'] ?? dotenv.env['SHIFT_RESPOND_KEY'] ?? "";
-  final String shiftReportKey = dotenv.env['SHIFT_RUN_REPORTS_KEY'] ?? dotenv.env['SHIFT_REPORT_EMAIL_KEY'] ?? dotenv.env['REPORT_GENERATE_KEY'] ?? "";
+  final String shiftAttendanceKey = dotenv.env['SHIFT_ATTENDANCE_KEY'] ?? "";
+  final String shiftSyncKey = dotenv.env['SHIFT_SYNC_ATTENDANCE_KEY'] ?? "";
+  final String shiftReportKey = dotenv.env['SHIFT_GET_REPORT_KEY'] ?? "";
   
   //  PROD ENDPOINT KEYS (from func-attendance)
   final String attendanceAddKey = dotenv.env['ATTENDANCE_ADD_KEY'] ?? "";
@@ -158,19 +159,28 @@ class AttendanceService {
       debugPrint('Clock-in HTTP status: ${response.statusCode}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        dynamic result;
+        dynamic decoded;
         try {
-          result = jsonDecode(responseBody);
+          decoded = jsonDecode(responseBody);
         } catch (e) {
-          result = {'message': responseBody};
+          decoded = {'message': responseBody};
         }
-        
+
+        final resultData = (decoded is Map<String, dynamic> &&
+                (decoded.containsKey('data') || decoded.containsKey('Data')))
+            ? decoded['data'] ?? decoded['Data']
+            : decoded;
+
+        final attendanceIdValue = resultData is Map<String, dynamic>
+            ? resultData['AttendanceId'] ?? resultData['attendanceId']
+            : null;
+
         await _triggerShiftAttendanceUpdate(shiftId, "clockin");
-        
+
         return {
           'success': true,
-          'data': result,
-          'attendanceId': result['AttendanceId'] ?? result['attendanceId'],
+          'data': resultData,
+          'attendanceId': attendanceIdValue ?? decoded['AttendanceId'] ?? decoded['attendanceId'],
         };
       } else {
         throw Exception(
@@ -523,7 +533,7 @@ class AttendanceService {
       {DateTime? clockInTime, DateTime? clockOutTime, int? totalBreakMinutes}) async {
     debugPrint(" Syncing attendance data to Shift Service...");
     try {
-      final syncUrl = '$shiftBaseUrl/shift/sync/attendance?code=$shiftAttendanceKey';
+      final syncUrl = '$shiftBaseUrl/shift/sync/attendance?code=$shiftSyncKey';
       
       final response = await _apiClient.post(
         syncUrl,
