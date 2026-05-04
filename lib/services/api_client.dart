@@ -74,14 +74,16 @@ class ApiClient {
         }
 
         // Try to parse the feature name from response if possible, 
-        // otherwise use a generic message.
+        // otherwise default to 'This feature'.
         String featureName = 'This feature';
         try {
           final body = jsonDecode(response.body);
           featureName = body['featureName'] ?? body['FeatureName'] ?? 'This feature';
         } catch (_) {}
 
-        if (showDialog) {
+        // Only show the dialog if we have a specific feature name from the backend.
+        // This prevents generic "This feature" popups on background calls.
+        if (showDialog && featureName != 'This feature') {
           PremiumFeatureGate.showDialog(
             context,
             featureName: featureName,

@@ -163,4 +163,15 @@ class SiteService {
       return [];
     }
   }
+  // --- DELETE SITE ---
+  Future<bool> deleteSite(int id) async {
+    final url = '$baseUrl/site/delete/$id?code=$siteDeleteKey';
+    try {
+      final response = await _apiClient.delete(url, useAuth: true);
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("Error deleting site: $e");
+      return false;
+    }
+  }
 }

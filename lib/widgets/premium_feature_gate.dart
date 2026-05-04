@@ -32,7 +32,7 @@ class PremiumFeatureGate extends StatelessWidget {
     this.onGotIt,
   });
 
-  // ── Static helper: show as a modal bottom sheet ──────────────────────────
+  // ── Static helper: show as a modal bottom sheet 
   static Future<void> show(
     BuildContext context, {
     required String featureName,
@@ -52,7 +52,7 @@ class PremiumFeatureGate extends StatelessWidget {
     );
   }
 
-  // ── Static helper: show as a dialog ─────────────────────────────────────
+  // ── Static helper: show as a dialog 
   static Future<void> showDialog(
     BuildContext context, {
     required String featureName,

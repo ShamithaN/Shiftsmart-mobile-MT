@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shiftsmart/providers/tenant_provider.dart';
+import 'package:shiftsmart/screens/manager/manager_create_com.dart';
 import 'package:shiftsmart/screens/manager/manager_comapny.dart';
 import 'package:shiftsmart/screens/manager/manager_create_project1.dart';
 import 'package:shiftsmart/screens/manager/manager_projectview.dart';
+import 'package:shiftsmart/screens/manager/manager_create_site.dart';
 import 'package:shiftsmart/screens/manager/manager_site.dart';
 import 'package:shiftsmart/services/project_service.dart';
 import 'package:shiftsmart/services/company_service.dart';
@@ -276,9 +278,14 @@ class _Managerprojectstate extends State<Managerprojects> {
     return Column(
       children: [
         _buildListHeader("COMPANY LIST",
-            "Total: ${filteredCompanies.length} Companies", "Add Company", () {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const Managercomapny()));
+            "Total: ${filteredCompanies.length} Companies", "Add Company", () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const Managercreatecom()),
+          );
+          if (result == true) {
+            _refreshData();
+          }
         }),
         Expanded(
           child: RefreshIndicator(
@@ -293,8 +300,56 @@ class _Managerprojectstate extends State<Managerprojects> {
                   subtitle: company.address,
                   bottomInfo:
                       "☎ ${company.phoneNumber} - ${company.ContactPerson}",
-                  onEdit: () {},
-                  onDelete: () {},
+                  onEdit: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) =>
+                              Managercreatecom(company: company)),
+                    );
+                    if (result == true) {
+                      _refreshData();
+                    }
+                  },
+                  onDelete: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        backgroundColor: const Color(0xFF1E2433),
+                        title: const Text("Delete Company",
+                            style: TextStyle(color: Colors.white)),
+                        content: Text(
+                            "Are you sure you want to delete ${company.name}?",
+                            style: const TextStyle(color: Colors.white70)),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text("Cancel"),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text("Delete",
+                                style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirm == true) {
+                      final success =
+                          await _companyService.deleteCompany(company.id);
+                      if (success) {
+                        _refreshData();
+                      } else {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text("Failed to delete company")),
+                          );
+                        }
+                      }
+                    }
+                  },
                 );
               },
             ),
@@ -353,9 +408,14 @@ class _Managerprojectstate extends State<Managerprojects> {
       children: [
         _buildListHeader(
             "SITE LIST", "Total: ${filteredSites.length} Sites", "Add Site",
-            () {
-          Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const Managersite()));
+            () async {
+          final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const Managercreatesite()));
+          if (result == true) {
+            _refreshData();
+          }
         }),
         Expanded(
           child: RefreshIndicator(
@@ -370,8 +430,54 @@ class _Managerprojectstate extends State<Managerprojects> {
                   subtitle: "Project ID: ${site.projectId ?? 'N/A'}",
                   bottomInfo:
                       "Coordinates: ${site.latitude ?? ''}, ${site.longitude ?? ''}",
-                  onEdit: () {},
-                  onDelete: () {},
+                  onEdit: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => Managercreatesite(site: site)),
+                    );
+                    if (result == true) {
+                      _refreshData();
+                    }
+                  },
+                  onDelete: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        backgroundColor: const Color(0xFF1E2433),
+                        title: const Text("Delete Site",
+                            style: TextStyle(color: Colors.white)),
+                        content: Text(
+                            "Are you sure you want to delete ${site.siteName}?",
+                            style: const TextStyle(color: Colors.white70)),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text("Cancel"),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text("Delete",
+                                style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirm == true) {
+                      final success = await _siteService.deleteSite(site.siteId);
+                      if (success) {
+                        _refreshData();
+                      } else {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text("Failed to delete site")),
+                          );
+                        }
+                      }
+                    }
+                  },
                 );
               },
             ),

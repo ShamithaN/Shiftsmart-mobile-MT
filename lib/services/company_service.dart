@@ -93,4 +93,16 @@ class CompanyService {
       return [];
     }
   }
+
+  // --- DELETE COMPANY ---
+  Future<bool> deleteCompany(int id) async {
+    final String url = '$baseUrl/company/delete/$id?code=$deleteCompanyKey';
+    try {
+      final response = await _apiClient.delete(url, useAuth: true);
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("Error deleting company: $e");
+      return false;
+    }
+  }
 }
