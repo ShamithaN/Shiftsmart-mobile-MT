@@ -119,7 +119,6 @@ class _ManagercreatecomState extends State<Managercreatecom> {
                 : "New company has been created successfully.",
             buttonText: "OK",
             onPressed: () {
-              Navigator.pop(context); // Close dialog
               Navigator.pop(context, true); // Return to list screen with 'true'
             },
           );

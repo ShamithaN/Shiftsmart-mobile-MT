@@ -42,20 +42,29 @@ class _Managercreateproject2State extends State<Managercreateproject2> {
 
   // Data
   List<Company> allCom = [];
-  String? _selectedComName;
+  int? _selectedComId; // Track ID instead of Name String
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     enableFullScreen();
-    fetchCompanies();
-    if (widget.project != null) {
-      _startdateController.text = widget.project!.startDate;
-      _enddateController.text = widget.project!.endDate;
-      _selectedComName = widget.project!.companyName;
-      _comController.text = widget.project!.companyName;
-    }
+    fetchCompanies().then((_) {
+      if (widget.project != null) {
+        _startdateController.text = widget.project!.startDate;
+        _enddateController.text = widget.project!.endDate;
+
+        // Find the company ID that matches the company name
+        final existingCom = allCom
+            .where((c) => c.name == widget.project!.companyName)
+            .firstOrNull;
+        if (existingCom != null) {
+          setState(() {
+            _selectedComId = existingCom.id;
+          });
+        }
+      }
+    });
   }
 
   // --- Fetch Companies ---
@@ -92,7 +101,7 @@ class _Managercreateproject2State extends State<Managercreateproject2> {
     // 1. Validation
     if (_startdateController.text.isEmpty ||
         _enddateController.text.isEmpty ||
-        _selectedComName == null) {
+        _selectedComId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill in all fields")),
       );
@@ -102,13 +111,13 @@ class _Managercreateproject2State extends State<Managercreateproject2> {
     setState(() => _isLoading = true);
 
     final projectData = {
-      "name": widget.name,
-      "companyName": _selectedComName,
-      "description": widget.description,
-      "additionalRemarks": widget.additionalRemark,
-      "projectDue": widget.projectDue,
-      "startDate": _startdateController.text.trim(),
-      "endDate": _enddateController.text.trim(),
+      "Name": widget.name, // Capitalized Keys
+      "CompanyId": _selectedComId, // Capitalized Keys
+      "Description": widget.description,
+      "AdditionalRemarks": widget.additionalRemark,
+      "ProjectDue": "${widget.projectDue}T00:00:00Z", // Added Z
+      "StartDate": "${_startdateController.text.trim()}T00:00:00Z", // Added Z
+      "EndDate": "${_enddateController.text.trim()}T00:00:00Z", // Added Z
     };
 
     bool success;
@@ -134,15 +143,12 @@ class _Managercreateproject2State extends State<Managercreateproject2> {
               : "New project has been created successfully.",
           buttonText: "Ok",
           onPressed: () {
-            Navigator.pop(context); // Close dialog
-            // Navigate back to Project List (BottomNavbar index 1)
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const Bottomnavbar(selectedIndex: 1),
-              ),
-              (route) => false,
-            );
+            // Because you came from Step 1, we just need to pop backward twice.
+            // This preserves the state of the BottomNavbar, keeping you exactly on the "PROJECTS" tab!
+            int count = 0;
+            Navigator.of(context).popUntil((route) {
+              return count++ >= 2;
+            });
           },
         );
       } else {
@@ -293,25 +299,24 @@ class _Managercreateproject2State extends State<Managercreateproject2> {
             borderRadius: BorderRadius.circular(8),
           ),
           child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
+            child: DropdownButton<int>(
+              // Change String to int
               dropdownColor: const Color(0xFF2A3243),
-              value: allCom.any((c) => c.name == _selectedComName)
-                  ? _selectedComName
-                  : null,
+              value: _selectedComId,
               isExpanded: true,
               items: allCom.map((company) {
-                return DropdownMenuItem<String>(
-                  value: company.name,
+                return DropdownMenuItem<int>(
+                  // Change String to int
+                  value: company.id, // Value is now the ID
                   child: Text(
-                    company.name,
+                    company.name, // Display text is still the Name
                     style: const TextStyle(color: Colors.white),
                   ),
                 );
               }).toList(),
               onChanged: (value) {
                 setState(() {
-                  _selectedComName = value;
-                  _comController.text = value!;
+                  _selectedComId = value; // Update ID
                 });
               },
               hint: const Text(
