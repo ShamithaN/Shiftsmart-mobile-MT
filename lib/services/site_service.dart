@@ -42,7 +42,7 @@ class SiteService {
       final response = await _apiClient.post(
         url,
         body: siteData, // ApiClient handles jsonEncode
-        useAuth: false,
+        useAuth: true,
       );
 
       debugPrint("Response Status: ${response.statusCode}");

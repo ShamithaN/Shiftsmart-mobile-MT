@@ -3,6 +3,7 @@ import 'package:shiftsmart/models/project.dart';
 class Site {
   final int siteId;
   final String siteName;
+  final String? address;
   // We keep these as String? so the rest of your app doesn't break
   final String? latitude;
   final String? longitude;
@@ -15,6 +16,7 @@ class Site {
   Site({
     required this.siteId,
     required this.siteName,
+    this.address,
     this.latitude,
     this.longitude,
     this.geoFenceType,
@@ -28,7 +30,7 @@ class Site {
     return Site(
       siteId: json['SiteId'] ?? json['siteId'] ?? 0,
       siteName: json['SiteName'] ?? json['siteName'] ?? '',
-
+      address: json['Address'] ?? json['address'],
       // --- This is the fix ---
       // The server may return coordinates as separate fields or as a geoCoordinates string.
       latitude: _extractLatitude(json),
@@ -50,6 +52,7 @@ class Site {
     return {
       "projectId": projectId,
       "siteName": siteName,
+      "address": address,
       // Your app already stores these as Strings, so this is correct
       "latitude": latitude,
       "longitude": longitude,

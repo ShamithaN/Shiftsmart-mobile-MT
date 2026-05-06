@@ -58,10 +58,11 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
     );
 
     // Populate fields if editing
+    // Populate fields if editing
     if (widget.site != null) {
       _siteNameController.text = widget.site!.siteName;
       _addressController.text =
-          widget.site!.siteName; // Use address if available in future
+          widget.site!.address ?? ""; // <-- USE ADDRESS HERE
       _latitudeController.text = widget.site!.latitude ?? "-33.8688";
       _longitudeController.text = widget.site!.longitude ?? "151.2093";
       _selectedProjectId = widget.site!.projectId;
@@ -166,14 +167,14 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
     setState(() => _isSaving = true);
 
     final siteData = {
-      "projectId": _selectedProjectId,
-      "siteName": _siteNameController.text.trim(),
-      "address": _addressController.text.trim(),
-      "latitude": double.tryParse(_latitudeController.text.trim()) ?? 0.0,
-      "longitude": double.tryParse(_longitudeController.text.trim()) ?? 0.0,
-      "geoFenceType": "circle",
-      "geoCoordinates": "",
-      "radius": 150.5,
+      "ProjectId": _selectedProjectId,
+      "SiteName": _siteNameController.text.trim(),
+      "Address": _addressController.text.trim(),
+      "Latitude": double.tryParse(_latitudeController.text.trim()) ?? 0.0,
+      "Longitude": double.tryParse(_longitudeController.text.trim()) ?? 0.0,
+      "GeoFenceType": "circle",
+      "GeoCoordinates": "",
+      "Radius": 150.5,
     };
 
     bool success = false;
@@ -204,7 +205,6 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
               : "New site has been created successfully.",
           buttonText: "OK",
           onPressed: () {
-            Navigator.pop(context); // Close dialog
             Navigator.pop(context, true); // Return to list screen with 'true'
           },
         );
