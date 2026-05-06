@@ -166,11 +166,18 @@ class _EmployeedashboardState extends State<Employeedashboard> {
   }
 
   void _navigateToShiftView(Map<String, dynamic> shiftData) {
+    final shift = shiftData['Shift'];
+    
+    // Improved SiteId resolution: fallback to shift's SiteId if job's SiteId is 0 or null
+    final siteId = (shiftData['SiteId'] != null && shiftData['SiteId'] != 0) 
+        ? shiftData['SiteId'] 
+        : (shift != null ? (shift['SiteId'] ?? shift['siteId'] ?? 0) : 0);
+
     final job = Job(
       jobId: shiftData['JobId'],
       title: shiftData['Title'] ?? 'No Title',
       description: shiftData['Description'] ?? 'No Description',
-      siteId: shiftData['SiteId'] ?? 0,
+      siteId: siteId,
       startDate: '',
       jobDueDate: '',
       status: '',
@@ -179,8 +186,6 @@ class _EmployeedashboardState extends State<Employeedashboard> {
       jobImageUrl: '',
       jobRoles: [],
     );
-
-    final shift = shiftData['Shift'];
 
     Navigator.push(
       context,

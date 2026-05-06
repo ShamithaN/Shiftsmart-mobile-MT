@@ -4,6 +4,7 @@ import 'package:printing/printing.dart'; // Requires 'printing' package
 import 'package:pdf/widgets.dart' as pw; // Requires 'pdf' package
 import 'package:pdf/pdf.dart';
 import 'package:shiftsmart/models/attendance.dart';
+import 'package:shiftsmart/utils/date_time_parser.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'dart:io';
 import 'package:shiftsmart/services/image_picker_service.dart';
@@ -72,14 +73,14 @@ class _ManagerattendaceviewState extends State<Managerattendaceview> {
 
   // --- Helper: Format Date Strings ---
   String formatDateTime(String? dtString) {
-    final dt = DateTime.tryParse(dtString ?? '');
+    final dt = parseServerDateTime(dtString);
     if (dt == null) return "Not recorded";
     return DateFormat('yyyy-MM-dd hh:mm a').format(dt);
   }
 
   String _calculateBreakMinutes(String start, String end) {
-    final startTime = DateTime.tryParse(start);
-    final endTime = DateTime.tryParse(end);
+    final startTime = parseServerDateTime(start);
+    final endTime = parseServerDateTime(end);
     
     if (startTime == null || endTime == null) return "0m";
     

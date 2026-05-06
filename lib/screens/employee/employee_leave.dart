@@ -59,6 +59,23 @@ class _EmployeeleaveState extends State<Employeeleave> {
     await _refreshData();
   }
 
+  Future<int?> _resolveEmployeeId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedId = prefs.getInt('employeeId') ?? prefs.getInt('userId');
+    if (storedId != null) return storedId;
+
+    final userProfile =
+        Provider.of<UserProvider>(context, listen: false).userProfile;
+    final dynamic profileId = userProfile['employeeId'] ??
+        userProfile['EmployeeId'] ??
+        userProfile['id'] ??
+        userProfile['Id'];
+
+    if (profileId is int) return profileId;
+    if (profileId is String) return int.tryParse(profileId);
+    return null;
+  }
+
   Future<void> _refreshData() async {
     setState(() => _isLoading = true);
     await _fetchLeaveRequests();
@@ -66,8 +83,7 @@ class _EmployeeleaveState extends State<Employeeleave> {
   }
 
   Future<void> _fetchLeaveRequests() async {
-    final prefs = await SharedPreferences.getInstance();
-    final employeeId = prefs.getInt('employeeId');
+    final employeeId = await _resolveEmployeeId();
 
     if (employeeId == null) {
       if (mounted) {

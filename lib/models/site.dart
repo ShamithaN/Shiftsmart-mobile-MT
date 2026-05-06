@@ -29,13 +29,11 @@ class Site {
       siteId: json['SiteId'] ?? json['siteId'] ?? 0,
       siteName: json['SiteName'] ?? json['siteName'] ?? '',
 
-      // --- THIS IS THE FIX ---
-      // The server sends a number (double), but your app wants a String.
-      // We convert the number to a String here.
-      // The ?.toString() safely handles nulls.
-      latitude: json['Latitude']?.toString() ?? json['latitude']?.toString(),
-      longitude: json['Longitude']?.toString() ?? json['longitude']?.toString(),
-      // --- END OF FIX ---
+      // --- This is the fix ---
+      // The server may return coordinates as separate fields or as a geoCoordinates string.
+      latitude: _extractLatitude(json),
+      longitude: _extractLongitude(json),
+      // --- End of fix ---
 
       geoFenceType: json['GeoFenceType'] ?? json['geoFenceType'] ?? '',
       geoCoordinates: json['GeoCoordinates'] ?? json['geoCoordinates'] ?? '',
@@ -59,5 +57,41 @@ class Site {
       "geoCoordinates": geoCoordinates,
       "radius": radius,
     };
+  }
+
+  static String? _extractLatitude(Map<String, dynamic> json) {
+    final latitude = json['Latitude']?.toString() ?? json['latitude']?.toString();
+    final geoCoordinates = json['GeoCoordinates'] ?? json['geoCoordinates'];
+
+    if (latitude != null && latitude.trim().isNotEmpty) {
+      return latitude.trim();
+    }
+
+    if (geoCoordinates != null) {
+      final coords = geoCoordinates.toString().split(RegExp(r'[ ,;]+'));
+      if (coords.length >= 2) {
+        return coords[0].trim();
+      }
+    }
+
+    return null;
+  }
+
+  static String? _extractLongitude(Map<String, dynamic> json) {
+    final longitude = json['Longitude']?.toString() ?? json['longitude']?.toString();
+    final geoCoordinates = json['GeoCoordinates'] ?? json['geoCoordinates'];
+
+    if (longitude != null && longitude.trim().isNotEmpty) {
+      return longitude.trim();
+    }
+
+    if (geoCoordinates != null) {
+      final coords = geoCoordinates.toString().split(RegExp(r'[ ,;]+'));
+      if (coords.length >= 2) {
+        return coords[1].trim();
+      }
+    }
+
+    return null;
   }
 }

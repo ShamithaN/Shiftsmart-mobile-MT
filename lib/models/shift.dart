@@ -1,3 +1,5 @@
+import 'package:shiftsmart/utils/date_time_parser.dart';
+
 class EmployeeResponse {
   final int employeeId;
   final String status;
@@ -35,9 +37,9 @@ class EmployeeResponse {
       employeeId: parseId(json['EmployeeId'] ?? json['employeeId'] ?? json['EmployeId']),
       status: (json['Status'] ?? json['status'])?.toString() ?? 'Pending',
       reason: (json['Reason'] ?? json['reason'])?.toString(),
-      respondedAt: DateTime.tryParse((json['RespondedAt'] ?? json['respondedAt'])?.toString() ?? ''),
-      clockInTime: DateTime.tryParse((json['ClockInTime'] ?? json['clockInTime'] ?? json['ClockinTime'])?.toString() ?? ''),
-      clockOutTime: DateTime.tryParse((json['ClockOutTime'] ?? json['clockOutTime'])?.toString() ?? ''),
+      respondedAt: parseServerDateTime(json['RespondedAt'] ?? json['respondedAt']),
+      clockInTime: parseServerDateTime(json['ClockInTime'] ?? json['clockInTime'] ?? json['ClockinTime']),
+      clockOutTime: parseServerDateTime(json['ClockOutTime'] ?? json['clockOutTime']),
       isEarlyExit: json['IsEarlyExit'] == true || json['IsEarlyExit']?.toString().toLowerCase() == 'true' || json['isEarlyExit'] == true || json['isEarlyExit']?.toString().toLowerCase() == 'true',
       earlyExitReason: (json['EarlyExitReason'] ?? json['earlyExitReason'])?.toString(),
       approvalStatus: (json['ApprovalStatus'] ?? json['approvalStatus'])?.toString(),
@@ -157,12 +159,7 @@ class Shift {
         shiftId: parseId(json['ShiftId'] ?? json['shiftId'] ?? json['Shitid']),
         projectId: parseId(json['ProjectId'] ?? json['projectId'] ?? json['Projectld']),
         taskName: (json['TaskName'] ?? json['taskName'])?.toString() ?? '',
-        date: DateTime.tryParse(json['Date']?.toString() ?? 
-                               json['date']?.toString() ?? 
-                               json['StartDate']?.toString() ?? 
-                               json['startDate']?.toString() ?? 
-                               json['JobDueDate']?.toString() ?? 
-                               json['jobDueDate']?.toString() ?? '') ?? DateTime.now(),
+        date: parseServerDateTime(json['Date'] ?? json['date'] ?? json['StartDate'] ?? json['startDate'] ?? json['JobDueDate'] ?? json['jobDueDate']) ?? DateTime.now(),
         startTime: (json['StartTime'] ?? json['startTime'])?.toString() ?? '',
         endTime: (json['EndTime'] ?? json['endTime'])?.toString() ?? '',
         location: (json['Location'] ?? json['location'])?.toString() ?? '',
@@ -177,7 +174,7 @@ class Shift {
         siteId: (json['SiteId'] ?? json['siteId']) != null ? parseId(json['SiteId'] ?? json['siteId']) : null,
         latitude: (json['Latitude'] ?? json['latitude'])?.toString(),
         longitude: (json['Longitude'] ?? json['longitude'])?.toString(),
-        completedAt: DateTime.tryParse((json['CompletedAt'] ?? json['completedAt'])?.toString() ?? ''),
+        completedAt: parseServerDateTime(json['CompletedAt'] ?? json['completedAt']),
       );
     } catch (e, stack) {
       // debugPrint is not defined in this context, assuming print is intended or debugPrint needs to be imported.
