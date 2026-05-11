@@ -25,8 +25,9 @@ class SiteService {
       dotenv.env['ACTIVE_LOCATIONS_BY_SITE_KEY'] ?? "";
 
   SiteService() {
-    if (baseUrl.isEmpty)
+    if (baseUrl.isEmpty) {
       debugPrint(" SiteService: PROJECT_BASE_URL is missing");
+    }
   }
 
   // --- ADD SITE ---

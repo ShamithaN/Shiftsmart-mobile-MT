@@ -30,17 +30,55 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
     _selectedImageFile = widget.initialImage;
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _pickImageFromSource(ImageSource source) async {
     final picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    final XFile? image = await picker.pickImage(source: source, imageQuality: 85);
     if (image != null) {
       setState(() {
-        _selectedImageFile = File(image.path); 
+        _selectedImageFile = File(image.path);
       });
 
       if (widget.onImageSelected != null) {
         widget.onImageSelected!(_selectedImageFile!);
       }
+    }
+  }
+
+  Future<void> _showImageSourceOptions(BuildContext context) async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: const Color(0xFF1E2433),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt, color: Colors.white),
+                title: const Text('Take photo', style: TextStyle(color: Colors.white)),
+                onTap: () => Navigator.of(ctx).pop(ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library, color: Colors.white),
+                title: const Text('Choose from gallery', style: TextStyle(color: Colors.white)),
+                onTap: () => Navigator.of(ctx).pop(ImageSource.gallery),
+              ),
+              ListTile(
+                leading: const Icon(Icons.close, color: Colors.white),
+                title: const Text('Cancel', style: TextStyle(color: Colors.white)),
+                onTap: () => Navigator.of(ctx).pop(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (source != null) {
+      await _pickImageFromSource(source);
     }
   }
 
@@ -77,7 +115,7 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
       children: [
         widget.editable
             ? GestureDetector(
-                onTap: _pickImage,
+                onTap: () => _showImageSourceOptions(context),
                 child: avatar,
               )
             : avatar,

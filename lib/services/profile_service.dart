@@ -27,34 +27,55 @@ class ProfileService {
       return "Error: Missing UPDATE_PROFILE_KEY in .env";
     }
 
-    final url = Uri.parse(
-        '$baseUrl/employee/update/$employeeId?code=$updateProfileKey');
-    final request = http.MultipartRequest('PUT', url);
+    final url = '$baseUrl/employee/update/$employeeId?code=$updateProfileKey';
 
-    final token = await _apiClient.getAppToken();
-    if (token != null) {
-      request.headers['Authorization'] = 'Bearer $token';
-    }
+    // Ensure employeeId is part of the profile payload for endpoint compatibility.
+    final profilePayload = Map<String, dynamic>.from(profile);
+    profilePayload['employeeId'] = employeeId;
 
-    request.fields['profile'] = jsonEncode(profile);
-    request.fields['nextOfKins'] = jsonEncode(nextOfKins);
+    Future<http.Response> sendMultipartRequest(String method) async {
+      final uri = Uri.parse(url);
+      final request = http.MultipartRequest(method, uri);
 
-    if (profilePicture != null && profilePicture.existsSync()) {
-      final mimeType = MediaType('image', 'jpeg');
-      request.files.add(await http.MultipartFile.fromPath(
-          'profilePicture', profilePicture.path,
-          contentType: mimeType));
+      final token = await _apiClient.getAppToken();
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+
+      request.fields['profile'] = jsonEncode(profilePayload);
+      request.fields['nextOfKins'] = jsonEncode(nextOfKins);
+      request.fields['employeeId'] = employeeId.toString();
+
+      if (profilePicture != null && profilePicture.existsSync()) {
+        final mimeType = MediaType('image', 'jpeg');
+        request.files.add(await http.MultipartFile.fromPath(
+          'profilePicture',
+          profilePicture.path,
+          contentType: mimeType,
+        ));
+      }
+
+      final streamedResponse = await request.send();
+      return await http.Response.fromStream(streamedResponse);
     }
 
     try {
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
+      final response = await sendMultipartRequest('PUT');
 
       if (response.statusCode == 200) {
         return null; // Success
-      } else {
-        return 'Failed : ${response.body}';
       }
+
+      // Retry with POST when the backend rejects multipart PUT boundary parsing.
+      if (response.statusCode == 400 && response.body.contains('multipart')) {
+        final retryResponse = await sendMultipartRequest('POST');
+        if (retryResponse.statusCode == 200) {
+          return null;
+        }
+        return 'Failed : ${retryResponse.statusCode} ${retryResponse.body}';
+      }
+
+      return 'Failed : ${response.statusCode} ${response.body}';
     } catch (e) {
       return 'Error: $e';
     }

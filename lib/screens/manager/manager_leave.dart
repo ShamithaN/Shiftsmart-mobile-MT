@@ -92,7 +92,7 @@ class _ManagerleaveState extends State<Managerleave> {
   }
 Future<void> _updateLeaveStatus(String id, String newStatus) async {
   try {
-    await _leaveService.updateLeaveStatus(id, newStatus);
+    await _leaveService.updateLeaveStatus(int.parse(id), newStatus);
 
     if (!mounted) return;
 

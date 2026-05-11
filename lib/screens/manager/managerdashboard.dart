@@ -16,14 +16,11 @@ import 'package:shiftsmart/widgets/gradientbox.dart';
 import 'package:shiftsmart/widgets/gradienthorizontal.dart';
 import 'package:shiftsmart/models/project.dart';
 import 'package:shiftsmart/services/attendance_service.dart';
-import 'package:shiftsmart/screens/manager/manager_pending_requests.dart';
 import 'package:provider/provider.dart';
 import 'package:shiftsmart/providers/tenant_provider.dart';
 import 'package:shiftsmart/providers/user_provider.dart';
 import 'package:shiftsmart/services/super_admin_service.dart';
 import 'package:shiftsmart/services/auth_service.dart';
-import 'package:shiftsmart/screens/manager/manager_tenant_details.dart';
-import 'dart:ui';
 import 'package:shiftsmart/widgets/organization_selector.dart';
 
 

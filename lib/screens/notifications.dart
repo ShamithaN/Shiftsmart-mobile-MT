@@ -383,10 +383,12 @@ class _NotificationsState extends State<Notifications> {
     // NEW: Filter notifications before sending them to the group builder
     final filteredNotifications = allNotifications.where((notif) {
       final isUnread = unreadNotificationIds.contains(notif.id);
-      if (_selectedTabIndex == 0)
+      if (_selectedTabIndex == 0) {
         return isUnread; // If 'Unread' tab, only show unread
-      if (_selectedTabIndex == 1)
+      }
+      if (_selectedTabIndex == 1) {
         return !isUnread; // If 'Read' tab, only show already read
+      }
       return false; // Tab 2 is announcements
     }).toList();
     final grouped = groupNotifications(filteredNotifications);

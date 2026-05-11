@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shiftsmart/providers/tenant_provider.dart';
-import 'package:shiftsmart/screens/manager/manager_tenant_details.dart';
 
 class OrganizationSelector extends StatefulWidget {
   final VoidCallback? onTenantSwitched;

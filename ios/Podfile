@@ -1,3 +1,24 @@
+# Workaround for CocoaPods 1.16.0+ regression: https://github.com/CocoaPods/CocoaPods/issues/12794
+begin
+  require 'xcodeproj'
+  module ::Xcodeproj
+    class Project
+      module Object
+        class PBXShellScriptBuildPhase
+          if method_defined?(:shell_script=) && !method_defined?(:old_shell_script=)
+            alias_method :old_shell_script=, :shell_script=
+            def shell_script=(value)
+              value = value.join("\n") if value.is_a?(Array)
+              self.old_shell_script = value
+            end
+          end
+        end
+      end
+    end
+  end
+rescue LoadError
+end
+
 # Uncomment this line to define a global platform for your project
 platform :ios, '15.0'
 

@@ -142,23 +142,27 @@ class _EmployeeNextOfKinScreenState extends State<EmployeeNextOfKinScreen> {
       // Full Name  required, letters/spaces only, 280 chars
       final name = c.nameController.text.trim();
       if (name.isEmpty) return '$label: Full Name is required.';
-      if (!RegExp(r"^[a-zA-Z-\s.'-]{2,80}$").hasMatch(name))
+      if (!RegExp(r"^[a-zA-Z-\s.'-]{2,80}$").hasMatch(name)) {
         return '$label: Full Name must be 280 letters only.';
+      }
 
       // Relationship  required
-      if (c.relationshipController.text.trim().isEmpty)
+      if (c.relationshipController.text.trim().isEmpty) {
         return '$label: Relationship is required.';
+      }
 
       // Mobile  international format if provided
       final phone = c.phoneController.text.trim().replaceAll(RegExp(r'[\s\-()]'), '');
-      if (phone.isNotEmpty && !RegExp(r'^\+?[1-9]\d{6,14}$').hasMatch(phone))
+      if (phone.isNotEmpty && !RegExp(r'^\+?[1-9]\d{6,14}$').hasMatch(phone)) {
         return '$label: Enter a valid phone number (e.g. +94771234567).';
+      }
 
       // Email  valid format if provided
       final email = c.emailController.text.trim();
       if (email.isNotEmpty &&
-          !RegExp(r'^[\w._%+\-]+@[\w.\-]+\.[a-zA-Z]{2,}$').hasMatch(email))
+          !RegExp(r'^[\w._%+\-]+@[\w.\-]+\.[a-zA-Z]{2,}$').hasMatch(email)) {
         return '$label: Enter a valid email address.';
+      }
     }
     return null;
   }
