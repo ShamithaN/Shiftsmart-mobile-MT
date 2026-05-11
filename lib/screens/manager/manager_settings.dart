@@ -506,7 +506,7 @@ class _ManagerSettingsState extends State<ManagerSettings> {
                     ),
                 ],
               ),
-              activeColor: const Color(0xFF2979FF),
+              activeThumbColor: const Color(0xFF2979FF),
               value: _isBiometricEnabled,
               onChanged: _toggleBiometrics,
             )

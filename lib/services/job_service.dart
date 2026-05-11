@@ -82,8 +82,11 @@ class JobService {
   }
 
   // --- ADD JOB (Data Only) ---
-  // Note: Standard job/create is reported missing. Use createJobWithImage if an image is available.
   Future<int?> addJob(Map<String, dynamic> jobData) async {
+    if (jobCreateKey.isEmpty) {
+      debugPrint(" JobService: JOB_CREATE_KEY is missing.");
+      return null;
+    }
     final url = '$baseUrl/job/create?code=$jobCreateKey';
     try {
       final response = await _apiClient.post(

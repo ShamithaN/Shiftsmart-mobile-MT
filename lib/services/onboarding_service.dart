@@ -139,4 +139,45 @@ class OnboardingService {
       return http.Response('Error: $e', 500);
     }
   }
+
+  Future<String?> resubmitDocument({
+    required int documentId,
+    required File file,
+    required String documentType,
+  }) async {
+    String url = '$baseUrl/document/resubmit';
+    if (resubmitDocKey.isNotEmpty) {
+      url += '?code=$resubmitDocKey';
+    }
+
+    try {
+      final request = http.MultipartRequest('POST', Uri.parse(url));
+
+      final token = await _apiClient.getAppToken();
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+
+      request.fields['DocumentId'] = documentId.toString();
+      request.fields['DocumentType'] = documentType;
+
+      final mimeType = lookupMimeType(file.path) ?? 'application/octet-stream';
+      request.files.add(await http.MultipartFile.fromPath(
+        'file',
+        file.path,
+        contentType: MediaType.parse(mimeType),
+      ));
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return null;
+      }
+
+      return 'Document update failed: ${response.statusCode}. ${response.body}';
+    } catch (e) {
+      return 'Document update error: $e';
+    }
+  }
 }

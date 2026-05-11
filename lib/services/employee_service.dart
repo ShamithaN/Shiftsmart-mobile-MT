@@ -1,9 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
-import 'package:mime/mime.dart';
 import 'package:shiftsmart/models/employee.dart';
 import 'package:shiftsmart/models/empcert_model.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -32,7 +29,7 @@ class EmployeeService {
   }
 
   // --- 1. Fetch All Employees ---
-  Future<List<Employee>> fetchAllEmployees() async {
+  Future<List<Employee>> fetchAllEmployees({bool includeAdminsAndManagers = false}) async {
     final url = '$baseUrl/employee/all?code=$fetchEmpKey';
     debugPrint(" EmployeeService: Fetching all employees from $url");
     try {
@@ -43,11 +40,16 @@ class EmployeeService {
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = jsonDecode(response.body);
         debugPrint(" EmployeeService: Found ${jsonData.length} employees.");
-        final filtered = jsonData.where((e) {
-          final role = (e['userRole'] ?? '').toString().toLowerCase();
-          return role != 'manager' && role != 'admin';
-        }).toList();
-        return filtered.map((e) => Employee.fromJson(e)).toList();
+
+        if (!includeAdminsAndManagers) {
+          final filtered = jsonData.where((e) {
+            final role = (e['userRole'] ?? '').toString().toLowerCase();
+            return role != 'manager' && role != 'admin';
+          }).toList();
+          return filtered.map((e) => Employee.fromJson(e)).toList();
+        }
+
+        return jsonData.map((e) => Employee.fromJson(e)).toList();
       } else {
         debugPrint("Failed to load employees: ${response.statusCode}");
         return [];
