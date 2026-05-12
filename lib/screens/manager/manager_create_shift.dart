@@ -19,6 +19,7 @@ import 'package:shiftsmart/widgets/gradienthorizontal.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
 import 'package:shiftsmart/services/notification_service.dart';
+import 'package:shiftsmart/widgets/feature_gate.dart';
 import 'package:shiftsmart/widgets/success_dialog.dart';
 
 class Managercreateshift extends StatefulWidget {
@@ -102,7 +103,20 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
 
     final selectedJob = allJobs.firstWhere(
       (job) => job.jobId == _selectedJobId,
-      orElse: () => allJobs.isNotEmpty ? allJobs.first : Job(jobId: 0, title: '', description: '', status: '', projectId: 0, totalEstimatedTime: 0, siteId: 0, startDate: '', jobDueDate: '', jobImageUrl: '', jobRoles: []),
+      orElse: () => allJobs.isNotEmpty
+          ? allJobs.first
+          : Job(
+              jobId: 0,
+              title: '',
+              description: '',
+              status: '',
+              projectId: 0,
+              totalEstimatedTime: 0,
+              siteId: 0,
+              startDate: '',
+              jobDueDate: '',
+              jobImageUrl: '',
+              jobRoles: []),
     );
 
     if (selectedJob.jobId == 0) return;
@@ -126,7 +140,8 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
     String newTitle = "${selectedJob.title}";
     if (formattedDate.isNotEmpty) newTitle += " - $formattedDate";
     if (start.isNotEmpty && end.isNotEmpty) newTitle += " $start-$end";
-    if (matchingSite.siteName.isNotEmpty) newTitle += " (${matchingSite.siteName})";
+    if (matchingSite.siteName.isNotEmpty)
+      newTitle += " (${matchingSite.siteName})";
 
     setState(() {
       _titleController.text = newTitle;
@@ -196,7 +211,8 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
     try {
       if (controller.text.isNotEmpty) {
         final parts = controller.text.split(':');
-        initialTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+        initialTime =
+            TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
       }
     } catch (e) {}
 
@@ -299,16 +315,15 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
       final dateStr = DateFormat('yyyy-MM-dd').format(date);
 
       // Check Leaves
-      final onLeaveEmployees = _selectedEmptIds
-          .where((id) => isOnLeave(id, dateStr))
-          .toList();
+      final onLeaveEmployees =
+          _selectedEmptIds.where((id) => isOnLeave(id, dateStr)).toList();
 
       if (onLeaveEmployees.isNotEmpty) {
         final names = onLeaveEmployees
             .map((id) => employeeNameMap[id] ?? 'Unknown')
             .join(', ');
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("$names are on approved leave on $dateStr.")));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text("$names are on approved leave on $dateStr.")));
         setState(() => _isSubmitting = false);
         return;
       }
@@ -334,8 +349,9 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
         final employeeNames = conflictingAssignments.keys
             .map((id) => employeeNameMap[id] ?? 'Unknown')
             .join(', ');
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Overlapping shifts for: $employeeNames on $dateStr")));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content:
+                Text("Overlapping shifts for: $employeeNames on $dateStr")));
         setState(() => _isSubmitting = false);
         return;
       }
@@ -369,69 +385,51 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
     // API Call: Create a separate shift for each date
     for (final date in _selectedDates) {
       final dateStr = DateFormat('yyyy-MM-dd').format(date);
-      final String taskNameForThisDate = _selectedDates.length > 1 
+      final String taskNameForThisDate = _selectedDates.length > 1
           ? "${selectedJob.title} - ${DateFormat('MMM dd').format(date)} ${start.split(':').take(2).join(':')}-${end.split(':').take(2).join(':')} (${matchingSite.siteName})"
           : _titleController.text.trim();
 
+      // Ensure time strings are merged with the date to create valid ISO-8601 DateTimes format expected by C#
+      final sanitizedStart = start.length == 5 ? "$start:00" : start;
+      final sanitizedEnd = end.length == 5 ? "$end:00" : end;
+
       final Map<String, dynamic> shiftData = {
-        // --- PascalCase (Core) ---
+        "ShiftId": widget.shift?.shiftId ?? 0,
         "ProjectId": selectedJob.projectId,
         "JobId": _selectedJobId,
         "SiteId": selectedJob.siteId,
         "TaskName": taskNameForThisDate,
         "Date": "${dateStr}T00:00:00Z",
-        "StartTime": start,
-        "EndTime": end,
+        "StartDate": "${dateStr}T00:00:00Z",
+        "IsRecurring": false,
+        "StartTime": "${dateStr}T${sanitizedStart}Z",
+        "EndTime": "${dateStr}T${sanitizedEnd}Z",
         "Location": matchingSite.siteName,
         "Status": (widget.shift != null && _selectedDates.length == 1)
             ? widget.shift!.status
             : "Scheduled",
         "AssignedEmployeeIds": _selectedEmptIds,
-
-        // --- camelCase ---
-        "projectId": selectedJob.projectId,
-        "jobId": _selectedJobId,
-        "siteId": selectedJob.siteId,
-        "taskName": taskNameForThisDate,
-        "date": "${dateStr}T00:00:00Z",
-        "startTime": start,
-        "endTime": end,
-        "location": matchingSite.siteName,
-        "status": (widget.shift != null && _selectedDates.length == 1)
-            ? widget.shift!.status
-            : "Scheduled",
-        "assignedEmployeeIds": _selectedEmptIds,
-
-        // --- Typo Fallbacks from Model ---
-        "Projectld": selectedJob.projectId,
-        "Jobld": _selectedJobId,
-        "AssignedEmployeelds": _selectedEmptIds,
-        "Shitid": 0,
-
-        // --- Date Fix Keys (Suggested by user/screenshot) ---
-        "StartDate": "${dateStr}T00:00:00Z",
-        "JobDueDate": "${dateStr}T00:00:00Z",
-        "startDate": "${dateStr}T00:00:00Z",
-        "jobDueDate": "${dateStr}T00:00:00Z",
       };
 
       // Only include for updates
-      if (widget.shift != null && _selectedDates.length == 1 && widget.shift!.employeeResponses.isNotEmpty) {
+      if (widget.shift != null &&
+          _selectedDates.length == 1 &&
+          widget.shift!.employeeResponses.isNotEmpty) {
         final responses = widget.shift!.employeeResponses
             .where((r) => _selectedEmptIds.contains(r.employeeId))
             .map((e) => e.toJson())
             .toList();
         shiftData["EmployeeResponses"] = responses;
-        shiftData["EmployeResponses"] = responses; // Typo
       }
 
       // Log the refined payload for final verification
-      debugPrint(" Submitting Shotgun payload for $dateStr: ${jsonEncode(shiftData)}");
+      debugPrint(" Submitting payload for $dateStr: ${jsonEncode(shiftData)}");
 
       try {
         bool success = false;
         if (widget.shift != null && _selectedDates.length == 1) {
-          success = await ShiftService().updateShift(widget.shift!.shiftId, shiftData);
+          success = await ShiftService()
+              .updateShift(widget.shift!.shiftId, shiftData);
         } else {
           // For new shifts, ensure ShiftId 0 doesn't cause issues (backend usually ignores it on create)
           success = await ShiftService().addShift(shiftData);
@@ -446,7 +444,8 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
           }
         } else {
           anyFailure = true;
-          debugPrint(" Backend returned failure for shift creation on $dateStr");
+          debugPrint(
+              " Backend returned failure for shift creation on $dateStr");
         }
       } catch (e) {
         debugPrint(" Exception submitting shift for $dateStr: $e");
@@ -458,13 +457,14 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
       if (mounted) {
         SuccessDialog.show(
           context,
-          title: widget.shift != null && _selectedDates.length == 1 ? "Shift Updated" : "Shifts Created",
+          title: widget.shift != null && _selectedDates.length == 1
+              ? "Shift Updated"
+              : "Shifts Created",
           message: widget.shift != null && _selectedDates.length == 1
               ? "The shift details have been updated successfully."
               : "$successCount shifts have been created successfully.${anyFailure ? ' (Some failed)' : ''}",
           buttonText: "OK",
           onPressed: () {
-            Navigator.pop(context); // Close dialog
             Navigator.pop(context, true); // Return to list screen
           },
         );
@@ -480,79 +480,87 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        const Positioned.fill(child: Background()),
-        Scaffold(
-          drawer: const Sidenav(),
-          backgroundColor: Colors.transparent,
-          appBar: const Uppernavbar(showBackButton: true),
-          body: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Gradienthorizontal(
-              width: double.infinity,
-              height: double.infinity,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  children: [
-                    Align(
-                      alignment: Alignment.topLeft,
-                      child: Text(
-                        widget.shift != null ? "EDIT SHIFT" : "CREATE SHIFT",
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.1),
+    return FeatureGate(
+      featureKey: 'shift_scheduling',
+      featureName: 'Shift Scheduling',
+      child: Stack(
+        children: [
+          const Positioned.fill(child: Background()),
+          Scaffold(
+            drawer: const Sidenav(),
+            backgroundColor: Colors.transparent,
+            appBar: const Uppernavbar(showBackButton: true),
+            body: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Gradienthorizontal(
+                width: double.infinity,
+                height: double.infinity,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    children: [
+                      Align(
+                        alignment: Alignment.topLeft,
+                        child: Text(
+                          widget.shift != null ? "EDIT SHIFT" : "CREATE SHIFT",
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.1),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    _buildDropdownJob(),
-                    const SizedBox(height: 16),
-                    _buildTextField("Shift Name", _titleController),
-                    const SizedBox(height: 16),
-                    _buildMultiDateSelector(),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(child: _buildTime("Start Time", _starttimecontroller)),
-                        const SizedBox(width: 16),
-                        Expanded(child: _buildTime("End Time", _endtimecontroller)),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    _buildMultiEmployeeSelector(),
-                    const SizedBox(height: 32),
+                      const SizedBox(height: 24),
+                      _buildDropdownJob(),
+                      const SizedBox(height: 16),
+                      _buildTextField("Shift Name", _titleController),
+                      const SizedBox(height: 16),
+                      _buildMultiDateSelector(),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                              child: _buildTime(
+                                  "Start Time", _starttimecontroller)),
+                          const SizedBox(width: 16),
+                          Expanded(
+                              child:
+                                  _buildTime("End Time", _endtimecontroller)),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _buildMultiEmployeeSelector(),
+                      const SizedBox(height: 32),
 
-                    // --- Action Buttons ---
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: GradientButton(
-                            text: "Cancel",
-                            onPressed: () => Navigator.pop(context),
-                            isCancel: true,
+                      // --- Action Buttons ---
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: GradientButton(
+                              text: "Cancel",
+                              onPressed: () => Navigator.pop(context),
+                              isCancel: true,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: GradientButton(
-                            text: widget.shift != null ? "Update" : "Create",
-                            onPressed: _isSubmitting ? () {} : _submitShift,
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: GradientButton(
+                              text: widget.shift != null ? "Update" : "Create",
+                              onPressed: _isSubmitting ? () {} : _submitShift,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                  ],
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -579,7 +587,8 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
                 ? Colors.white.withValues(alpha: 0.05)
                 : Colors.white.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+            border: Border.all(
+                color: Colors.white.withValues(alpha: 0.1), width: 1),
           ),
           child: TextField(
             controller: controller,
@@ -617,7 +626,8 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+            border: Border.all(
+                color: Colors.white.withValues(alpha: 0.1), width: 1),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -637,7 +647,8 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
                           fontSize: 13,
                           fontWeight: FontWeight.bold),
                       backgroundColor: const Color(0xFF1E2433),
-                      deleteIcon: const Icon(Icons.cancel, size: 18, color: Color(0xFF34C8E8)),
+                      deleteIcon: const Icon(Icons.cancel,
+                          size: 18, color: Color(0xFF34C8E8)),
                       onDeleted: () {
                         setState(() {
                           _selectedDates.remove(date);
@@ -646,7 +657,8 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
                       },
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
-                          side: const BorderSide(color: Color(0xFF34C8E8), width: 1.5)),
+                          side: const BorderSide(
+                              color: Color(0xFF34C8E8), width: 1.5)),
                     );
                   }).toList(),
                 ),
@@ -660,7 +672,8 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white.withValues(alpha: 0.08),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     elevation: 0,
                   ),
@@ -682,7 +695,8 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
           builder: (context, setDialogState) {
             return AlertDialog(
               backgroundColor: const Color(0xFF2A3243),
-              title: const Text("Select Shift Dates", style: TextStyle(color: Colors.white)),
+              title: const Text("Select Shift Dates",
+                  style: TextStyle(color: Colors.white)),
               content: SizedBox(
                 width: 320,
                 height: 400,
@@ -710,9 +724,12 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
                               return Padding(
                                 padding: const EdgeInsets.only(right: 8.0),
                                 child: Chip(
-                                  label: Text(DateFormat('MMM dd').format(date)),
+                                  label:
+                                      Text(DateFormat('MMM dd').format(date)),
                                   labelStyle: const TextStyle(
-                                      color: Color(0xFF34C8E8), fontSize: 11, fontWeight: FontWeight.bold),
+                                      color: Color(0xFF34C8E8),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold),
                                   backgroundColor: const Color(0xFF1E2433),
                                   onDeleted: () {
                                     setDialogState(() {
@@ -725,7 +742,8 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
                                       size: 14, color: Color(0xFF34C8E8)),
                                   shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(8),
-                                      side: const BorderSide(color: Color(0xFF34C8E8), width: 1)),
+                                      side: const BorderSide(
+                                          color: Color(0xFF34C8E8), width: 1)),
                                 ),
                               );
                             }).toList(),
@@ -747,8 +765,8 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
                         ),
                         child: CalendarDatePicker(
                           initialDate: tempDate ?? DateTime.now(),
-                          firstDate:
-                              DateTime.now().subtract(const Duration(days: 365)),
+                          firstDate: DateTime.now()
+                              .subtract(const Duration(days: 365)),
                           lastDate:
                               DateTime.now().add(const Duration(days: 365 * 2)),
                           onDateChanged: (date) {
@@ -781,7 +799,10 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text("DONE", style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold)),
+                  child: const Text("DONE",
+                      style: TextStyle(
+                          color: Colors.blueAccent,
+                          fontWeight: FontWeight.bold)),
                 ),
               ],
             );
@@ -814,15 +835,20 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+              border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.1), width: 1),
             ),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
-                    timeController.text.isEmpty ? "Select Time" : timeController.text,
+                    timeController.text.isEmpty
+                        ? "Select Time"
+                        : timeController.text,
                     style: TextStyle(
-                        color: timeController.text.isEmpty ? Colors.white54 : Colors.white,
+                        color: timeController.text.isEmpty
+                            ? Colors.white54
+                            : Colors.white,
                         fontSize: 14),
                   ),
                 ),
@@ -857,7 +883,8 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+            border: Border.all(
+                color: Colors.white.withValues(alpha: 0.1), width: 1),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<int>(
@@ -866,12 +893,14 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
                   ? _selectedJobId
                   : null,
               isExpanded: true,
-              icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white70),
+              icon:
+                  const Icon(Icons.keyboard_arrow_down, color: Colors.white70),
               items: allJobs
                   .map((job) => DropdownMenuItem<int>(
                       value: job.jobId,
                       child: Text(job.title,
-                          style: const TextStyle(color: Colors.white, fontSize: 14))))
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 14))))
                   .toList(),
               onChanged: (value) {
                 setState(() => _selectedJobId = value);
@@ -918,7 +947,9 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
                 return StatefulBuilder(
                   builder: (context, setModalState) {
                     final filteredEmployees = allEmployees.where((e) {
-                      final fullName = (employeeNameMap[e.employeeId] ?? e.firstName).toLowerCase();
+                      final fullName =
+                          (employeeNameMap[e.employeeId] ?? e.firstName)
+                              .toLowerCase();
                       return fullName.contains(searchQuery.toLowerCase());
                     }).toList();
 
@@ -944,57 +975,104 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
                           Padding(
                             padding: const EdgeInsets.all(16),
                             child: TextField(
-                              onChanged: (value) => setModalState(() => searchQuery = value),
+                              onChanged: (value) =>
+                                  setModalState(() => searchQuery = value),
                               decoration: InputDecoration(
                                 hintText: "Search employees...",
-                                hintStyle: const TextStyle(color: Colors.white54, fontSize: 14),
-                                prefixIcon: const Icon(Icons.search, color: Colors.white70, size: 20),
+                                hintStyle: const TextStyle(
+                                    color: Colors.white54, fontSize: 14),
+                                prefixIcon: const Icon(Icons.search,
+                                    color: Colors.white70, size: 20),
                                 filled: true,
                                 fillColor: Colors.white.withValues(alpha: 0.08),
-                                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                                contentPadding:
+                                    const EdgeInsets.symmetric(vertical: 14),
                                 border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
                                     borderSide: BorderSide.none),
                               ),
-                              style: const TextStyle(color: Colors.white, fontSize: 14),
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 14),
                             ),
                           ),
                           Expanded(
                             child: ListView.separated(
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
                               itemCount: filteredEmployees.length,
-                              separatorBuilder: (context, index) => Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
+                              separatorBuilder: (context, index) => Divider(
+                                  color: Colors.white.withValues(alpha: 0.05),
+                                  height: 1),
                               itemBuilder: (context, index) {
                                 final employee = filteredEmployees[index];
-                                final isSelected = _selectedEmptIds.contains(employee.employeeId);
-                                final fullName = employeeNameMap[employee.employeeId] ?? employee.firstName;
-                                final hasCon = hasConflict(employee.employeeId, _dateController.text, _starttimecontroller.text, _endtimecontroller.text);
-                                final onL = isOnLeave(employee.employeeId, _dateController.text);
+                                final isSelected = _selectedEmptIds
+                                    .contains(employee.employeeId);
+                                final fullName =
+                                    employeeNameMap[employee.employeeId] ??
+                                        employee.firstName;
+                                final hasCon = hasConflict(
+                                    employee.employeeId,
+                                    _dateController.text,
+                                    _starttimecontroller.text,
+                                    _endtimecontroller.text);
+                                final onL = isOnLeave(
+                                    employee.employeeId, _dateController.text);
 
                                 return ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 4),
                                   leading: CircleAvatar(
-                                    backgroundColor: isSelected ? Colors.blueAccent : Colors.white10,
-                                    child: Text(fullName.isNotEmpty ? fullName[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                    backgroundColor: isSelected
+                                        ? Colors.blueAccent
+                                        : Colors.white10,
+                                    child: Text(
+                                        fullName.isNotEmpty
+                                            ? fullName[0].toUpperCase()
+                                            : '?',
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold)),
                                   ),
-                                  title: Text(fullName, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500)),
+                                  title: Text(fullName,
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w500)),
                                   subtitle: (hasCon || onL)
-                                      ? Text(hasCon ? " Scheduling Conflict" : " On Approved Leave",
-                                          style: const TextStyle(color: Colors.redAccent, fontSize: 12))
-                                      : Text(employee.email ?? '', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+                                      ? Text(
+                                          hasCon
+                                              ? " Scheduling Conflict"
+                                              : " On Approved Leave",
+                                          style: const TextStyle(
+                                              color: Colors.redAccent,
+                                              fontSize: 12))
+                                      : Text(employee.email ?? '',
+                                          style: TextStyle(
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.5),
+                                              fontSize: 12)),
                                   trailing: isSelected
-                                      ? const Icon(Icons.check_circle, color: Colors.blueAccent)
-                                      : (hasCon || onL ? const Icon(Icons.info_outline, color: Colors.redAccent, size: 20) : const Icon(Icons.add_circle_outline, color: Colors.white24)),
-                                  onTap: (hasCon || onL) ? null : () {
-                                    setState(() {
-                                      if (isSelected) {
-                                        _selectedEmptIds.remove(employee.employeeId);
-                                      } else {
-                                        _selectedEmptIds.add(employee.employeeId);
-                                      }
-                                    });
-                                    setModalState(() {});
-                                  },
+                                      ? const Icon(Icons.check_circle,
+                                          color: Colors.blueAccent)
+                                      : (hasCon || onL
+                                          ? const Icon(Icons.info_outline,
+                                              color: Colors.redAccent, size: 20)
+                                          : const Icon(Icons.add_circle_outline,
+                                              color: Colors.white24)),
+                                  onTap: (hasCon || onL)
+                                      ? null
+                                      : () {
+                                          setState(() {
+                                            if (isSelected) {
+                                              _selectedEmptIds
+                                                  .remove(employee.employeeId);
+                                            } else {
+                                              _selectedEmptIds
+                                                  .add(employee.employeeId);
+                                            }
+                                          });
+                                          setModalState(() {});
+                                        },
                                 );
                               },
                             ),
@@ -1006,11 +1084,15 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
                               child: ElevatedButton(
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.blueAccent,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12)),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 14),
                                 ),
                                 onPressed: () => Navigator.pop(context),
-                                child: Text("Done (${_selectedEmptIds.length})", style: const TextStyle(fontWeight: FontWeight.bold)),
+                                child: Text("Done (${_selectedEmptIds.length})",
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold)),
                               ),
                             ),
                           ),
@@ -1027,11 +1109,13 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+              border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.1), width: 1),
             ),
             child: Row(
               children: [
-                const Icon(Icons.group_add_rounded, color: Colors.white70, size: 20),
+                const Icon(Icons.group_add_rounded,
+                    color: Colors.white70, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
                     child: Text(
@@ -1045,7 +1129,8 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
                                 ? Colors.white54
                                 : Colors.white,
                             fontSize: 14))),
-                const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white38, size: 14),
+                const Icon(Icons.arrow_forward_ios_rounded,
+                    color: Colors.white38, size: 14),
               ],
             ),
           ),

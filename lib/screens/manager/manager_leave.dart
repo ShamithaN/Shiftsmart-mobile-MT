@@ -27,7 +27,7 @@ class Managerleave extends StatefulWidget {
 class _ManagerleaveState extends State<Managerleave> {
   final GlobalKey<RefreshIndicatorState> _refreshKey =
       GlobalKey<RefreshIndicatorState>();
-      
+
   final LeaveService _leaveService = LeaveService();
   List<Employee> filteredEmployees = [];
   List<LeaveRequest> _leaveRequests = [];
@@ -38,7 +38,6 @@ class _ManagerleaveState extends State<Managerleave> {
   final EmployeeService _employeeService = EmployeeService();
   final NotificationService _notificationService = NotificationService();
   String _lastTenant = '';
-
 
   @override
   void initState() {
@@ -65,9 +64,12 @@ class _ManagerleaveState extends State<Managerleave> {
       final leaveRequests = await _leaveService.fetchLeaveRequests();
       if (!mounted) return;
       setState(() {
-        final tenantEmployeeIds = _allEmployees.map((e) => e.employeeId).toSet();
-        _leaveRequests = leaveRequests.where((req) => tenantEmployeeIds.contains(req.employeeId)).toList();
-        
+        final tenantEmployeeIds =
+            _allEmployees.map((e) => e.employeeId).toSet();
+        _leaveRequests = leaveRequests
+            .where((req) => tenantEmployeeIds.contains(req.employeeId))
+            .toList();
+
         _pendingRequests =
             _leaveRequests.where((req) => req.isPending).toList();
         _acceptedRejectedRequests = _leaveRequests
@@ -90,46 +92,47 @@ class _ManagerleaveState extends State<Managerleave> {
       return null;
     }
   }
-Future<void> _updateLeaveStatus(String id, String newStatus) async {
-  try {
-    await _leaveService.updateLeaveStatus(id, newStatus);
 
-    if (!mounted) return;
+  Future<void> _updateLeaveStatus(String id, String newStatus) async {
+    try {
+      await _leaveService.updateLeaveStatus(id, newStatus);
 
-    // Find the updated request
-    final updatedRequest = _leaveRequests.firstWhere(
-      (req) => req.leaveRequestId.toString() == id,
-    );
+      if (!mounted) return;
 
-    //  Send notification using employeeId from the request model
-    await _notificationService.leaveNotification(updatedRequest.employeeId, newStatus);
+      // Find the updated request
+      final updatedRequest = _leaveRequests.firstWhere(
+        (req) => req.leaveRequestId.toString() == id,
+      );
 
-    // Show feedback
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Leave $newStatus")),
-    );
+      //  Send notification using employeeId from the request model
+      await _notificationService.leaveNotification(
+          updatedRequest.employeeId, newStatus);
 
-    // Update state
-    setState(() {
-      updatedRequest.status = newStatus;
+      // Show feedback
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Leave $newStatus")),
+      );
 
-      if (newStatus.toLowerCase() == 'approved' ||
-          newStatus.toLowerCase() == 'rejected') {
-        _acceptedRejectedRequests.add(updatedRequest);
-      } else {
-        _pendingRequests.add(updatedRequest);
-      }
-    });
-  } catch (e) {
-    if (!mounted) return;
+      // Update state
+      setState(() {
+        updatedRequest.status = newStatus;
 
-    debugPrint('Error: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Error: $e')),
-    );
+        if (newStatus.toLowerCase() == 'approved' ||
+            newStatus.toLowerCase() == 'rejected') {
+          _acceptedRejectedRequests.add(updatedRequest);
+        } else {
+          _pendingRequests.add(updatedRequest);
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      debugPrint('Error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
   }
-}
-
 
   Future<void> _fetchAllEmployees() async {
     try {
@@ -164,8 +167,6 @@ Future<void> _updateLeaveStatus(String id, String newStatus) async {
     }).toList();
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     return Consumer<TenantProvider>(
@@ -178,15 +179,16 @@ Future<void> _updateLeaveStatus(String id, String newStatus) async {
             });
           }
         }
-        
-        if (!tp.isFeatureEnabled('leave_management') || tp.isNavIndexBlocked(4)) {
+
+        if (!tp.isFeatureEnabled('leave_management') ||
+            tp.isNavIndexBlocked(4)) {
           return Stack(
             children: [
               const Positioned.fill(child: Background()),
               Scaffold(
                 backgroundColor: Colors.transparent,
-                appBar: const Uppernavbar(showBackButton: true),
-                drawer: const Sidenav(),
+                // REMOVE: appBar: const Uppernavbar(showBackButton: true),
+                // REMOVE: drawer: const Sidenav(),
                 body: SafeArea(
                   child: Center(
                     child: Padding(
@@ -197,7 +199,8 @@ Future<void> _updateLeaveStatus(String id, String newStatus) async {
                         onGotIt: () {
                           Navigator.of(context).pushReplacement(
                             MaterialPageRoute(
-                              builder: (context) => const Bottomnavbar(selectedIndex: 0),
+                              builder: (context) =>
+                                  const Bottomnavbar(selectedIndex: 0),
                             ),
                           );
                         },
@@ -212,73 +215,77 @@ Future<void> _updateLeaveStatus(String id, String newStatus) async {
 
         return Stack(
           children: [
-        const Positioned.fill(child: Background()),
-        Scaffold(
-          backgroundColor: Colors.transparent,
-          body: _isLoading
-              ? const Center(
-                  child: CircularProgressIndicator(color: Color(0xFF724584)),
-                )
-              : Column(
-                  children: [
-                    Expanded(
-                      child: RefreshIndicator(
-                        key: _refreshKey,
-                        onRefresh: _refreshData,
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 20),
-                              const Text(
-                                "Today on Leave",
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Row(
-                                  children: getTodayLeaveRequests().isNotEmpty
-                                      ? getTodayLeaveRequests().map((leave) {
-                                          final employee =
-                                              getEmployeeById(leave.employeeId);
-                                          return Padding(
-                                            padding: const EdgeInsets.only(
-                                                right: 12),
-                                            child: Column(
-                                              children: [
-                                                CircleAvatar(
-                                                  radius: 30,
-                                                  backgroundColor:
-                                                      Colors.grey[800],
-                                                  backgroundImage: (employee
-                                                                  ?.profilePicture !=
-                                                              null &&
-                                                          employee!
-                                                              .profilePicture!
-                                                              .startsWith(
-                                                                  'data:image'))
-                                                      ? MemoryImage(
-                                                          base64Decode(employee
-                                                              .profilePicture!
-                                                              .split(',')
-                                                              .last),
-                                                        )
-                                                      : (employee?.profilePicture !=
+            const Positioned.fill(child: Background()),
+            Scaffold(
+              backgroundColor: Colors.transparent,
+              body: _isLoading
+                  ? const Center(
+                      child:
+                          CircularProgressIndicator(color: Color(0xFF724584)),
+                    )
+                  : Column(
+                      children: [
+                        Expanded(
+                          child: RefreshIndicator(
+                            key: _refreshKey,
+                            onRefresh: _refreshData,
+                            child: SingleChildScrollView(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 20),
+                                  const Text(
+                                    "Today on Leave",
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: Row(
+                                      children: getTodayLeaveRequests()
+                                              .isNotEmpty
+                                          ? getTodayLeaveRequests()
+                                              .map((leave) {
+                                              final employee = getEmployeeById(
+                                                  leave.employeeId);
+                                              return Padding(
+                                                padding: const EdgeInsets.only(
+                                                    right: 12),
+                                                child: Column(
+                                                  children: [
+                                                    CircleAvatar(
+                                                      radius: 30,
+                                                      backgroundColor:
+                                                          Colors.grey[800],
+                                                      backgroundImage: (employee
+                                                                      ?.profilePicture !=
                                                                   null &&
                                                               employee!
                                                                   .profilePicture!
-                                                                  .isNotEmpty)
-                                                          ? NetworkImage(employee
-                                                              .profilePicture!)
-                                                          : null,
-                                                  child:
-                                                      (employee?.profilePicture ==
+                                                                  .startsWith(
+                                                                      'data:image'))
+                                                          ? MemoryImage(
+                                                              base64Decode(employee
+                                                                  .profilePicture!
+                                                                  .split(',')
+                                                                  .last),
+                                                            )
+                                                          : (employee?.profilePicture !=
+                                                                      null &&
+                                                                  employee!
+                                                                      .profilePicture!
+                                                                      .isNotEmpty)
+                                                              ? NetworkImage(
+                                                                  employee
+                                                                      .profilePicture!)
+                                                              : null,
+                                                      child: (employee?.profilePicture ==
                                                                   null ||
                                                               employee!
                                                                   .profilePicture!
@@ -289,69 +296,70 @@ Future<void> _updateLeaveStatus(String id, String newStatus) async {
                                                               color:
                                                                   Colors.white)
                                                           : null,
+                                                    ),
+                                                    const SizedBox(height: 6),
+                                                    SizedBox(
+                                                      width: 70,
+                                                      child: Text(
+                                                        employee?.firstName ??
+                                                            'Unknown',
+                                                        style: const TextStyle(
+                                                            color: Colors.white,
+                                                            fontSize: 12),
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        textAlign:
+                                                            TextAlign.center,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                                const SizedBox(height: 6),
-                                                SizedBox(
-                                                  width: 70,
-                                                  child: Text(
-                                                    employee?.firstName ??
-                                                        'Unknown',
-                                                    style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 12),
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    textAlign: TextAlign.center,
-                                                  ),
+                                              );
+                                            }).toList()
+                                          : [
+                                              const Padding(
+                                                padding: EdgeInsets.symmetric(
+                                                    vertical: 12),
+                                                child: Text(
+                                                  "No one is on leave today.",
+                                                  style: TextStyle(
+                                                      color: Colors.white70),
                                                 ),
-                                              ],
-                                            ),
-                                          );
-                                        }).toList()
-                                      : [
-                                          const Padding(
-                                            padding: EdgeInsets.symmetric(
-                                                vertical: 12),
-                                            child: Text(
-                                              "No one is on leave today.",
-                                              style: TextStyle(
-                                                  color: Colors.white70),
-                                            ),
-                                          ),
-                                        ],
-                                ),
+                                              ),
+                                            ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  const Text(
+                                    "Awaiting Approval",
+                                    style: TextStyle(
+                                        fontSize: 20,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _leaveList(isPending: true),
+                                  const SizedBox(height: 20),
+                                  const Text(
+                                    "Approved/Denied Requests",
+                                    style: TextStyle(
+                                        fontSize: 20,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _leaveList(isPending: false),
+                                  const SizedBox(height: 100),
+                                ],
                               ),
-                              const SizedBox(height: 10),
-                              const Text(
-                                "Awaiting Approval",
-                                style: TextStyle(
-                                    fontSize: 20,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 10),
-                              _leaveList(isPending: true),
-                              const SizedBox(height: 20),
-                              const Text(
-                                "Approved/Denied Requests",
-                                style: TextStyle(
-                                    fontSize: 20,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold),
-                              ),
-                              const SizedBox(height: 10),
-                              _leaveList(isPending: false),
-                              const SizedBox(height: 100),
-                            ],
+                            ),
                           ),
-                        ),
-                      ),
-                    )
-                  ],
-                ),
-        ),
-      ],
-    );
+                        )
+                      ],
+                    ),
+            ),
+          ],
+        );
       },
     );
   }
@@ -564,8 +572,8 @@ Future<void> _updateLeaveStatus(String id, String newStatus) async {
                               borderRadius: BorderRadius.circular(10),
                               boxShadow: [
                                 BoxShadow(
-                                  color:
-                                      const Color(0xFF1A1F2C).withValues(alpha: 0.6),
+                                  color: const Color(0xFF1A1F2C)
+                                      .withValues(alpha: 0.6),
                                   spreadRadius: 0,
                                   blurRadius: 8,
                                   offset: const Offset(3, 3),
@@ -614,31 +622,30 @@ Future<void> _updateLeaveStatus(String id, String newStatus) async {
   }
 
   Widget _detailRow(String label, String value, {Color? valueColor}) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6.0),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.grey,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.grey,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            color: valueColor ?? Colors.white,
-            fontSize: 15,
-            fontWeight: FontWeight.w400,
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              color: valueColor ?? Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
-
+        ],
+      ),
+    );
+  }
 }

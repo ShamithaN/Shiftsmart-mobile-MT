@@ -8,13 +8,15 @@ class ShiftService {
   final ApiClient _apiClient = ApiClient();
 
   // Load Base URL and API Keys from .env
-  final String baseUrl = dotenv.env['SHIFT_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
+  final String baseUrl =
+      dotenv.env['SHIFT_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
 
   //  PROD ENDPOINT KEYS (from func-shifts)
   final String shiftCreateKey = dotenv.env['SHIFT_CREATE_KEY'] ?? "";
   final String shiftUpdateKey = dotenv.env['SHIFT_UPDATE_KEY'] ?? "";
   final String shiftGetAllKey = dotenv.env['SHIFT_GET_ALL_KEY'] ?? "";
-  final String shiftGetByEmployeeKey = dotenv.env['SHIFT_GET_BY_EMPLOYEE_KEY'] ?? "";
+  final String shiftGetByEmployeeKey =
+      dotenv.env['SHIFT_GET_BY_EMPLOYEE_KEY'] ?? "";
   final String shiftDeleteKey = dotenv.env['SHIFT_DELETE_KEY'] ?? "";
   final String shiftRespondKey = dotenv.env['SHIFT_RESPOND_KEY'] ?? '';
   final String shiftSwapRequestKey = dotenv.env['SHIFT_SWAP_REQUEST_KEY'] ?? '';
@@ -30,16 +32,19 @@ class ShiftService {
 
   // 1. Fetch Shifts assigned to a specific Employee (Returns Shift Objects)
   Future<List<Shift>> fetchShiftsByEmployeeId(int employeeId) async {
-    final String url = '$baseUrl/shift/employee/$employeeId?code=$shiftGetByEmployeeKey';
+    final String url =
+        '$baseUrl/shift/employee/$employeeId?code=$shiftGetByEmployeeKey';
 
     try {
-      final response = await _apiClient.get(url, useAuth: true, showDialog: false);
+      final response =
+          await _apiClient.get(url, useAuth: true, showDialog: false);
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = jsonDecode(response.body);
         return jsonData.map((data) => Shift.fromJson(data)).toList();
       } else {
-        debugPrint("Failed to load employee shifts. Status: ${response.statusCode}");
+        debugPrint(
+            "Failed to load employee shifts. Status: ${response.statusCode}");
         return [];
       }
     } catch (e) {
@@ -49,21 +54,29 @@ class ShiftService {
   }
 
   // 2. Fetch Shifts assigned to a specific Employee (Returns Raw JSON)
-  Future<List<Map<String, dynamic>>> fetchShiftsByEmployeeIdRaw(int employeeId) async {
-    final String url = '$baseUrl/shift/employee/$employeeId?code=$shiftGetByEmployeeKey';
-    debugPrint(" ShiftService: Fetching shifts for employee $employeeId from $url");
+  Future<List<Map<String, dynamic>>> fetchShiftsByEmployeeIdRaw(
+      int employeeId) async {
+    final String url =
+        '$baseUrl/shift/employee/$employeeId?code=$shiftGetByEmployeeKey';
+    debugPrint(
+        " ShiftService: Fetching shifts for employee $employeeId from $url");
 
     try {
-      final response = await _apiClient.get(url, useAuth: true, showDialog: false);
-      debugPrint(" ShiftService Status (EmpId $employeeId): ${response.statusCode}");
-      debugPrint(" ShiftService Body snippet: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}");
+      final response =
+          await _apiClient.get(url, useAuth: true, showDialog: false);
+      debugPrint(
+          " ShiftService Status (EmpId $employeeId): ${response.statusCode}");
+      debugPrint(
+          " ShiftService Body snippet: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}");
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = jsonDecode(response.body);
-        debugPrint(" ShiftService: Found ${jsonData.length} shifts for employee.");
+        debugPrint(
+            " ShiftService: Found ${jsonData.length} shifts for employee.");
         return jsonData.cast<Map<String, dynamic>>();
       } else {
-        debugPrint(" ShiftService: Failed to fetch shifts for employee. Status: ${response.statusCode}");
+        debugPrint(
+            " ShiftService: Failed to fetch shifts for employee. Status: ${response.statusCode}");
         return [];
       }
     } catch (e) {
@@ -73,7 +86,8 @@ class ShiftService {
   }
 
   // 3. Respond to a Shift Assignment (Accept or Decline)
-  Future<bool> respondToShift(int shiftId, String action, {String? reason}) async {
+  Future<bool> respondToShift(int shiftId, String action,
+      {String? reason}) async {
     final String url = '$baseUrl/shift/respond?code=$shiftRespondKey';
 
     final body = {
@@ -118,7 +132,8 @@ class ShiftService {
 
   // 5. Complete Shift
   Future<bool> completeShift(int shiftId) async {
-    final String url = '$baseUrl/shift/complete/$shiftId?code=$shiftCompleteKey';
+    final String url =
+        '$baseUrl/shift/complete/$shiftId?code=$shiftCompleteKey';
 
     try {
       final response = await _apiClient.post(url, body: {}, useAuth: true);
@@ -169,7 +184,8 @@ class ShiftService {
     final url = '$baseUrl/shift/getall?code=$shiftGetAllKey';
 
     try {
-      final response = await _apiClient.get(url, useAuth: true, showDialog: false);
+      final response =
+          await _apiClient.get(url, useAuth: true, showDialog: false);
 
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);
@@ -181,7 +197,8 @@ class ShiftService {
           return [];
         }
       } else {
-        debugPrint(" Failed to fetch all shifts. Status: ${response.statusCode}, Body: ${response.body}");
+        debugPrint(
+            " Failed to fetch all shifts. Status: ${response.statusCode}, Body: ${response.body}");
         return [];
       }
     } catch (e) {
@@ -195,7 +212,8 @@ class ShiftService {
     final url = '$baseUrl/shift/getall?code=$shiftGetAllKey';
 
     try {
-      final response = await _apiClient.get(url, useAuth: true, showDialog: false);
+      final response =
+          await _apiClient.get(url, useAuth: true, showDialog: false);
 
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);
@@ -214,12 +232,14 @@ class ShiftService {
     final String url = '$baseUrl/shift/create?code=$shiftCreateKey';
 
     try {
-      final response = await _apiClient.post(url, body: shiftData, useAuth: true);
+      final response =
+          await _apiClient.post(url, body: shiftData, useAuth: true);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return true;
       } else {
-        debugPrint('Failed to add shift: ${response.body}');
+        debugPrint(
+            'Failed to add shift. Status: ${response.statusCode}, Body: ${response.body}');
         return false;
       }
     } catch (e) {
@@ -234,7 +254,8 @@ class ShiftService {
     shiftData['ShiftId'] = id;
 
     try {
-      final response = await _apiClient.put(updateUrl, body: shiftData, useAuth: true);
+      final response =
+          await _apiClient.put(updateUrl, body: shiftData, useAuth: true);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return true;
@@ -260,7 +281,8 @@ class ShiftService {
       if (response.statusCode == 200 || response.statusCode == 204) {
         return true;
       } else {
-        debugPrint('Failed to delete shift (${response.statusCode}): ${response.body}');
+        debugPrint(
+            'Failed to delete shift (${response.statusCode}): ${response.body}');
         return false;
       }
     } catch (e) {
