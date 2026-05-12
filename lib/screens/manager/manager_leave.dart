@@ -93,7 +93,7 @@ class _ManagerleaveState extends State<Managerleave> {
     }
   }
 
-  Future<void> _updateLeaveStatus(String id, String newStatus) async {
+  Future<void> _updateLeaveStatus(int id, String newStatus) async {
     try {
       await _leaveService.updateLeaveStatus(id, newStatus);
 
@@ -101,7 +101,7 @@ class _ManagerleaveState extends State<Managerleave> {
 
       // Find the updated request
       final updatedRequest = _leaveRequests.firstWhere(
-        (req) => req.leaveRequestId.toString() == id,
+        (req) => req.leaveRequestId == id,
       );
 
       //  Send notification using employeeId from the request model
@@ -546,7 +546,7 @@ class _ManagerleaveState extends State<Managerleave> {
                           onPressed: () {
                             Navigator.of(context).pop();
                             _updateLeaveStatus(
-                                    request.leaveRequestId.toString(),
+                                    request.leaveRequestId,
                                     "Rejected")
                                 .then((_) {
                               _fetchLeaveRequests();
@@ -602,7 +602,7 @@ class _ManagerleaveState extends State<Managerleave> {
                           onPressed: () {
                             Navigator.of(context).pop();
                             _updateLeaveStatus(
-                                    request.leaveRequestId.toString(),
+                                    request.leaveRequestId,
                                     "Approved")
                                 .then((_) {
                               _fetchLeaveRequests();
