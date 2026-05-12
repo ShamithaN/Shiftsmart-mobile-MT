@@ -38,7 +38,7 @@ DateTime? parseServerDateTime(dynamic value) {
   for (final pattern in patterns) {
     try {
       final dt = DateFormat(pattern).parseLoose(cleaned, true);
-      if (dt != null) return dt;
+      return dt;
     } catch (_) {
       continue;
     }

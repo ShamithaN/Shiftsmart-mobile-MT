@@ -730,7 +730,7 @@ class _SuperAdminManageFeaturesState extends State<SuperAdminManageFeatures>
             : Switch(
                 value: isEnabled,
                 onChanged: (val) => _toggleFeature(feat, val),
-                activeColor: const Color(0xFF2DA6FF),
+                activeThumbColor: const Color(0xFF2DA6FF),
                 activeTrackColor: const Color(0xFF2DA6FF).withOpacity(0.3),
                 inactiveThumbColor: Colors.white30,
                 inactiveTrackColor: Colors.white12,

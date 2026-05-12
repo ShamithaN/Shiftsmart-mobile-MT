@@ -7,7 +7,6 @@ import 'package:shiftsmart/services/employee_service.dart';
 import 'package:shiftsmart/services/shift_service.dart';
 import 'package:shiftsmart/services/attendance_service.dart';
 import 'package:shiftsmart/widgets/background.dart';
-import 'package:shiftsmart/widgets/gradienthorizontal.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
 
 class ManagerPendingRequests extends StatefulWidget {

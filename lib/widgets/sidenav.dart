@@ -11,7 +11,6 @@ import 'package:shiftsmart/screens/manager/manager_profile.dart';
 import 'package:shiftsmart/screens/manager/manager_settings.dart';
 import 'package:shiftsmart/services/site_service.dart'; // Import SiteService
 import 'package:shiftsmart/services/auth_service.dart';
-import 'package:shiftsmart/screens/manager/manager_pending_requests.dart';
 import 'package:shiftsmart/widgets/bottomnavbar.dart';
 import 'package:shiftsmart/widgets/build_profile_avatar.dart';
 

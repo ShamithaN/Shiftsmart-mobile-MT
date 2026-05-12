@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 // Keep for type safety if needed elsewhere
 import 'package:shiftsmart/models/chat_list_item.dart';
 import 'package:shiftsmart/models/search_employee.dart'; // <--- Import New Model
+import 'package:shiftsmart/services/employee_service.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/gradienthorizontal.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
@@ -322,33 +323,72 @@ class _SearchUserDialog extends StatefulWidget {
 }
 
 class _SearchUserDialogState extends State<_SearchUserDialog> {
-  final ChatService _chatService = ChatService();
+  final EmployeeService _employeeService = EmployeeService();
   final TextEditingController _searchController = TextEditingController();
 
-  List<SearchEmployee> _searchResults = []; // Type Updated
+  List<SearchEmployee> _allEmployees = [];
+  List<SearchEmployee> _searchResults = [];
   bool _isSearching = false;
+  bool _hasLoadedEmployees = false;
   Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTenantEmployees();
+  }
+
+  Future<void> _loadTenantEmployees() async {
+    setState(() {
+      _isSearching = true;
+    });
+
+    final employees = await _employeeService.fetchAllEmployees(includeAdminsAndManagers: true);
+    final searchEmployees = employees
+        .map((employee) => SearchEmployee(
+              employeeId: employee.employeeId,
+              firstName: employee.firstName,
+              lastName: employee.lastName ?? '',
+              email: employee.email,
+              profilePicture: employee.profilePicture,
+              role: employee.userRole ?? 'Employee',
+            ))
+        .toList();
+
+    if (mounted) {
+      setState(() {
+        _allEmployees = searchEmployees;
+        _searchResults = searchEmployees;
+        _hasLoadedEmployees = true;
+        _isSearching = false;
+      });
+    }
+  }
 
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
 
-    _debounce = Timer(const Duration(milliseconds: 500), () async {
-      if (query.length < 2) {
-        setState(() => _searchResults = []);
+    _debounce = Timer(const Duration(milliseconds: 200), () {
+      if (!_hasLoadedEmployees) return;
+
+      final lowerQuery = query.trim().toLowerCase();
+      if (lowerQuery.isEmpty) {
+        setState(() {
+          _searchResults = _allEmployees;
+        });
         return;
       }
 
-      setState(() => _isSearching = true);
+      final filtered = _allEmployees.where((emp) {
+        final fullName = '${emp.firstName} ${emp.lastName}'.toLowerCase();
+        return fullName.contains(lowerQuery) ||
+            (emp.email?.toLowerCase().contains(lowerQuery) ?? false) ||
+            emp.role.toLowerCase().contains(lowerQuery);
+      }).toList();
 
-      // Calls the new updated service method
-      final results = await _chatService.searchEmployees(query);
-
-      if (mounted) {
-        setState(() {
-          _searchResults = results;
-          _isSearching = false;
-        });
-      }
+      setState(() {
+        _searchResults = filtered;
+      });
     });
   }
 

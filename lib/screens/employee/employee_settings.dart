@@ -647,7 +647,7 @@ class _EmployeeSettingsState extends State<EmployeeSettings> {
                     ),
                 ],
               ),
-              activeColor: const Color(0xFF2979FF),
+              activeThumbColor: const Color(0xFF2979FF),
               value: _isBiometricEnabled,
               onChanged: _toggleBiometrics,
             )

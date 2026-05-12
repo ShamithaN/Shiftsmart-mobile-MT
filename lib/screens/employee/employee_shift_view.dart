@@ -65,7 +65,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
   String myStatus = "Pending";
   String? myRejectionReason;
   bool isActionLoading = false;
-  List<File> _capturedPhotos = [];
+  final List<File> _capturedPhotos = [];
 
   final SiteService _siteService = SiteService();
   final AttendanceService _attendanceService = AttendanceService();
@@ -392,10 +392,18 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
               }
             }
 
+            // Ensure we keep attendanceId if the backend returns an attendance record
+            if (attendanceId == null && shift['AttendanceId'] != null) {
+              attendanceId = shift['AttendanceId'];
+            }
+
             // Sync Clock Out
             if (backendClockOutTime != null &&
                 backendClockOutTime.year > 1900) {
               clockOutTime = backendClockOutTime;
+              if (attendanceId == null && shift['AttendanceId'] != null) {
+                attendanceId = shift['AttendanceId'];
+              }
             }
 
             // --- Sync Break Status ---
@@ -544,22 +552,6 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
       }
     }
     return _capturedPhotos.isNotEmpty;
-  }
-
-  Future<void> _clearOldShiftData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final key = 'shift_progress_${widget.employeeId}_${widget.shiftId}';
-    await prefs.remove(key);
-    _capturedPhotos.clear();
-    if (mounted) {
-      setState(() {
-        clockInTime = null;
-        clockOutTime = null;
-        breaks.clear();
-        currentBreakStart = null;
-        attendanceId = null;
-      });
-    }
   }
 
   // --- CLOCK IN (Strict Geofence + GPS + Multi-Photo) ---
@@ -734,17 +726,31 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
     }
   }
 
-  Widget _buildDebugButton() {
-    return ElevatedButton(
-      onPressed: _clearOldShiftData,
-      style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-      child: const Text('Clear Old Data'),
-    );
-  }
-
   // --- CLOCK OUT (Early Warning & Multi-Photo) ---
   Future<void> _handleClockOut() async {
-    if (attendanceId == null) return;
+    if (attendanceId == null) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF1C2230),
+            title: const Text("Attendance Missing",
+                style: TextStyle(color: Colors.orangeAccent)),
+            content: const Text(
+              "Unable to clock out because the attendance record could not be found.\n\nPlease refresh the shift or reopen it to sync your attendance data.",
+              style: TextStyle(color: Colors.white70),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text("OK"),
+              ),
+            ],
+          ),
+        );
+      }
+      return;
+    }
 
     //  STRICT CHECK: Cannot Clock Out during an active break
     if (currentBreakStart != null) {
@@ -1012,9 +1018,10 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
           });
         }
         await _saveShiftProgress();
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context)
               .showSnackBar(const SnackBar(content: Text('Break ended!')));
+        }
       }
     } catch (e) {
       debugPrint('Break end error: $e');
@@ -1262,10 +1269,8 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
   }
 
   Widget _buildTimeTrackingCard() {
-    if (attendanceId == null && clockInTime != null) {
-      _buildDebugButton();
-    }
-
+    final canClockOut = clockInTime != null && clockOutTime == null && attendanceId != null;
+    final needsAttendanceSync = clockInTime != null && clockOutTime == null && attendanceId == null;
     final isBreakEnabled = clockInTime != null && clockOutTime == null;
 
     bool isEarlyDeparture = false;
@@ -1354,9 +1359,17 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
                     clockInTime == null
                         ? () => _handleClockIn()
                         : () => _handleClockOut(),
-                    isEnabled: clockOutTime == null,
+                    isEnabled: clockInTime == null ? true : canClockOut,
                     photo: clockInTime == null ? clockInPhoto : clockOutPhoto,
                   ),
+                  if (needsAttendanceSync)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Text(
+                        'Attendance record is still syncing. Please refresh the shift or reopen it before trying to clock out.',
+                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                    ),
                 ] else
                   _buildTimeTrackingItem(
                     "Clock Out",

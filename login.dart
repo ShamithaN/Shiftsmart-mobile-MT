@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart'; // Biometric authentication
 import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // Encrypted credential storage
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shiftsmart/providers/user_provider.dart';

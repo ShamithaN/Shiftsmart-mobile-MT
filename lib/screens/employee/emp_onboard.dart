@@ -1129,23 +1129,12 @@ class _EmponboardState extends State<Emponboard> {
 
   Widget _buildStep4Documents() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text("Required Documents",
-              style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18)),
-          TextButton.icon(
-            onPressed: _showAddDocModal,
-            icon: const Icon(Icons.add_circle_outline,
-                color: Colors.blueAccent, size: 20),
-            label: const Text("Add New Document",
-                style: TextStyle(color: Colors.blueAccent, fontSize: 13)),
-          ),
-        ],
-      ),
+      const Text("Required Documents",
+          style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 18)),
+
       const SizedBox(height: 10),
       if (_requiredDocs.isEmpty)
         const Padding(
@@ -1181,7 +1170,7 @@ class _EmponboardState extends State<Emponboard> {
               children: [
                 if (isUploaded)
                   GestureDetector(
-                    onTap: isImage ? () => _showImagePreview(file!) : null,
+                    onTap: isImage ? () => _showImagePreview(file) : null,
                     child: Container(
                       width: 44,
                       height: 44,
@@ -1192,7 +1181,7 @@ class _EmponboardState extends State<Emponboard> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: isImage
-                            ? Image.file(file!, fit: BoxFit.cover)
+                            ? Image.file(file, fit: BoxFit.cover)
                             : const Icon(Icons.picture_as_pdf,
                                 color: Colors.redAccent, size: 24),
                       ),
@@ -1211,7 +1200,7 @@ class _EmponboardState extends State<Emponboard> {
               ],
             ),
             onTap: isUploaded && isImage
-                ? () => _showImagePreview(file!)
+                ? () => _showImagePreview(file)
                 : () => _pickDocument(docName),
           ),
         );

@@ -111,30 +111,31 @@ class _ManagerProfileState extends State<ManagerProfile> {
 
     if (_currentStep == 1) {
       final first = _firstNameController.text.trim();
-      if (first.isEmpty)
+      if (first.isEmpty) {
         errors['firstName'] = 'First Name is required.';
-      else if (!RegExp(r"^[a-zA-Z-\s.'-]{2,50}$").hasMatch(first))
+      } else if (!RegExp(r"^[a-zA-Z-\s.'-]{2,50}$").hasMatch(first))
         errors['firstName'] = '250 letters only.';
 
       final last = _lastNameController.text.trim();
-      if (last.isEmpty)
+      if (last.isEmpty) {
         errors['lastName'] = 'Last Name is required.';
-      else if (!RegExp(r"^[a-zA-Z-\s.'-]{1,50}$").hasMatch(last))
+      } else if (!RegExp(r"^[a-zA-Z-\s.'-]{1,50}$").hasMatch(last))
         errors['lastName'] = 'Letters only.';
 
-      if (_genderController.text.trim().isEmpty)
+      if (_genderController.text.trim().isEmpty) {
         errors['gender'] = 'Gender is required.';
+      }
 
       final phone = _phoneController.text.trim().replaceAll(RegExp(r'[\s\-()]'), '');
-      if (phone.isEmpty)
+      if (phone.isEmpty) {
         errors['phone'] = 'Phone Number is required.';
-      else if (!RegExp(r'^\+?[1-9]\d{6,14}$').hasMatch(phone))
+      } else if (!RegExp(r'^\+?[1-9]\d{6,14}$').hasMatch(phone))
         errors['phone'] = 'Use international format, e.g. +94771234567';
 
       final email = _emailController.text.trim();
-      if (email.isEmpty)
+      if (email.isEmpty) {
         errors['email'] = 'Email is required.';
-      else if (!RegExp(r'^[\w._%+\-]+@[\w.\-]+\.[a-zA-Z]{2,}$').hasMatch(email))
+      } else if (!RegExp(r'^[\w._%+\-]+@[\w.\-]+\.[a-zA-Z]{2,}$').hasMatch(email))
         errors['email'] = 'Enter a valid email address.';
 
       final dob = _dateController.text.trim();
@@ -150,29 +151,36 @@ class _ManagerProfileState extends State<ManagerProfile> {
         }
       }
 
-      if (_streetController.text.trim().isEmpty)
+      if (_streetController.text.trim().isEmpty) {
         errors['street'] = 'Street Address is required.';
-      if (_suburbController.text.trim().isEmpty)
+      }
+      if (_suburbController.text.trim().isEmpty) {
         errors['suburb'] = 'City/Suburb is required.';
-      if (_countryController.text.trim().isEmpty)
+      }
+      if (_countryController.text.trim().isEmpty) {
         errors['country'] = 'Country is required.';
+      }
       final postal = _postalController.text.trim();
-      if (postal.isNotEmpty && !RegExp(r'^[A-Za-z0-9\s\-]{2,10}$').hasMatch(postal))
+      if (postal.isNotEmpty && !RegExp(r'^[A-Za-z0-9\s\-]{2,10}$').hasMatch(postal)) {
         errors['postal'] = 'Enter a valid Postal/ZIP code.';
+      }
     }
 
     if (_currentStep == 2) {
-      if (_accountNameController.text.trim().isEmpty)
+      if (_accountNameController.text.trim().isEmpty) {
         errors['accountName'] = 'Account Name is required.';
+      }
       final accNo = _accountNumberController.text.trim();
-      if (accNo.isEmpty)
+      if (accNo.isEmpty) {
         errors['accountNumber'] = 'Account Number is required.';
-      else if (!RegExp(r'^[0-9A-Za-z\-]{4,34}$').hasMatch(accNo))
+      } else if (!RegExp(r'^[0-9A-Za-z\-]{4,34}$').hasMatch(accNo))
         errors['accountNumber'] = 'Enter a valid account number (434 chars).';
-      if (_bankNameController.text.trim().isEmpty)
+      if (_bankNameController.text.trim().isEmpty) {
         errors['bankName'] = 'Bank Name is required.';
-      if (_jobroleController.text.trim().isEmpty)
+      }
+      if (_jobroleController.text.trim().isEmpty) {
         errors['jobRole'] = 'Job Role is required.';
+      }
     }
 
     setState(() {

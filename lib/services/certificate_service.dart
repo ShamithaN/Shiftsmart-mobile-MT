@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:http/http.dart' as http; // Kept for MultipartRequest
 import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shiftsmart/models/empcert_model.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'api_client.dart'; // Import ApiClient

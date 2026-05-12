@@ -6,7 +6,6 @@ import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/emp_slidenav.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class Employeecert extends StatefulWidget {
   const Employeecert({super.key});
@@ -187,38 +186,6 @@ class _EmployeecertState extends State<Employeecert> {
                 ),
               ),
 
-              // View Button
-              SizedBox(
-                height: 38,
-                width: 85,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF3498DB),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  onPressed: () async {
-                    final url = doc.documentUrl;
-                    if (url.isNotEmpty && await canLaunchUrl(Uri.parse(url))) {
-                      await launchUrl(Uri.parse(url),
-                          mode: LaunchMode.externalApplication);
-                    } else {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Cannot open document")),
-                        );
-                      }
-                    }
-                  },
-                  child: const Text("View",
-                      style:
-                          TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                ),
-              ),
             ],
           ),
         );

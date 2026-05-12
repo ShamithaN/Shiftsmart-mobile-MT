@@ -270,39 +270,46 @@ Widget titleText() {
 
 Widget sosButton(BuildContext context, VoidCallback onSosPressed) {
   return Center(
-    child: InkWell(
-      onTap: onSosPressed,
-      borderRadius: BorderRadius.circular(100),
-      child: Container(
-        width: 200,
-        height: 200,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: const RadialGradient(
-            colors: [
-              Color.fromARGB(255, 240, 176, 179),
-              Color(0xFFFF5A5F),
-              Color.fromARGB(255, 221, 19, 26),
-              Color(0xFFB71C1C),
-            ],
-            center: Alignment.center,
-            radius: 0.8,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color.fromARGB(255, 246, 237, 237).withValues(alpha: 0.6),
-              blurRadius: 20,
-              spreadRadius: 5,
+    child: Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onSosPressed,
+        customBorder: const CircleBorder(),
+        splashColor: Colors.white24,
+        highlightColor: Colors.white10,
+        child: Container(
+          width: 200,
+          height: 200,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const RadialGradient(
+              colors: [
+                Color.fromARGB(255, 240, 176, 179),
+                Color(0xFFFF5A5F),
+                Color.fromARGB(255, 221, 19, 26),
+                Color(0xFFB71C1C),
+              ],
+              center: Alignment.center,
+              radius: 0.8,
             ),
-          ],
-        ),
-        child: const Center(
-          child: Text(
-            "SOS",
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 24,
+            boxShadow: [
+              BoxShadow(
+                color:
+                    const Color.fromARGB(255, 246, 237, 237).withOpacity(0.6),
+                blurRadius: 20,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Text(
+              "SOS",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 24,
+              ),
             ),
           ),
         ),
