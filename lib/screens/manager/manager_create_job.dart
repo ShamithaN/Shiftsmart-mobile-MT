@@ -293,8 +293,8 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
 
   // --- 2. SUBMIT ACTION ---
   Future<void> _submitJobAction() async {
-    String startDate = "${_startDateController.text}T00:00:00";
-    String endDate = "${_endDateController.text}T00:00:00";
+    String startDate = "${_startDateController.text}T00:00:00Z";
+    String endDate = "${_endDateController.text}T00:00:00Z";
 
     final jobData = {
       "title": _jobNameController.text,
@@ -867,8 +867,9 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
             color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: DropdownButton<Project>(
-            value: _selectedProject,
+          child: DropdownButton<int>(
+            // 1. Change type to int
+            value: _selectedProject?.projectId, // 2. Track ID instead of object
             hint: const Text("Select the project",
                 style: TextStyle(color: Colors.white70)),
             dropdownColor: const Color(0xFF2E3545),
@@ -876,15 +877,19 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
             isExpanded: true,
             underline: const SizedBox(),
             items: _projects.map((project) {
-              return DropdownMenuItem<Project>(
-                value: project,
+              return DropdownMenuItem<int>(
+                // 3. Change type to int
+                value: project.projectId, // 4. Value is the integer ID
                 child: Text(project.name,
                     style: const TextStyle(color: Colors.white)),
               );
             }).toList(),
             onChanged: (value) {
               setState(() {
-                _selectedProject = value;
+                // 5. Find the matching object based on ID
+                _selectedProject =
+                    _projects.firstWhere((p) => p.projectId == value);
+
                 final sites = sitesForSelectedProject;
                 // Auto-select first site if available, else null
                 _selectedSite = sites.isNotEmpty ? sites.first : null;
@@ -912,9 +917,12 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
             color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: DropdownButton<Site>(
-            // Safe selection logic:
-            value: _sites.contains(_selectedSite) ? _selectedSite : null,
+          child: DropdownButton<int>(
+            // 1. Change type to int
+            value: sitesForSelectedProject
+                    .any((s) => s.siteId == _selectedSite?.siteId)
+                ? _selectedSite?.siteId
+                : null,
             hint: const Text("Select a site",
                 style: TextStyle(color: Colors.white70)),
             dropdownColor: const Color(0xFF2E3545),
@@ -922,15 +930,18 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
             isExpanded: true,
             underline: const SizedBox(),
             items: sitesForSelectedProject.map((site) {
-              return DropdownMenuItem<Site>(
-                value: site,
+              return DropdownMenuItem<int>(
+                // 3. Change type to int
+                value: site.siteId, // 4. Value is integer ID
                 child: Text(site.siteName,
                     style: const TextStyle(color: Colors.white)),
               );
             }).toList(),
             onChanged: (value) {
               setState(() {
-                _selectedSite = value;
+                // 5. Update object from ID
+                _selectedSite = sitesForSelectedProject
+                    .firstWhere((s) => s.siteId == value);
               });
             },
           ),

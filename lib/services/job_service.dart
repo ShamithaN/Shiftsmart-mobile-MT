@@ -13,7 +13,8 @@ class JobService {
   final ApiClient _apiClient = ApiClient();
 
   // Base URL may be from JOB_BASE_URL or a general base URL
-  final String baseUrl = dotenv.env['JOB_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
+  final String baseUrl =
+      dotenv.env['JOB_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
 
   //  Endpoint keys (func-jobs)
   final String jobGetAllKey = dotenv.env['JOB_GET_ALL_KEY'] ?? "";
@@ -22,12 +23,17 @@ class JobService {
   final String jobDeleteKey = dotenv.env['JOB_DELETE_KEY'] ?? "";
   final String jobCompleteKey = dotenv.env['JOB_COMPLETE_KEY'] ?? "";
   final String jobImageKey = dotenv.env['JOB_IMAGE_UPLOAD_KEY'] ?? "";
-  final String jobUpdateWithImageKey = dotenv.env['JOB_UPDATE_WITH_IMAGE_KEY'] ?? "";
-  final String jobUploadWithImageKey = dotenv.env['JOB_UPLOAD_WITH_IMAGE_KEY'] ?? "";
+  final String jobUpdateWithImageKey =
+      dotenv.env['JOB_UPDATE_WITH_IMAGE_KEY'] ?? "";
+  final String jobUploadWithImageKey =
+      dotenv.env['JOB_UPLOAD_WITH_IMAGE_KEY'] ?? "";
   final String jobRoleTypeListKey = dotenv.env['JOBROLETYPE_LIST_KEY'] ?? "";
-  final String jobRoleTypeCreateKey = dotenv.env['JOBROLETYPE_CREATE_KEY'] ?? "";
-  final String jobRoleTypeDeleteKey = dotenv.env['JOBROLETYPE_DELETE_KEY'] ?? "";
-  final String jobRoleBreakdownByJobKey = dotenv.env['JOBROLE_BREAKDOWN_KEY'] ?? "";
+  final String jobRoleTypeCreateKey =
+      dotenv.env['JOBROLETYPE_CREATE_KEY'] ?? "";
+  final String jobRoleTypeDeleteKey =
+      dotenv.env['JOBROLETYPE_DELETE_KEY'] ?? "";
+  final String jobRoleBreakdownByJobKey =
+      dotenv.env['JOBROLE_BREAKDOWN_KEY'] ?? "";
 
   JobService() {
     _debugEnv();
@@ -35,18 +41,19 @@ class JobService {
 
   void _debugEnv() {
     if (baseUrl.isEmpty) debugPrint(" JobService: JOB_BASE_URL is missing");
-    if (jobGetAllKey.isEmpty) debugPrint(" JobService: JOB_GET_ALL_KEY is missing");
+    if (jobGetAllKey.isEmpty)
+      debugPrint(" JobService: JOB_GET_ALL_KEY is missing");
     // ... adding more checks if needed, but the ?? "" is already safer
   }
 
-
   // --- FETCH ALL JOBS ---
   Future<List<Job>> fetchAllJobs() async {
-      final geturl = '$baseUrl/job/list?code=$jobGetAllKey';
+    final geturl = '$baseUrl/job/list?code=$jobGetAllKey';
     debugPrint("Fetching Jobs from: $geturl");
     try {
       // Re-enabling useAuth: true as per approved plan
-      final response = await _apiClient.get(geturl, useAuth: true, showDialog: false);
+      final response =
+          await _apiClient.get(geturl, useAuth: true, showDialog: false);
 
       debugPrint("Job response status: ${response.statusCode}");
       debugPrint("Job response body: ${response.body}");
@@ -77,10 +84,6 @@ class JobService {
   // --- ADD JOB (Data Only) ---
   // Note: Standard job/create is reported missing. Use createJobWithImage if an image is available.
   Future<int?> addJob(Map<String, dynamic> jobData) async {
-    if (jobCreateKey.isEmpty) {
-      debugPrint(" JobService: JOB_CREATE_KEY is missing. This endpoint might be deprecated.");
-      return null;
-    }
     final url = '$baseUrl/job/create?code=$jobCreateKey';
     try {
       final response = await _apiClient.post(
@@ -92,8 +95,11 @@ class JobService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return 1;
       } else {
-        debugPrint("Failed to add job data. Status: ${response.statusCode}");
-        return null;
+        // Change from 'return null;' to throw the actual error the backend sent
+        final errorMessage = response.body.isNotEmpty
+            ? response.body
+            : "Status code: ${response.statusCode}";
+        throw Exception(errorMessage);
       }
     } catch (e) {
       debugPrint("Error adding job data: $e");
@@ -105,7 +111,8 @@ class JobService {
   // Note: Multipart requests are special, so we manually add the token here.
   Future<bool> createJobWithImage(
       Map<String, dynamic> jobData, File image) async {
-    final url = Uri.parse('$baseUrl/job/createcomplete?code=$jobUploadWithImageKey');
+    final url =
+        Uri.parse('$baseUrl/job/upload-with-image?code=$jobUploadWithImageKey');
     try {
       final request = http.MultipartRequest("POST", url);
 
@@ -123,8 +130,13 @@ class JobService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return true;
       } else {
-        debugPrint("Failed to add job with image ${response.statusCode}");
-        return false;
+        // Read the actual plain-text reason from the backend
+        final respStr = await response.stream.bytesToString();
+        final errorMessage = respStr.isNotEmpty
+            ? respStr
+            : "Status code: ${response.statusCode}";
+        debugPrint("Failed to add job with image: $errorMessage");
+        throw Exception(errorMessage); // Throw it so the UI catches it!
       }
     } catch (e) {
       debugPrint("Error occured while adding job with image $e");
@@ -198,8 +210,10 @@ class JobService {
   }
 
   // --- UPDATE JOB WITH IMAGE ---
-  Future<bool> updateJobWithImage(int jobId, Map<String, dynamic> jobData, File image) async {
-    final url = Uri.parse('$baseUrl/job/updatewithimage/$jobId?code=$jobUpdateWithImageKey');
+  Future<bool> updateJobWithImage(
+      int jobId, Map<String, dynamic> jobData, File image) async {
+    final url = Uri.parse(
+        '$baseUrl/job/updatewithimage/$jobId?code=$jobUpdateWithImageKey');
     try {
       final request = http.MultipartRequest("PUT", url);
 
@@ -223,7 +237,8 @@ class JobService {
   Future<List<JobRoleType>> fetchJobRoleType() async {
     final url = '$baseUrl/jobroletype/list?code=$jobRoleTypeListKey';
     try {
-      final response = await _apiClient.get(url, useAuth: true, showDialog: false);
+      final response =
+          await _apiClient.get(url, useAuth: true, showDialog: false);
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = jsonDecode(response.body);

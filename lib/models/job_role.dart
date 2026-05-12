@@ -31,8 +31,7 @@ class JobRole {
       'jobRoleTypeId': jobRoleTypeId,
       'estimatedTime': estimatedTime,
       'numberOfRoles': numberOfRoles,
-      'notes': notes,
-      'roleName': roleName, 
+      'notes': notes ?? '',
     };
   }
 }

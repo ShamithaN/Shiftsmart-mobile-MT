@@ -10,19 +10,34 @@ class JobRoleType {
   });
 
   static JobRoleType unKnown() => JobRoleType(
-    id: 0, 
-    name: 'UnKnown', 
-    requiredDocuments: [],
-  );
+        id: 0,
+        name: 'UnKnown',
+        requiredDocuments: [],
+      );
 
   factory JobRoleType.fromJson(Map<String, dynamic> json) {
+    // Safely extract required documents, handling nulls or different types
+    List<String> docs = [];
+    final docsRaw = json['RequiredDocuments'] ?? json['requiredDocuments'];
+    if (docsRaw is String) {
+      docs = docsRaw.isEmpty
+          ? []
+          : docsRaw.split(',').map((e) => e.trim()).toList();
+    } else if (docsRaw != null) {
+      docs = docsRaw.toString().split(',').map((e) => e.trim()).toList();
+    }
+
     return JobRoleType(
-      id: json['JobRoleTypeId'],
-      name: json['JobRoleName'],
-      requiredDocuments: (json['RequiredDocuments'] as String)
-        .split(',')
-        .map((e) => e.trim())
-        .toList(),
+      // Safely fall back through possible backend key names and default to 0
+      id: json['JobRoleTypeId'] ?? json['jobRoleTypeId'] ?? json['id'] ?? 0,
+
+      // Safely fall back through possible backend key names and default to 'Unknown'
+      name: json['JobRoleName'] ??
+          json['jobRoleName'] ??
+          json['name'] ??
+          'Unknown Role',
+
+      requiredDocuments: docs,
     );
   }
 
