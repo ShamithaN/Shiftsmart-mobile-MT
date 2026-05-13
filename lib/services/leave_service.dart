@@ -375,13 +375,12 @@ class LeaveService {
   // on an existing resource.  If your Azure Function only accepts POST, change
   // _apiClient.patch → _apiClient.post here (and nowhere else).
   Future<void> updateLeaveStatus(int id, String newStatus) async {
-    // FIX: id is an int (matches LeaveRequest model); was String before which
-    // would silently fail if the server expects a numeric segment.
     final String url = '$baseUrl/leave/approve/$id?code=$leaveApproveKey';
     final body = {"status": newStatus};
  
     try {
-      final response = await _apiClient.patch(
+      
+      final response = await _apiClient.post(
         url,
         body: body,
         useAuth: true,
@@ -390,7 +389,7 @@ class LeaveService {
       if (response.statusCode == 200 || response.statusCode == 204) {
         debugPrint("Leave status updated to: $newStatus");
       } else {
-        debugPrint("Failed to update status: ${response.body}");
+        debugPrint("Failed to update status: ${response.statusCode} - ${response.body}");
         throw Exception("Failed to update leave status");
       }
     } catch (e) {

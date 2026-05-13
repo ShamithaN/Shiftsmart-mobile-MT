@@ -390,8 +390,24 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
           : _titleController.text.trim();
 
       // Ensure time strings are merged with the date to create valid ISO-8601 DateTimes format expected by C#
-      final sanitizedStart = start.length == 5 ? "$start:00" : start;
-      final sanitizedEnd = end.length == 5 ? "$end:00" : end;
+      // Ensure we only have the time part like "07:00:00" before appending
+      // Ensure we only have the time part like "07:00:00" before appending
+      String cleanTime(String t) {
+        if (t.contains('T')) t = t.split('T').last;
+        if (t.endsWith('Z')) t = t.replaceAll('Z', '');
+        return t.length == 5 ? "$t:00" : t;
+      }
+
+      final timeOnlyStart = cleanTime(start);
+      final timeOnlyEnd = cleanTime(end);
+
+      final isUpdate = widget.shift != null && _selectedDates.length == 1;
+
+      // Create Request needs full ISO string (DateTime). Update Request needs clean string (TimeSpan).
+      final startTimeForPayload =
+          isUpdate ? timeOnlyStart : "${dateStr}T${timeOnlyStart}Z";
+      final endTimeForPayload =
+          isUpdate ? timeOnlyEnd : "${dateStr}T${timeOnlyEnd}Z";
 
       final Map<String, dynamic> shiftData = {
         "ShiftId": widget.shift?.shiftId ?? 0,
@@ -402,25 +418,12 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
         "Date": "${dateStr}T00:00:00Z",
         "StartDate": "${dateStr}T00:00:00Z",
         "IsRecurring": false,
-        "StartTime": "${dateStr}T${sanitizedStart}Z",
-        "EndTime": "${dateStr}T${sanitizedEnd}Z",
+        "StartTime": startTimeForPayload,
+        "EndTime": endTimeForPayload,
         "Location": matchingSite.siteName,
-        "Status": (widget.shift != null && _selectedDates.length == 1)
-            ? widget.shift!.status
-            : "Scheduled",
+        "Status": isUpdate ? widget.shift!.status : "Scheduled",
         "AssignedEmployeeIds": _selectedEmptIds,
       };
-
-      // Only include for updates
-      if (widget.shift != null &&
-          _selectedDates.length == 1 &&
-          widget.shift!.employeeResponses.isNotEmpty) {
-        final responses = widget.shift!.employeeResponses
-            .where((r) => _selectedEmptIds.contains(r.employeeId))
-            .map((e) => e.toJson())
-            .toList();
-        shiftData["EmployeeResponses"] = responses;
-      }
 
       // Log the refined payload for final verification
       debugPrint(" Submitting payload for $dateStr: ${jsonEncode(shiftData)}");
@@ -760,7 +763,9 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
                             onPrimary: Colors.white,
                             surface: Color(0xFF2A3243),
                             onSurface: Colors.white,
-                          ), dialogTheme: DialogThemeData(backgroundColor: const Color(0xFF2A3243)),
+                          ),
+                          dialogTheme: DialogThemeData(
+                              backgroundColor: const Color(0xFF2A3243)),
                         ),
                         child: CalendarDatePicker(
                           initialDate: tempDate ?? DateTime.now(),

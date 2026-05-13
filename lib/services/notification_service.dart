@@ -293,12 +293,13 @@ class NotificationService {
       final response = await _apiClient.post(url, body: body, useAuth: true);
       if (response.statusCode == 200) {
         debugPrint("Leave $newStatus notification sent");
+      } else if (response.statusCode == 404) {
+        debugPrint("Notification not sent: Employee has no registered device.");
       } else {
-        throw Exception("Failed to send notification: ${response.statusCode}");
+        debugPrint("Failed to send notification: ${response.statusCode} - ${response.body}");
       }
     } catch (e) {
-      debugPrint("Error: $e");
-      rethrow;
+      debugPrint("Warning: Error sending leave notification: $e");
     }
   }
 
