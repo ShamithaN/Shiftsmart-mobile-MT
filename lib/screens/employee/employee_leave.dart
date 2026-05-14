@@ -899,6 +899,10 @@ class _EmployeeleaveState extends State<Employeeleave> {
                   'RequestedAt': r.requestedAt,
                 })
             .toList();
+        
+        // Sort newest requests first
+        _leaveRequests.sort((a, b) => 
+          (b['RequestedAt'] as DateTime).compareTo(a['RequestedAt'] as DateTime));
       });
     }
   }
@@ -1283,16 +1287,8 @@ class _EmployeeleaveState extends State<Employeeleave> {
                                           sliver: SliverList(
                                             delegate:
                                                 SliverChildBuilderDelegate(
-                                              (ctx, i) {
-                                                final reversed =
-                                                    _leaveRequests
-                                                        .reversed
-                                                        .toList();
-                                                return _leaveCard(
-                                                    reversed[i]);
-                                              },
-                                              childCount:
-                                                  _leaveRequests.length,
+                                              (ctx, i) => _leaveCard(_leaveRequests[i]),
+                                              childCount: _leaveRequests.length,
                                             ),
                                           ),
                                         ),
@@ -1425,43 +1421,13 @@ class _EmployeeleaveState extends State<Employeeleave> {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFF1E3A5F),
-                    border: Border.all(
-                        color: const Color(0xFF3498DB)
-                            .withValues(alpha: 0.4),
-                        width: 1.5),
-                  ),
-                  child: const Icon(Icons.person_outline,
-                      color: Color(0xFF3498DB), size: 24),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _employeeName.isNotEmpty
-                            ? _employeeName
-                            : 'Employee',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (_jobRole.isNotEmpty)
-                        Text(
-                          _jobRole,
-                          style: const TextStyle(
-                              color: Colors.white54, fontSize: 12),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                    ],
+                const Expanded(
+                  child: Text(
+                    'Leave Request',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold),
                   ),
                 ),
                 Container(

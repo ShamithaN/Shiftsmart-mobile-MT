@@ -7,13 +7,19 @@ abstract class PhoneService {
 class RealPhoneService implements PhoneService {
   @override
   Future<void> makePhoneCall(String phoneNumber) async {
-    phoneNumber = phoneNumber.replaceAll(' ', '').replaceAll('-', '');
-    final Uri uri = Uri(scheme: 'tel', path: phoneNumber);
+    // Remove spaces, dashes, and other non-digit characters except '+'
+    final cleanNumber = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
+    final Uri uri = Uri.parse('tel:$cleanNumber');
 
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
-      throw Exception('Could not launch phone dialer');
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        // Fallback for some devices where canLaunchUrl returns false but launchUrl works
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      throw Exception('Could not launch phone dialer: $e');
     }
   }
 }

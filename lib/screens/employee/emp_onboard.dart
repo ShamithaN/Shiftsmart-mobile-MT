@@ -439,7 +439,7 @@ class _EmponboardState extends State<Emponboard> {
               style: TextStyle(color: Colors.white)),
           onTap: () async {
             Navigator.pop(ctx);
-            FilePickerResult? result = await FilePicker.platform.pickFiles(
+            FilePickerResult? result = await FilePicker.pickFiles(
               type: FileType.custom,
               allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'png'],
             );
@@ -885,39 +885,15 @@ class _EmponboardState extends State<Emponboard> {
   Widget _buildStep1Profile() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Center(
-        child: Stack(
-          children: [
-            ProfileAvatar(
-              key: _avatarKey,
-              editable: false,
-              initialImage: _profilePic,
-              onImageSelected: (_) {},
-            ),
-            if (!_isResubmission)
-              Positioned.fill(
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(100),
-                    onTap: _pickProfileImage,
-                  ),
-                ),
-              ),
-            if (!_isResubmission)
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: CircleAvatar(
-                  backgroundColor: Colors.blueAccent,
-                  radius: 18,
-                  child: IconButton(
-                    icon: const Icon(Icons.camera_alt,
-                        size: 18, color: Colors.white),
-                    onPressed: _pickProfileImage,
-                  ),
-                ),
-              ),
-          ],
+        child: ProfileAvatar(
+          key: _avatarKey,
+          editable: true,
+          initialImage: _profilePic,
+          onImageSelected: (File image) {
+            setState(() {
+              _profilePic = image;
+            });
+          },
         ),
       ),
       const Center(

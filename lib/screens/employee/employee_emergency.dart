@@ -42,10 +42,13 @@ class _EmployeeEmergencyState extends State<EmployeeEmergency> {
         });
       }
     } catch (e) {
-      print('Error loading contacts: $e');
+      debugPrint('Error loading contacts: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading contacts: ${e.toString()}')),
+          const SnackBar(
+            content: Text('Failed to load emergency contacts. Please try again later.'),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
     } finally {
@@ -71,6 +74,27 @@ class _EmployeeEmergencyState extends State<EmployeeEmergency> {
             const SnackBar(content: Text('Could not launch dialer')));
       }
     }
+  }
+
+  void _handleSosPressed() {
+    if (_contacts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No emergency contacts available'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    // Prioritize primary contact, then fallback to first available
+    final targetContact = _contacts.firstWhere(
+      (c) => c.isPrimary,
+      orElse: () => _contacts.first,
+    );
+
+    debugPrint(" SOS Triggered: Dialing ${targetContact.fullName} (${targetContact.mobileNumber})");
+    _makePhoneCall(targetContact.mobileNumber);
   }
 
   void _showEmergencyContactSelector() {
@@ -160,10 +184,10 @@ class _EmployeeEmergencyState extends State<EmployeeEmergency> {
                             const SizedBox(height: 40),
                             titleText(),
                             const SizedBox(height: 40),
-                            sosButton(context, _showEmergencyContactSelector),
+                            sosButton(context, _handleSosPressed),
                             const SizedBox(height: 20),
                             ..._contacts.map(
-                                (contact) => contactItem(context, contact)),
+                                (contact) => contactItem(context, contact, () => _makePhoneCall(contact.mobileNumber))),
                           ],
                         ),
                       ),
@@ -179,6 +203,7 @@ class _EmployeeEmergencyState extends State<EmployeeEmergency> {
 Widget contactItem(
   BuildContext context,
   NextOfKin contact,
+  VoidCallback onCall,
 ) {
   return Container(
     margin: const EdgeInsets.only(bottom: 12),
@@ -194,6 +219,7 @@ Widget contactItem(
       borderRadius: BorderRadius.circular(12),
     ),
     child: ListTile(
+      onTap: onCall,
       leading: const Icon(Icons.person_pin, color: Colors.white),
       title: Text(
         contact.fullName,

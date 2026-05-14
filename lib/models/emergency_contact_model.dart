@@ -48,32 +48,35 @@ class Contact {
   });
 
   factory Contact.fromJson(Map<String, dynamic> json) {
+    // Helper to handle both PascalCase and camelCase
+    dynamic getVal(String key) => json[key] ?? json[key[0].toLowerCase() + key.substring(1)];
+
     return Contact(
-      employeeId: json['EmployeeId'],
-      firstName: json['FirstName'],
-      middleName: json['MiddleName'],
-      lastName: json['LastName'],
-      gender: json['Gender'],
-      email: json['Email'],
-      mobileNumber: json['MobileNumber'],
-      street: json['Street'],
-      city: json['City'],
-      state: json['State'],
-      postalCode: json['PostalCode'],
-      country: json['Country'],
-      dateOfBirth: json['DateOfBirth'] != null
-          ? DateTime.parse(json['DateOfBirth'])
+      employeeId: getVal('EmployeeId') ?? 0,
+      firstName: getVal('FirstName') ?? '',
+      middleName: getVal('MiddleName'),
+      lastName: getVal('LastName'),
+      gender: getVal('Gender'),
+      email: getVal('Email'),
+      mobileNumber: getVal('MobileNumber'),
+      street: getVal('Street'),
+      city: getVal('City'),
+      state: getVal('State'),
+      postalCode: getVal('PostalCode'),
+      country: getVal('Country'),
+      dateOfBirth: getVal('DateOfBirth') != null
+          ? DateTime.tryParse(getVal('DateOfBirth').toString())
           : null,
-      bankAccountName: json['BankAccountName'],
-      bankAccountNumber: json['BankAccountNumber'],
-      bankBSB: json['BankBSB'],
-      bankName: json['BankName'],
-      employmentStatus: json['EmploymentStatus'],
-      jobRole: json['JobRole'],
-      userRole: json['UserRole'],
-      profilePicture: json['ProfilePicture'],
-      nextOfKins: json['NextOfKins'] != null
-          ? (json['NextOfKins'] as List<dynamic>)
+      bankAccountName: getVal('BankAccountName'),
+      bankAccountNumber: getVal('BankAccountNumber'),
+      bankBSB: getVal('BankBSB'),
+      bankName: getVal('BankName'),
+      employmentStatus: getVal('EmploymentStatus'),
+      jobRole: getVal('JobRole'),
+      userRole: getVal('UserRole'),
+      profilePicture: getVal('ProfilePicture'),
+      nextOfKins: (getVal('NextOfKins') ?? getVal('NextOfKin') ?? getVal('ApprovedNextOfKin') ?? []) != null
+          ? ((getVal('NextOfKins') ?? getVal('NextOfKin') ?? getVal('ApprovedNextOfKin') ?? []) as List<dynamic>)
               .map((kin) => NextOfKin.fromJson(kin))
               .toList()
           : [],

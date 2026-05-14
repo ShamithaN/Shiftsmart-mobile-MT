@@ -90,7 +90,7 @@ class Employee {
       bankBSB: getValue<String>('bankBSB', 'BankBSB'),
       bankName: getValue<String>('bankName', 'BankName'),
 
-      nextOfKins: (json['nextOfKins'] as List<dynamic>?)
+      nextOfKins: ((json['nextOfKins'] ?? json['NextOfKins'] ?? json['NextOfKin'] ?? json['nextOfKin'] ?? json['ApprovedNextOfKin']) as List<dynamic>?)
               ?.map((kinJson) => NextOfKin.fromJson(kinJson))
               .toList() ??
           [],

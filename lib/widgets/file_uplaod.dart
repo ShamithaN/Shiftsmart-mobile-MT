@@ -15,7 +15,7 @@ class _FileUploadState extends State<FileUpload> {
   File? _selectedFile;
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'doc', 'docx', 'png', 'jpg', 'jpeg'],
     );

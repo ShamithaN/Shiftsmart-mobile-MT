@@ -1,6 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'package:mime/mime.dart';
 import 'package:shiftsmart/models/employee.dart';
 import 'package:shiftsmart/models/empcert_model.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -156,16 +159,16 @@ class EmployeeService {
 
         return rawDocs.map<EmployeeCertificate>((doc) {
           return EmployeeCertificate(
-            documentId: doc['DocumentId'] ?? 0,
+            documentId: doc['DocumentId'] ?? doc['documentId'] ?? 0,
             employeeId: empId,
-            fileName: doc['DocumentType'] ?? 'Document',
-            fileType: doc['DocumentType'] ?? 'General',
-            documentUrl: doc['DocumentUrl'] ?? '',
-            documentType: doc['DocumentType'] ?? 'General',
-            status: doc['Status'] ?? 'Approved',
-            uploadedAt: doc['UploadedAt'] ?? DateTime.now().toIso8601String(),
-            remarks: doc['Remarks'],
-            updatedAt: doc['UpdatedAt'],
+            fileName: doc['DocumentType'] ?? doc['documentType'] ?? doc['FileName'] ?? doc['fileName'] ?? 'Document',
+            fileType: doc['DocumentType'] ?? doc['documentType'] ?? doc['FileType'] ?? doc['fileType'] ?? 'General',
+            documentUrl: doc['DocumentUrl'] ?? doc['documentUrl'] ?? '',
+            documentType: doc['DocumentType'] ?? doc['documentType'] ?? 'General',
+            status: doc['Status'] ?? doc['status'] ?? 'Approved',
+            uploadedAt: doc['UploadedAt'] ?? doc['uploadedAt'] ?? DateTime.now().toIso8601String(),
+            remarks: doc['Remarks'] ?? doc['remarks'],
+            updatedAt: doc['UpdatedAt'] ?? doc['updatedAt'],
           );
         }).toList();
       } else {
@@ -178,7 +181,61 @@ class EmployeeService {
     }
   }
 
-  // --- 5. Add Certificate ---
+  // --- 5. Upload Certificate (Multipart) ---
+  Future<String?> uploadCertificate({
+    required File file,
+    required int employeeId,
+    required String certificateType,
+    int? documentId, // If provided, it's an update
+  }) async {
+    String url;
+    if (documentId != null) {
+      url = '$baseUrl/certificates/update/$documentId?code=$certificateUpdateKey';
+    } else {
+      url = '$baseUrl/certificates/add?code=$certificateAddKey';
+    }
+    
+    debugPrint(" Uploading Document to: $url");
+
+    try {
+      final request = http.MultipartRequest('POST', Uri.parse(url));
+
+      final token = await _apiClient.getAppToken();
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+
+      request.fields['employeeId'] = employeeId.toString();
+      request.fields['certificateType'] = certificateType;
+      request.fields['dateIssued'] = DateTime.now().toIso8601String().split('T').first;
+      request.fields['expiryDate'] = DateTime.now().add(const Duration(days: 365)).toIso8601String().split('T').first;
+      
+      if (documentId != null) {
+        request.fields['documentId'] = documentId.toString();
+        request.fields['id'] = documentId.toString(); // Some endpoints use 'id'
+      }
+
+      final mimeType = lookupMimeType(file.path) ?? 'application/octet-stream';
+      request.files.add(await http.MultipartFile.fromPath(
+        'file',
+        file.path,
+        contentType: MediaType.parse(mimeType),
+      ));
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return null; // Success
+      } else {
+        return "Upload failed: ${response.statusCode} - ${response.body}";
+      }
+    } catch (e) {
+      return "Upload error: $e";
+    }
+  }
+
+  // --- 6. Add Certificate (JSON - Kept for compatibility if needed) ---
   Future<Map<String, dynamic>?> addCertificate(Map<String, dynamic> certData) async {
     final url = '$baseUrl/certificates/add?code=$certificateAddKey';
     debugPrint(" Adding Certificate...");

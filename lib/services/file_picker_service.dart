@@ -8,7 +8,7 @@ abstract class FilePickerService {
 class RealFilePickerService implements FilePickerService {
   @override
   Future<File?> pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
     );

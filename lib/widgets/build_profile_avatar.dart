@@ -121,15 +121,30 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
             : avatar,
         if (widget.editable)
           Positioned(
-            right: 0,
-            bottom: 0,
-            child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: const BoxDecoration(
-                color: Colors.grey,
-                shape: BoxShape.circle,
+            right: 4,
+            bottom: 4,
+            child: GestureDetector(
+              onTap: () => _showImageSourceOptions(context),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2C2F36), // Dark premium color
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white24, width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.edit_rounded,
+                  color: Colors.white,
+                  size: 16,
+                ),
               ),
-              child: const Icon(Icons.edit, color: Colors.black54, size: 18),
             ),
           ),
       ],

@@ -4,7 +4,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shiftsmart/models/chat_list_item.dart';
 import 'package:shiftsmart/models/message.dart';
 import 'package:shiftsmart/models/search_employee.dart';
+import 'package:shiftsmart/models/employee.dart';
 import 'package:shiftsmart/services/api_client.dart';
+import 'package:shiftsmart/services/employee_service.dart';
 
 class ChatService {
   final ApiClient _apiClient = ApiClient();
@@ -47,13 +49,35 @@ class ChatService {
 
   // --- 2. SEARCH EMPLOYEES ---
   Future<List<SearchEmployee>> searchEmployees(String query) async {
+    // If query is empty, show all active employees by default
+    if (query.isEmpty) {
+      debugPrint(" ChatService: Query empty, fetching all active employees as default list.");
+      final employeeService = EmployeeService();
+      final employees = await employeeService.fetchAllEmployees(includeAdminsAndManagers: true);
+      
+      return employees.map((e) => SearchEmployee(
+        employeeId: e.employeeId,
+        firstName: e.firstName,
+        lastName: e.lastName ?? "",
+        email: e.email,
+        profilePicture: e.profilePicture,
+        role: e.userRole ?? "Employee",
+      )).toList();
+    }
+
     final encodedQuery = Uri.encodeComponent(query);
+    // Updated endpoint back to /chat/search as /chat/employees was likely incorrect
     final url = '$messageBaseUrl/chat/search?query=$encodedQuery&code=$searchEmpKey';
+
+    debugPrint(" ChatService: Searching employees at $url");
 
     try {
       final response = await _apiClient.get(url, useAuth: true);
+      debugPrint(" ChatService Search Status: ${response.statusCode}");
+      
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
+        debugPrint(" ChatService: Found ${data.length} employees.");
         return data.map((e) => SearchEmployee.fromJson(e)).toList();
       }
       return [];

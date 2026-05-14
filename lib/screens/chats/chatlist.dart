@@ -85,6 +85,7 @@ class _ChatlistState extends State<Chatlist> {
     showDialog(
       context: context,
       builder: (context) => _SearchUserDialog(
+        currentUserId: _userId,
         onUserSelected: (searchEmp) {
           Navigator.pop(context);
           _createAndOpenChatFromSearch(searchEmp);
@@ -315,80 +316,62 @@ class _ChatlistState extends State<Chatlist> {
 
 // --- UPDATED SEARCH DIALOG (Uses SearchEmployee) ---
 class _SearchUserDialog extends StatefulWidget {
+  final int currentUserId;
   final Function(SearchEmployee) onUserSelected; // Type Updated
-  const _SearchUserDialog({required this.onUserSelected});
+  const _SearchUserDialog(
+      {required this.onUserSelected, required this.currentUserId});
 
   @override
   State<_SearchUserDialog> createState() => _SearchUserDialogState();
 }
 
 class _SearchUserDialogState extends State<_SearchUserDialog> {
-  final EmployeeService _employeeService = EmployeeService();
+  final ChatService _chatService = ChatService(); // Using ChatService now
   final TextEditingController _searchController = TextEditingController();
 
-  List<SearchEmployee> _allEmployees = [];
   List<SearchEmployee> _searchResults = [];
   bool _isSearching = false;
-  bool _hasLoadedEmployees = false;
   Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
-    _loadTenantEmployees();
+    // Load default list on open
+    _performSearch("");
   }
 
-  Future<void> _loadTenantEmployees() async {
+  Future<void> _performSearch(String query) async {
+    if (!mounted) return;
     setState(() {
       _isSearching = true;
     });
 
-    final employees = await _employeeService.fetchAllEmployees(includeAdminsAndManagers: true);
-    final searchEmployees = employees
-        .map((employee) => SearchEmployee(
-              employeeId: employee.employeeId,
-              firstName: employee.firstName,
-              lastName: employee.lastName ?? '',
-              email: employee.email,
-              profilePicture: employee.profilePicture,
-              role: employee.userRole ?? 'Employee',
-            ))
-        .toList();
-
-    if (mounted) {
-      setState(() {
-        _allEmployees = searchEmployees;
-        _searchResults = searchEmployees;
-        _hasLoadedEmployees = true;
-        _isSearching = false;
-      });
+    try {
+      final results = await _chatService.searchEmployees(query);
+      if (mounted) {
+        setState(() {
+          // Filter out the current user from results
+          _searchResults = results
+              .where((emp) => emp.employeeId != widget.currentUserId)
+              .toList();
+          _isSearching = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error in dialog search: $e");
+      if (mounted) {
+        setState(() {
+          _isSearching = false;
+        });
+      }
     }
   }
 
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
 
-    _debounce = Timer(const Duration(milliseconds: 200), () {
-      if (!_hasLoadedEmployees) return;
-
-      final lowerQuery = query.trim().toLowerCase();
-      if (lowerQuery.isEmpty) {
-        setState(() {
-          _searchResults = _allEmployees;
-        });
-        return;
-      }
-
-      final filtered = _allEmployees.where((emp) {
-        final fullName = '${emp.firstName} ${emp.lastName}'.toLowerCase();
-        return fullName.contains(lowerQuery) ||
-            (emp.email?.toLowerCase().contains(lowerQuery) ?? false) ||
-            emp.role.toLowerCase().contains(lowerQuery);
-      }).toList();
-
-      setState(() {
-        _searchResults = filtered;
-      });
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      _performSearch(query.trim());
     });
   }
 
@@ -450,8 +433,10 @@ class _SearchUserDialogState extends State<_SearchUserDialog> {
                                         color: Colors.white)
                                     : null,
                               ),
-                              title: Text(emp.firstName,
-                                  style: const TextStyle(color: Colors.white)),
+                              title: Text("${emp.firstName} ${emp.lastName}",
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600)),
                               subtitle: Text(emp.email ?? "No Email",
                                   style: const TextStyle(
                                       color: Colors.white54, fontSize: 12)),
