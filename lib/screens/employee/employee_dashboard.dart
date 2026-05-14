@@ -8,6 +8,7 @@ import 'package:shiftsmart/services/image_picker_service.dart';
 import 'package:shiftsmart/services/job_service.dart';
 import 'package:shiftsmart/services/location_service.dart';
 import 'package:shiftsmart/services/shift_service.dart';
+import 'package:shiftsmart/utils/date_time_parser.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/responsive.dart';
@@ -26,8 +27,8 @@ class _EmployeedashboardState extends State<Employeedashboard> {
 
   File? selectedFile;
   String? fileName;
-  List<Job> allJobs = [];
-  List<Job> filteredJobs = [];
+//   List<Job> allJobs = [];
+//   List<Job> filteredJobs = [];
 
   int? employeeId;
   Map<int, String> uploadedFiles = {};
@@ -115,10 +116,12 @@ class _EmployeedashboardState extends State<Employeedashboard> {
 
           if (shiftDateStr == null || shiftStartTimeStr == null) continue;
 
-          final shiftDate = DateTime.parse(shiftDateStr);
+          final shiftDate = parseServerDateTime(shiftDateStr);
+          if (shiftDate == null) continue;
           // Fix logic to handle Time format correctly
-          final shiftStart = DateTime.parse(
-              "${shiftDateStr.split("T")[0]} $shiftStartTimeStr");
+          final shiftStart = parseServerDateTime(
+                  "${shiftDateStr.toString().split("T")[0]} $shiftStartTimeStr") ??
+              shiftDate;
 
           final job = jobMap[shiftJobId];
           if (job == null) continue;
@@ -130,9 +133,10 @@ class _EmployeedashboardState extends State<Employeedashboard> {
           };
 
           // Only show shifts scheduled for today
-          if (shiftDate.year == today.year &&
-              shiftDate.month == today.month &&
-              shiftDate.day == today.day) {
+          final localShiftDate = shiftDate.toLocal();
+          if (localShiftDate.year == today.year &&
+              localShiftDate.month == today.month &&
+              localShiftDate.day == today.day) {
             todayJobs.add(fullJob);
 
             tempJobShifts.putIfAbsent(shiftJobId, () => []);
@@ -167,10 +171,10 @@ class _EmployeedashboardState extends State<Employeedashboard> {
 
   void _navigateToShiftView(Map<String, dynamic> shiftData) {
     final shift = shiftData['Shift'];
-    
+
     // Improved SiteId resolution: fallback to shift's SiteId if job's SiteId is 0 or null
-    final siteId = (shiftData['SiteId'] != null && shiftData['SiteId'] != 0) 
-        ? shiftData['SiteId'] 
+    final siteId = (shiftData['SiteId'] != null && shiftData['SiteId'] != 0)
+        ? shiftData['SiteId']
         : (shift != null ? (shift['SiteId'] ?? shift['siteId'] ?? 0) : 0);
 
     final job = Job(
@@ -203,17 +207,17 @@ class _EmployeedashboardState extends State<Employeedashboard> {
     );
   }
 
-  void onQueryChanged(String query) {
-    setState(() {
-      if (query.isEmpty) {
-        filteredJobs = List.from(allJobs);
-      } else {
-        filteredJobs = allJobs.where((job) {
-          return job.title.toLowerCase().contains(query.toLowerCase());
-        }).toList();
-      }
-    });
-  }
+//   void onQueryChanged(String query) {
+//     setState(() {
+//       if (query.isEmpty) {
+//         filteredJobs = List.from(allJobs);
+//       } else {
+//         filteredJobs = allJobs.where((job) {
+//           return job.title.toLowerCase().contains(query.toLowerCase());
+//         }).toList();
+//       }
+//     });
+//   }
 
   @override
   Widget build(BuildContext context) {
@@ -247,11 +251,11 @@ class _EmployeedashboardState extends State<Employeedashboard> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Search(onQueryChanged: onQueryChanged),
-                              const SizedBox(height: 10),
-                              upcomingJobCard(),
-                              const SizedBox(height: 20),
+//                               Search(onQueryChanged: onQueryChanged),
+//                               const SizedBox(height: 10),
                               jobListCard(),
+                              const SizedBox(height: 20),
+                              upcomingJobCard(),
                               const SizedBox(height: 80),
                             ],
                           ),
@@ -301,7 +305,8 @@ class _EmployeedashboardState extends State<Employeedashboard> {
                   style: TextStyle(
                     color: Colors.white60,
                     fontSize: 16, // Increased font size (default is ~14)
-                    fontWeight: FontWeight.w500, // Optional: make it slightly bold
+                    fontWeight:
+                        FontWeight.w500, // Optional: make it slightly bold
                   ),
                 ),
               ),

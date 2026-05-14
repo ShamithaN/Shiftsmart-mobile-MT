@@ -35,14 +35,6 @@ class _SidenavState extends State<Sidenav> {
   // 1. Initialize SiteService
   final SiteService _siteService = SiteService();
 
-  late final userProfile;
-
-  @override
-  void initState() {
-    super.initState();
-    userProfile = Provider.of<UserProvider>(context, listen: false).userProfile;
-  }
-
   void _handleLogout() async {
     final prefs = await SharedPreferences.getInstance();
     int? employeeId = prefs.getInt('employeeId');
@@ -155,7 +147,7 @@ class _SidenavState extends State<Sidenav> {
         ),
       );
     } catch (e) {
-      print("Error loading sites: $e");
+      debugPrint("Error loading sites: $e");
     }
   }
 
@@ -206,7 +198,8 @@ class _SidenavState extends State<Sidenav> {
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold)),
                         Text(userProfile['jobRole'] ?? 'No Position',
-                            style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                            style: const TextStyle(
+                                color: Colors.grey, fontSize: 12)),
                       ],
                     ),
                   ),
@@ -225,7 +218,7 @@ class _SidenavState extends State<Sidenav> {
                         MaterialPageRoute(
                             builder: (context) =>
                                 const Bottomnavbar(selectedIndex: 0)));
-                  }),
+                  }, isActive: widget.currentScreen == 'Home'),
                   buildNavItem('Settings', 'assets/settings.png', iconSize, () {
                     Navigator.push(
                         context,
@@ -246,12 +239,11 @@ class _SidenavState extends State<Sidenav> {
                             builder: (context) => const Chatlist()));
                   }, isActive: widget.currentScreen == 'Chat'),
 
-
                   //  Updated Call
                   buildNavItem(
                       'Location Tracking', 'assets/Location.png', iconSize, () {
                     _showSitePicker(context);
-                  }),
+                  }, isActive: widget.currentScreen == 'LocationTracking'),
 
                   buildNavItem('Log out', 'assets/logout.png', iconSize, () {
                     _handleLogout();
@@ -274,20 +266,45 @@ class _SidenavState extends State<Sidenav> {
   Widget buildNavItem(
       String title, String iconPath, double iconSize, VoidCallback? onTap,
       {bool isActive = false}) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-      title: Row(
-        children: [
-          Image.asset(iconPath,
-              height: iconSize, color: isActive ? Colors.grey : Colors.white),
-          const SizedBox(width: 10),
-          Text(title,
-              style: AppTextStyle.sidenavtext.copyWith(
-                  fontSize: MediaQuery.of(context).size.width * 0.03,
-                  color: isActive ? Colors.grey : Colors.white)),
-        ],
+    final textStyle = AppTextStyle.sidenavtext.copyWith(
+      fontSize: MediaQuery.of(context).size.width * 0.03,
+      color: Colors.white,
+      fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+    );
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      decoration: BoxDecoration(
+        color: isActive
+            ? Colors.blueAccent.withValues(alpha: 0.15)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        border: isActive
+            ? Border.all(color: Colors.blueAccent.withValues(alpha: 0.3))
+            : null,
       ),
-      onTap: isActive ? null : onTap,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+        title: Row(
+          children: [
+            Image.asset(
+              iconPath,
+              height: iconSize,
+              color: isActive ? Colors.blueAccent : Colors.white,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textStyle,
+              ),
+            ),
+          ],
+        ),
+        onTap: isActive ? null : onTap,
+      ),
     );
   }
 }

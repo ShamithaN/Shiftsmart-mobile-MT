@@ -24,7 +24,7 @@ class AppTextStyle {
 
 class EmpSidenav extends StatefulWidget {
   final String? currentScreen;
-  const EmpSidenav({super.key,  this.currentScreen});
+  const EmpSidenav({super.key, this.currentScreen});
 
   @override
   State<EmpSidenav> createState() => _EmpSidenavState();
@@ -53,7 +53,7 @@ class _EmpSidenavState extends State<EmpSidenav> {
       await prefs.remove('userRole');
       await prefs.remove('userName');
       await prefs.remove('employeeId');
-      
+
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -143,7 +143,7 @@ class _EmpSidenavState extends State<EmpSidenav> {
                         builder: (context) => EmpBottomnavbar(),
                       ),
                     );
-                  }),
+                  }, isActive: widget.currentScreen == 'Home'),
                   buildNavItem(
                     'Settings',
                     'assets/settings.png',
@@ -168,32 +168,41 @@ class _EmpSidenavState extends State<EmpSidenav> {
                       Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => EmployeeEmergency(phoneService: RealPhoneService()),
+                            builder: (_) => EmployeeEmergency(
+                                phoneService: RealPhoneService()),
                             settings:
                                 const RouteSettings(name: 'EmployeeEmergency'),
                           ));
                     },
                     isActive: widget.currentScreen == 'EmployeeEmergency',
                   ),
-
-                  buildNavItem('Certificate', 'assets/Diploma.png', iconSize, () {
-                    Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
+                  buildNavItem(
+                    'Certificate',
+                    'assets/Diploma.png',
+                    iconSize,
+                    () {
+                      Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
                             builder: (context) => const Employeecert(),
                             settings: const RouteSettings(name: 'EmployeeCert'),
-                            ));
-                  },
-                  isActive: widget.currentScreen == 'EmployeeCert',
+                          ));
+                    },
+                    isActive: widget.currentScreen == 'EmployeeCert',
                   ),
-                  buildNavItem('FAQ', 'assets/faq.png', iconSize, () {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
+                  buildNavItem(
+                    'FAQ',
+                    'assets/faq.png',
+                    iconSize,
+                    () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
                             builder: (context) => const EmployeeFaq(),
                             settings: const RouteSettings(name: 'EmployeeFAQ'),
-                            ));
-                  },isActive: widget.currentScreen == 'EmployeeFAQ',
+                          ));
+                    },
+                    isActive: widget.currentScreen == 'EmployeeFAQ',
                   ),
                   buildNavItem('Log out', 'assets/logout.png', iconSize, () {
                     // Navigator.push(context,
@@ -225,20 +234,43 @@ class _EmpSidenavState extends State<EmpSidenav> {
       {bool isActive = false}) {
     final textStyle = AppTextStyle.sidenavtext.copyWith(
       fontSize: MediaQuery.of(context).size.width * 0.03,
-      color: isActive ? Colors.grey : Colors.white, // gray if current
+      color: Colors.white,
+      fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
     );
 
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-      title: Row(
-        children: [
-          Image.asset(iconPath,
-              height: iconSize, color: isActive ? Colors.grey : Colors.white),
-          const SizedBox(width: 10),
-          Text(title, style: textStyle),
-        ],
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      decoration: BoxDecoration(
+        color: isActive
+            ? Colors.blueAccent.withValues(alpha: 0.15)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        border: isActive
+            ? Border.all(color: Colors.blueAccent.withValues(alpha: 0.3))
+            : null,
       ),
-      onTap: isActive ? null : onTap,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+        title: Row(
+          children: [
+            Image.asset(
+              iconPath,
+              height: iconSize,
+              color: isActive ? Colors.blueAccent : Colors.white,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: textStyle,
+              ),
+            ),
+          ],
+        ),
+        onTap: onTap,
+      ),
     );
   }
 }

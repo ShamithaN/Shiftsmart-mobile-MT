@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:shiftsmart/utils/date_time_parser.dart';
 import 'package:flutter/material.dart';
 import 'package:shiftsmart/models/shift.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -162,8 +163,8 @@ class ShiftService {
       }).toList();
 
       jobShifts.sort((a, b) {
-        final dateA = DateTime.parse(a['Date']);
-        final dateB = DateTime.parse(b['Date']);
+        final dateA = parseServerDateTime(a['Date']) ?? DateTime(0);
+        final dateB = parseServerDateTime(b['Date']) ?? DateTime(0);
         if (dateA != dateB) return dateA.compareTo(dateB);
         return a['StartTime'].compareTo(b['StartTime']);
       });

@@ -301,7 +301,7 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
         Scaffold(
           backgroundColor: Colors.transparent,
           appBar: const Uppernavbar(showBackButton: true),
-          drawer: const EmpSidenav(),
+          drawer: const EmpSidenav(currentScreen: 'Profile'),
           body: SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(20.0),

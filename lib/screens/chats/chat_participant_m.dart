@@ -1,3 +1,5 @@
+import 'package:shiftsmart/utils/date_time_parser.dart';
+
 class ChatParticipant {
   final int chatParticipantId;
   final int employee1Id;
@@ -24,9 +26,8 @@ class ChatParticipant {
           json['ChatParticipantId'] ?? json['chatParticipantId'] ?? 0,
       employee1Id: json['Employee1Id'] ?? json['employee1Id'] ?? 0,
       employee2Id: json['Employee2Id'] ?? json['employee2Id'] ?? 0,
-      createdAt:
-          DateTime.tryParse(json['CreatedAt'] ?? json['createdAt'] ?? '') ??
-              DateTime.now(),
+      createdAt: parseChatDateTime(json['CreatedAt'] ?? json['createdAt']) ??
+          DateTime.now(),
     );
   }
 

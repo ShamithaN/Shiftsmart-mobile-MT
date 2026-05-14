@@ -127,13 +127,13 @@ class _Managerprojectstate extends State<Managerprojects> {
         if (tp.selectedOrganization != _lastTenant) {
           _lastTenant = tp.selectedOrganization;
           if (_lastTenant.isNotEmpty && mounted && !_isLoading) {
-            WidgetsBinding.instance
-                .addPostFrameCallback((_) => _refreshData());
+            WidgetsBinding.instance.addPostFrameCallback((_) => _refreshData());
           }
         }
 
         // ── Premium Feature Gate ──────────────────────────────────────────
-        if (!tp.isFeatureEnabled('project_management') || tp.isNavIndexBlocked(1)) {
+        if (!tp.isFeatureEnabled('project_management') ||
+            tp.isNavIndexBlocked(1)) {
           return Stack(
             children: [
               const Positioned.fill(child: Background()),
@@ -151,7 +151,8 @@ class _Managerprojectstate extends State<Managerprojects> {
                         onGotIt: () {
                           Navigator.of(context).pushReplacement(
                             MaterialPageRoute(
-                              builder: (context) => const Bottomnavbar(selectedIndex: 0),
+                              builder: (context) =>
+                                  const Bottomnavbar(selectedIndex: 0),
                             ),
                           );
                         },
@@ -163,75 +164,75 @@ class _Managerprojectstate extends State<Managerprojects> {
             ],
           );
         }
-          return Scaffold(
-            body: Stack(
-              children: [
-                const Background(),
-                SafeArea(
-                  child: DefaultTabController(
-                    length: 3,
-                    child: Column(
-                      children: [
-                        TabBar(
-                          labelColor: Colors.blueAccent,
-                          unselectedLabelColor: Colors.white,
-                          indicatorColor: Colors.blueAccent,
-                          tabs: [
-                            Tab(
-                                icon: _buildTabIconWithCrown(
-                                    tp, 'company', const Icon(Icons.business)),
-                                text: "COMPANY ${allCompanies.length}"),
-                            Tab(
-                                icon: _buildTabIconWithCrown(
-                                    tp, 'project', const Icon(Icons.assignment)),
-                                text: "PROJECT ${allProjects.length}"),
-                            Tab(
-                                icon: _buildTabIconWithCrown(
-                                    tp, 'site', const Icon(Icons.location_on)),
-                                text: "SITE ${allSites.length}"),
-                          ],
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: TextField(
-                            onChanged: onQueryChanged,
-                            style: const TextStyle(color: Colors.white),
-                            decoration: InputDecoration(
-                              hintText: 'Search...',
-                              hintStyle: const TextStyle(color: Colors.white54),
-                              prefixIcon: const Icon(Icons.search,
-                                  color: Colors.white54),
-                              filled: true,
-                              fillColor: const Color(0xFF2A3243),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide.none,
-                              ),
+        return Scaffold(
+          body: Stack(
+            children: [
+              const Background(),
+              SafeArea(
+                child: DefaultTabController(
+                  length: 3,
+                  child: Column(
+                    children: [
+                      TabBar(
+                        labelColor: Colors.blueAccent,
+                        unselectedLabelColor: Colors.white,
+                        indicatorColor: Colors.blueAccent,
+                        tabs: [
+                          Tab(
+                              icon: _buildTabIconWithCrown(
+                                  tp, 'company', const Icon(Icons.business)),
+                              text: "COMPANY ${allCompanies.length}"),
+                          Tab(
+                              icon: _buildTabIconWithCrown(
+                                  tp, 'project', const Icon(Icons.assignment)),
+                              text: "PROJECT ${allProjects.length}"),
+                          Tab(
+                              icon: _buildTabIconWithCrown(
+                                  tp, 'site', const Icon(Icons.location_on)),
+                              text: "SITE ${allSites.length}"),
+                        ],
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: TextField(
+                          onChanged: onQueryChanged,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: 'Search...',
+                            hintStyle: const TextStyle(color: Colors.white54),
+                            prefixIcon:
+                                const Icon(Icons.search, color: Colors.white54),
+                            filled: true,
+                            fillColor: const Color(0xFF2A3243),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide.none,
                             ),
                           ),
                         ),
-                        Expanded(
-                          child: _isLoading
-                              ? const Center(
-                                  child: CircularProgressIndicator(
-                                      color: Color(0xFF724584)))
-                              : TabBarView(
-                                  children: [
-                                    _buildCompanyView(),
-                                    _buildProjectView(),
-                                    _buildSiteView(),
-                                  ],
-                                ),
-                        ),
-                      ],
-                    ),
+                      ),
+                      Expanded(
+                        child: _isLoading
+                            ? const Center(
+                                child: CircularProgressIndicator(
+                                    color: Color(0xFF724584)))
+                            : TabBarView(
+                                children: [
+                                  _buildCompanyView(),
+                                  _buildProjectView(),
+                                  _buildSiteView(),
+                                ],
+                              ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          );
-        },
-      );
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildTabIconWithCrown(
@@ -255,7 +256,7 @@ class _Managerprojectstate extends State<Managerprojects> {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFB8880A).withOpacity(0.5),
+                    color: const Color(0xFFB8880A).withValues(alpha: 0.5),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -271,11 +272,14 @@ class _Managerprojectstate extends State<Managerprojects> {
       ],
     );
   }
+
   Widget _buildCompanyView() {
     return Column(
       children: [
-        _buildListHeader("COMPANY LIST",
-            "Total: ${filteredCompanies.length} Companies", "Add Company", () async {
+        _buildListHeader(
+            "COMPANY LIST",
+            "Total: ${filteredCompanies.length} Companies",
+            "Add Company", () async {
           final result = await Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const Managercreatecom()),
@@ -462,7 +466,8 @@ class _Managerprojectstate extends State<Managerprojects> {
                     );
 
                     if (confirm == true) {
-                      final success = await _siteService.deleteSite(site.siteId);
+                      final success =
+                          await _siteService.deleteSite(site.siteId);
                       if (success) {
                         _refreshData();
                       } else {
@@ -488,43 +493,72 @@ class _Managerprojectstate extends State<Managerprojects> {
       String title, String countText, String buttonText, VoidCallback onAdd) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final titleAndCount = Wrap(
+            spacing: 6,
+            runSpacing: 2,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(title,
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.bold)),
-              Row(
-                children: [
-                  Text(countText,
-                      style: const TextStyle(
-                          color: Colors.blueAccent, fontSize: 13)),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: onAdd,
-                    icon: const Icon(Icons.add, size: 16),
-                    label: Text(buttonText),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                    ),
-                  ),
-                ],
-              ),
+              Text(countText,
+                  style:
+                      const TextStyle(color: Colors.blueAccent, fontSize: 13)),
             ],
-          ),
-          const SizedBox(height: 8),
-          const Divider(color: Colors.white24, height: 1),
-        ],
+          );
+
+          final addButton = ElevatedButton.icon(
+            onPressed: onAdd,
+            icon: const Icon(Icons.add, size: 16),
+            label: Text(
+              buttonText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blueAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+            ),
+          );
+
+          final headerContent = constraints.maxWidth < 340
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    titleAndCount,
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: addButton,
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: titleAndCount),
+                    const SizedBox(width: 8),
+                    addButton,
+                  ],
+                );
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              headerContent,
+              const SizedBox(height: 8),
+              const Divider(color: Colors.white24, height: 1),
+            ],
+          );
+        },
       ),
     );
   }

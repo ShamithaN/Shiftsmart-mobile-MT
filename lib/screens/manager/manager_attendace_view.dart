@@ -81,9 +81,9 @@ class _ManagerattendaceviewState extends State<Managerattendaceview> {
   String _calculateBreakMinutes(String start, String end) {
     final startTime = parseServerDateTime(start);
     final endTime = parseServerDateTime(end);
-    
+
     if (startTime == null || endTime == null) return "0m";
-    
+
     final duration = endTime.difference(startTime);
     return "${duration.inMinutes}m";
   }
@@ -192,7 +192,8 @@ class _ManagerattendaceviewState extends State<Managerattendaceview> {
                 _buildTableRow("Clock Out Type", " EARLY CLOCK-OUT"),
               if (widget.attendance.isEmergency &&
                   widget.attendance.emergencyReason.isNotEmpty)
-                _buildTableRow("Early Clock Out Reason", widget.attendance.emergencyReason),
+                _buildTableRow("Early Clock Out Reason",
+                    widget.attendance.emergencyReason),
             ],
           ),
         ],
@@ -202,10 +203,10 @@ class _ManagerattendaceviewState extends State<Managerattendaceview> {
 
   // --- PDF Component: Time Calculations ---
   pw.Widget _buildTimeSummary() {
-    final clockIn = DateTime.tryParse(widget.attendance.clockInTime);
-    final clockOut = DateTime.tryParse(widget.attendance.clockOutTime);
-    final breakStart = DateTime.tryParse(widget.attendance.breakStart);
-    final breakEnd = DateTime.tryParse(widget.attendance.breakEnd);
+    final clockIn = parseServerDateTime(widget.attendance.clockInTime);
+    final clockOut = parseServerDateTime(widget.attendance.clockOutTime);
+    final breakStart = parseServerDateTime(widget.attendance.breakStart);
+    final breakEnd = parseServerDateTime(widget.attendance.breakEnd);
 
     // Calculate durations safely
     final totalHours =
@@ -445,8 +446,12 @@ class _ManagerattendaceviewState extends State<Managerattendaceview> {
                         _buildInfoRow("Clock Out",
                             formatDateTime(widget.attendance.clockOutTime)),
                         const SizedBox(height: 10),
-                        _buildInfoRow("Break Time", _calculateBreakMinutes(widget.attendance.breakStart, widget.attendance.breakEnd)),
-                        if (widget.attendance.isEmergency && widget.attendance.emergencyReason.isNotEmpty) ...[
+                        _buildInfoRow(
+                            "Break Time",
+                            _calculateBreakMinutes(widget.attendance.breakStart,
+                                widget.attendance.breakEnd)),
+                        if (widget.attendance.isEmergency &&
+                            widget.attendance.emergencyReason.isNotEmpty) ...[
                           const SizedBox(height: 10),
                           const Divider(color: Colors.orange, height: 20),
                           _buildInfoRow("Early Clock Out Reason",
@@ -469,16 +474,16 @@ class _ManagerattendaceviewState extends State<Managerattendaceview> {
                           children: [
                             if (widget.attendance.clockInPhotoUrl.isNotEmpty)
                               Expanded(
-                                child: _buildEvidenceBox(
-                                    "Clock In", widget.attendance.clockInPhotoUrl),
+                                child: _buildEvidenceBox("Clock In",
+                                    widget.attendance.clockInPhotoUrl),
                               ),
                             if (widget.attendance.clockInPhotoUrl.isNotEmpty &&
                                 widget.attendance.clockOutPhotoUrl.isNotEmpty)
                               const SizedBox(width: 12),
                             if (widget.attendance.clockOutPhotoUrl.isNotEmpty)
                               Expanded(
-                                child: _buildEvidenceBox(
-                                    "Clock Out", widget.attendance.clockOutPhotoUrl),
+                                child: _buildEvidenceBox("Clock Out",
+                                    widget.attendance.clockOutPhotoUrl),
                               ),
                           ],
                         ),
@@ -486,7 +491,8 @@ class _ManagerattendaceviewState extends State<Managerattendaceview> {
                             widget.attendance.clockOutPhotoUrl.isEmpty)
                           const Text(
                             "No attendance photos recorded for this shift.",
-                            style: TextStyle(color: Colors.white54, fontSize: 13),
+                            style:
+                                TextStyle(color: Colors.white54, fontSize: 13),
                           ),
                         const SizedBox(height: 16),
                       ],

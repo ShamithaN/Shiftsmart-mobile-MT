@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shiftsmart/models/site.dart';
 import 'package:shiftsmart/models/site_employee.dart';
 import 'package:shiftsmart/services/site_service.dart';
+import 'package:shiftsmart/utils/date_time_parser.dart';
 
 class ManagerLocationTracking extends StatefulWidget {
   final int siteId;
@@ -173,7 +174,7 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const Sidenav(),
+      drawer: const Sidenav(currentScreen: 'LocationTracking'),
       backgroundColor: const Color(0xFF1C2230),
       // 1. Extend body to allow content under the transparent navbar
       extendBodyBehindAppBar: true,
@@ -370,7 +371,8 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
         borderRadius: BorderRadius.circular(15),
         border: employee.isInside
             ? null
-            : Border.all(color: Colors.redAccent.withValues(alpha: 0.6), width: 1),
+            : Border.all(
+                color: Colors.redAccent.withValues(alpha: 0.6), width: 1),
       ),
       child: Row(
         children: [
@@ -456,8 +458,9 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
 
   String _formatClockInTime(String clockInTime) {
     try {
-      final dateTime = DateTime.parse(clockInTime);
-      return DateFormat('HH:mm').format(dateTime);
+      final dateTime = parseServerDateTime(clockInTime);
+      if (dateTime == null) return clockInTime;
+      return DateFormat('HH:mm').format(dateTime.toLocal());
     } catch (e) {
       return clockInTime;
     }

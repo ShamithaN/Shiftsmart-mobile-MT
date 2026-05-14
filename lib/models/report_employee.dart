@@ -1,3 +1,5 @@
+import 'package:shiftsmart/utils/date_time_parser.dart';
+
 class ReportEmployee {
   // NEW: Added ReportId and EmployeeId fields
   final int ReportId;
@@ -41,7 +43,7 @@ class ReportEmployee {
       PerformanceScore: (json['PerformanceScore'] ?? 0.0).toDouble(),
       GeneratedBy: json['GeneratedBy'] ?? 'System',
       GeneratedAt: json['GeneratedAt'] != null
-          ? DateTime.parse(json['GeneratedAt'])
+          ? parseServerDateTime(json['GeneratedAt']) ?? DateTime.now()
           : DateTime.now(),
     );
   }
@@ -59,7 +61,7 @@ class ReportEmployee {
       'TasksCompleted': TasksCompleted,
       'PerformanceScore': PerformanceScore,
       'GeneratedBy': GeneratedBy,
-      'GeneratedAt': GeneratedAt.toIso8601String(),
+      'GeneratedAt': formatDateTimeForServer(GeneratedAt),
     };
   }
 }

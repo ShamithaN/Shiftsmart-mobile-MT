@@ -1,3 +1,5 @@
+import 'package:shiftsmart/utils/date_time_parser.dart';
+
 class ChatMessage {
   final int messageId;
   final String message;
@@ -21,8 +23,8 @@ class ChatMessage {
       message: json['Message'],
       senderId: json['SenderId'],
       receiverId: json['ReceiverId'],
-      sentAt: DateTime.parse(json['SentAt']),
-      createdAt: DateTime.parse(json['CreatedAt']),
+      sentAt: parseChatDateTime(json['SentAt']) ?? DateTime.now(),
+      createdAt: parseChatDateTime(json['CreatedAt']) ?? DateTime.now(),
     );
   }
 }

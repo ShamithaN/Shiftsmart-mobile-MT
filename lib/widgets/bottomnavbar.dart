@@ -148,12 +148,10 @@ class _BottomnavbarState extends State<Bottomnavbar> {
                       itemCount: tp.tenants.length,
                       itemBuilder: (_, i) {
                         final tenant = tp.tenants[i];
-                        final name = (tenant['name'] ??
-                                tenant['Name'] ??
-                                'Unnamed')
-                            .toString();
-                        final isSelected =
-                            name.toLowerCase() ==
+                        final name =
+                            (tenant['name'] ?? tenant['Name'] ?? 'Unnamed')
+                                .toString();
+                        final isSelected = name.toLowerCase() ==
                             tp.selectedOrganization.toLowerCase();
 
                         return ListTile(
@@ -189,7 +187,8 @@ class _BottomnavbarState extends State<Bottomnavbar> {
                           title: Text(
                             name,
                             style: TextStyle(
-                              color: isSelected ? Colors.blueAccent : Colors.white,
+                              color:
+                                  isSelected ? Colors.blueAccent : Colors.white,
                               fontWeight: isSelected
                                   ? FontWeight.bold
                                   : FontWeight.normal,
@@ -203,10 +202,9 @@ class _BottomnavbarState extends State<Bottomnavbar> {
                           onTap: () async {
                             Navigator.pop(sheetCtx);
                             if (!isSelected) {
-                              final success =
-                                  await context
-                                      .read<TenantProvider>()
-                                      .switchTenant(tenant);
+                              final success = await context
+                                  .read<TenantProvider>()
+                                  .switchTenant(tenant);
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
@@ -215,11 +213,9 @@ class _BottomnavbarState extends State<Bottomnavbar> {
                                           ? 'Switched to $name'
                                           : 'Switched to $name (Offline Mode)',
                                     ),
-                                    backgroundColor: success
-                                        ? Colors.green
-                                        : Colors.orange,
-                                    duration:
-                                        const Duration(seconds: 2),
+                                    backgroundColor:
+                                        success ? Colors.green : Colors.orange,
+                                    duration: const Duration(seconds: 2),
                                   ),
                                 );
                               }
@@ -243,7 +239,7 @@ class _BottomnavbarState extends State<Bottomnavbar> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF1C2230),
-      drawer: const Sidenav(),
+      drawer: Sidenav(currentScreen: _selectedIndex == 0 ? 'Home' : null),
       appBar: const Uppernavbar(),
       body: _pages[_selectedIndex],
       extendBody: true,
@@ -294,8 +290,9 @@ class _BottomnavbarState extends State<Bottomnavbar> {
                                   borderRadius: BorderRadius.circular(10),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color.fromARGB(255, 32, 34, 36)
-                                          .withValues(alpha: 0.4),
+                                      color:
+                                          const Color.fromARGB(255, 32, 34, 36)
+                                              .withValues(alpha: 0.4),
                                       blurRadius: 8,
                                       offset: const Offset(0, 6),
                                     ),
@@ -322,12 +319,16 @@ class _BottomnavbarState extends State<Bottomnavbar> {
                                 height: 20,
                                 decoration: BoxDecoration(
                                   gradient: const LinearGradient(
-                                    colors: [Color(0xFF7A5C00), Color(0xFFB8880A)],
+                                    colors: [
+                                      Color(0xFF7A5C00),
+                                      Color(0xFFB8880A)
+                                    ],
                                   ),
                                   shape: BoxShape.circle,
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFFB8880A).withOpacity(0.5),
+                                      color: const Color(0xFFB8880A)
+                                          .withOpacity(0.5),
                                       blurRadius: 6,
                                       offset: const Offset(0, 2),
                                     ),

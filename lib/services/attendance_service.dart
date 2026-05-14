@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -6,62 +5,102 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:shiftsmart/utils/date_time_parser.dart';
 import 'api_client.dart';
 
 class AttendanceService {
   final ApiClient _apiClient = ApiClient();
 
   //  PROD ENDPOINT CONFIGURATION (from func-attendance)
-  final String baseUrl = dotenv.env['ATTENDANCE_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
-  final String shiftBaseUrl = dotenv.env['SHIFT_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
+  final String baseUrl =
+      dotenv.env['ATTENDANCE_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
+  final String shiftBaseUrl =
+      dotenv.env['SHIFT_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
 
   //  SHIFT ENDPOINT KEYS (for Cross-Service Updates)
   final String shiftAttendanceKey = dotenv.env['SHIFT_ATTENDANCE_KEY'] ?? "";
   final String shiftSyncKey = dotenv.env['SHIFT_SYNC_ATTENDANCE_KEY'] ?? "";
   final String shiftReportKey = dotenv.env['SHIFT_GET_REPORT_KEY'] ?? "";
-  
+
   //  PROD ENDPOINT KEYS (from func-attendance)
   final String attendanceAddKey = dotenv.env['ATTENDANCE_ADD_KEY'] ?? "";
   final String attendanceGetAllKey = dotenv.env['ATTENDANCE_GET_ALL_KEY'] ?? "";
-  final String attendanceGetActiveKey = dotenv.env['ATTENDANCE_GET_ACTIVE_KEY'] ?? "";
-  final String attendanceGetByEmployeeKey = dotenv.env['ATTENDANCE_GET_BY_EMPLOYEE_KEY'] ?? "";
-  final String attendanceClockInKey = dotenv.env['ATTENDANCE_CLOCKIN_KEY'] ?? "";
-  final String attendanceClockOutKey = dotenv.env['ATTENDANCE_CLOCKOUT_KEY'] ?? "";
-  final String attendanceBreakStartKey = dotenv.env['ATTENDANCE_BREAK_START_KEY'] ?? "";
-  final String attendanceBreakEndKey = dotenv.env['ATTENDANCE_BREAK_END_KEY'] ?? "";
-  final String attendanceBreakSummaryKey = dotenv.env['ATTENDANCE_BREAK_SUMMARY_KEY'] ?? "";
-  final String attendanceViewClockInPhotoKey = dotenv.env['ATTENDANCE_VIEW_CLOCKIN_PHOTO_KEY'] ?? "";
-  final String attendanceViewClockOutPhotoKey = dotenv.env['ATTENDANCE_VIEW_CLOCKOUT_PHOTO_KEY'] ?? "";
-  final String activeLocationsBySiteKey = dotenv.env['ACTIVE_LOCATIONS_BY_SITE_KEY'] ?? "";
+  final String attendanceGetActiveKey =
+      dotenv.env['ATTENDANCE_GET_ACTIVE_KEY'] ?? "";
+  final String attendanceGetByEmployeeKey =
+      dotenv.env['ATTENDANCE_GET_BY_EMPLOYEE_KEY'] ?? "";
+  final String attendanceClockInKey =
+      dotenv.env['ATTENDANCE_CLOCKIN_KEY'] ?? "";
+  final String attendanceClockOutKey =
+      dotenv.env['ATTENDANCE_CLOCKOUT_KEY'] ?? "";
+  final String attendanceBreakStartKey =
+      dotenv.env['ATTENDANCE_BREAK_START_KEY'] ?? "";
+  final String attendanceBreakEndKey =
+      dotenv.env['ATTENDANCE_BREAK_END_KEY'] ?? "";
+  final String attendanceBreakSummaryKey =
+      dotenv.env['ATTENDANCE_BREAK_SUMMARY_KEY'] ?? "";
+  final String attendanceViewClockInPhotoKey =
+      dotenv.env['ATTENDANCE_VIEW_CLOCKIN_PHOTO_KEY'] ?? "";
+  final String attendanceViewClockOutPhotoKey =
+      dotenv.env['ATTENDANCE_VIEW_CLOCKOUT_PHOTO_KEY'] ?? "";
+  final String activeLocationsBySiteKey =
+      dotenv.env['ACTIVE_LOCATIONS_BY_SITE_KEY'] ?? "";
   final String locationUpdateKey = dotenv.env['LOCATION_UPDATE_KEY'] ?? "";
 
   AttendanceService() {
-    if (baseUrl.isEmpty) debugPrint(" AttendanceService: ATTENDANCE_BASE_URL is missing");
+    if (baseUrl.isEmpty) {
+      debugPrint(" AttendanceService: ATTENDANCE_BASE_URL is missing");
+    }
   }
-  
-  
-  
 
-  
-  
+  String? _validPhotoUrl(dynamic value) {
+    final url = value?.toString().trim();
+    if (url == null || url.isEmpty) return null;
+
+    final lower = url.toLowerCase();
+    if (lower == 'null' || lower == 'undefined' || lower == 'none') {
+      return null;
+    }
+
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.hasScheme) return null;
+    return url;
+  }
+
   Future<String?> fetchClockPhotoUrl(int attendanceId,
       {required isClockIn}) async {
     final endPoint = isClockIn ? 'view-clockin-photo' : 'view-clockout-photo';
-    final photoKey = isClockIn ? attendanceViewClockInPhotoKey : attendanceViewClockOutPhotoKey;
+    final photoKey = isClockIn
+        ? attendanceViewClockInPhotoKey
+        : attendanceViewClockOutPhotoKey;
     final url = '$baseUrl/attendance/$endPoint/$attendanceId?code=$photoKey';
     try {
       final response = await _apiClient.get(url, useAuth: true);
+      if (response.statusCode != 200) return null;
 
       final jsonData = jsonDecode(response.body);
-      return jsonData['photoUrl'].toString();
+      if (jsonData is Map<String, dynamic>) {
+        final data = jsonData['data'] ?? jsonData['Data'];
+        if (data is Map<String, dynamic>) {
+          return _validPhotoUrl(data['photoUrl'] ??
+              data['PhotoUrl'] ??
+              data['url'] ??
+              data['Url']);
+        }
+
+        return _validPhotoUrl(jsonData['photoUrl'] ??
+            jsonData['PhotoUrl'] ??
+            jsonData['url'] ??
+            jsonData['Url']);
+      }
+
+      return _validPhotoUrl(jsonData);
     } catch (e) {
       debugPrint("Error fetching clock ${isClockIn ? "in" : "out"} photo: $e");
     }
     return null;
   }
 
-  
-  
   Future<Map<String, String?>> fetchAttendancePhotos(
       int employeeId, int shiftId) async {
     final url =
@@ -77,8 +116,14 @@ class AttendanceService {
         );
         if (record == null) return {};
         return {
-          'clockIn': record['ClockInPhotoUrl'] as String?,
-          'clockOut': record['ClockOutPhotoUrl'] as String?,
+          'clockIn': _validPhotoUrl(record['ClockInPhotoUrl'] ??
+              record['clockInPhotoUrl'] ??
+              record['ClockInPhotoURL'] ??
+              record['clockInPhotoURL']),
+          'clockOut': _validPhotoUrl(record['ClockOutPhotoUrl'] ??
+              record['clockOutPhotoUrl'] ??
+              record['ClockOutPhotoURL'] ??
+              record['clockOutPhotoURL']),
         };
       }
     } catch (e) {
@@ -87,8 +132,6 @@ class AttendanceService {
     return {};
   }
 
-  
-  
   Future<dynamic> getShiftsByShiftId(int employeeId, {int? shiftId}) async {
     final url =
         '$baseUrl/attendance/by-employee/$employeeId?code=$attendanceGetByEmployeeKey';
@@ -113,8 +156,6 @@ class AttendanceService {
     }
   }
 
-  
-  
   Future<Map<String, dynamic>> clockIn({
     required int employeeId,
     required int shiftId,
@@ -125,17 +166,16 @@ class AttendanceService {
     required double latitude,
     required double longitude,
   }) async {
-    final url = Uri.parse('$baseUrl/attendance/clockin?code=$attendanceClockInKey');
+    final url =
+        Uri.parse('$baseUrl/attendance/clockin?code=$attendanceClockInKey');
     try {
       final request = http.MultipartRequest("POST", url);
 
-      
       final token = await _apiClient.getAppToken();
       if (token != null) {
         request.headers['Authorization'] = 'Bearer $token';
       }
 
-      
       for (var file in photos) {
         final mimeType = lookupMimeType(file.path) ?? 'image/jpeg';
         request.files.add(await http.MultipartFile.fromPath(
@@ -145,12 +185,11 @@ class AttendanceService {
         ));
       }
 
-      
       request.fields['employeeId'] = employeeId.toString();
       request.fields['shiftId'] = shiftId.toString();
       request.fields['siteId'] = siteId.toString();
       request.fields['scheduledStartTime'] = scheduledStartTime.toString();
-      request.fields['clockInTime'] = clockInTime.toIso8601String();
+      request.fields['clockInTime'] = formatDateTimeForServer(clockInTime);
       request.fields['latitude'] = latitude.toString();
       request.fields['longitude'] = longitude.toString();
 
@@ -180,7 +219,9 @@ class AttendanceService {
         return {
           'success': true,
           'data': resultData,
-          'attendanceId': attendanceIdValue ?? decoded['AttendanceId'] ?? decoded['attendanceId'],
+          'attendanceId': attendanceIdValue ??
+              decoded['AttendanceId'] ??
+              decoded['attendanceId'],
         };
       } else {
         throw Exception(
@@ -192,9 +233,6 @@ class AttendanceService {
     }
   }
 
-  
-  
-  
   Future<Map<String, dynamic>> clockOut({
     required int attendanceId,
     required int shiftId,
@@ -212,13 +250,11 @@ class AttendanceService {
     try {
       final request = http.MultipartRequest('PUT', url);
 
-      
       final token = await _apiClient.getAppToken();
       if (token != null) {
         request.headers['Authorization'] = 'Bearer $token';
       }
 
-      
       for (var file in photos) {
         final mimeType = lookupMimeType(file.path) ?? 'image/jpeg';
         request.files.add(await http.MultipartFile.fromPath(
@@ -228,12 +264,11 @@ class AttendanceService {
         ));
       }
 
-      
       request.fields['attendanceId'] = attendanceId.toString();
-      request.fields['clockOutTime'] = clockOutTime.toIso8601String();
+      request.fields['clockOutTime'] = formatDateTimeForServer(clockOutTime);
       request.fields['latitude'] = latitude.toString();
       request.fields['longitude'] = longitude.toString();
-      
+
       // Add reason if provided (backend expects 'reason' for early exits)
       if (earlyExitReason != null && earlyExitReason.isNotEmpty) {
         request.fields['reason'] = earlyExitReason;
@@ -257,20 +292,20 @@ class AttendanceService {
         } else {
           result = {};
         }
-        
+
         // Trigger shift attendance update
         await _triggerShiftAttendanceUpdate(
-          shiftId, 
-          "clockout", 
+          shiftId,
+          "clockout",
           reason: earlyExitReason,
           clockInTime: clockInTime,
           clockOutTime: clockOutTime,
           totalBreakMinutes: totalBreakMinutes,
         );
-        
+
         // Sync attendance data to Shift Service
         await _syncAttendanceToShiftService(
-          shiftId, 
+          shiftId,
           attendanceId,
           clockInTime: clockInTime,
           clockOutTime: clockOutTime,
@@ -288,63 +323,6 @@ class AttendanceService {
     }
   }
 
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
   Future<Map<String, dynamic>> emergencyClockOut({
     required int attendanceId,
     required int shiftId,
@@ -360,12 +338,12 @@ class AttendanceService {
     debugPrint('==========================================');
 
     try {
-      
-      final url = '$shiftBaseUrl/shift/$shiftId/clockout?code=$shiftAttendanceKey';
-      
+      final url =
+          '$shiftBaseUrl/shift/$shiftId/clockout?code=$shiftAttendanceKey';
+
       final body = {
         "Reason": emergencyReason,
-        "IsEmergency": true, 
+        "IsEmergency": true,
       };
 
       final response = await _apiClient.post(
@@ -376,7 +354,7 @@ class AttendanceService {
 
       if (response.statusCode == 200) {
         debugPrint('Emergency clock-out successful via Shift Handler');
-        
+
         dynamic responseData;
         try {
           responseData = jsonDecode(response.body);
@@ -390,7 +368,8 @@ class AttendanceService {
           'message': 'Emergency clock-out recorded successfully.'
         };
       } else {
-        debugPrint('Emergency clock-out failed: ${response.statusCode} - ${response.body}');
+        debugPrint(
+            'Emergency clock-out failed: ${response.statusCode} - ${response.body}');
         return {
           'success': false,
           'error': 'Failed to record emergency clock-out: ${response.body}'
@@ -398,22 +377,10 @@ class AttendanceService {
       }
     } catch (e) {
       debugPrint("Emergency clock-out error: $e");
-      return {
-        'success': false,
-        'error': e.toString()
-      };
+      return {'success': false, 'error': e.toString()};
     }
   }
 
-
-
-
-  
-  
-  
-
-  
-  
   Future<bool?> breakStart(int attendanceId,
       {required DateTime startTime}) async {
     final url =
@@ -423,7 +390,7 @@ class AttendanceService {
       final response = await _apiClient.put(
         url,
         body: {
-          'breakStartTime': startTime.toIso8601String(),
+          'breakStartTime': formatDateTimeForServer(startTime),
         },
         useAuth: true,
       );
@@ -440,16 +407,15 @@ class AttendanceService {
     }
   }
 
-  
-  
   Future<bool?> endBreak(int attendanceId, {required DateTime endTime}) async {
-    final url = '$baseUrl/attendance/break/end/$attendanceId?code=$attendanceBreakEndKey';
+    final url =
+        '$baseUrl/attendance/break/end/$attendanceId?code=$attendanceBreakEndKey';
 
     try {
       final response = await _apiClient.put(
         url,
         body: {
-          'breakEndTime': endTime.toIso8601String(),
+          'breakEndTime': formatDateTimeForServer(endTime),
         },
         useAuth: true,
       );
@@ -466,12 +432,12 @@ class AttendanceService {
     }
   }
 
-  
-  Future<bool> approveAttendance(int attendanceId, String status, {File? proofPhoto}) async {
+  Future<bool> approveAttendance(int attendanceId, String status,
+      {File? proofPhoto}) async {
     final url = Uri.parse('$baseUrl/attendance/approve/$attendanceId');
     try {
       final request = http.MultipartRequest('PUT', url);
-      
+
       final token = await _apiClient.getAppToken();
       if (token != null) {
         request.headers['Authorization'] = 'Bearer $token';
@@ -497,15 +463,24 @@ class AttendanceService {
   }
 
   Future<void> _triggerShiftAttendanceUpdate(int shiftId, String action,
-      {String? reason, DateTime? clockInTime, DateTime? clockOutTime, int? totalBreakMinutes}) async {
+      {String? reason,
+      DateTime? clockInTime,
+      DateTime? clockOutTime,
+      int? totalBreakMinutes}) async {
     final url = '$shiftBaseUrl/shift/$shiftId/$action?code=$shiftAttendanceKey';
     try {
       final Map<String, dynamic> body = {};
       if (action == "clockout") {
         if (reason != null) body["Reason"] = reason;
-        if (clockInTime != null) body["ClockInTime"] = clockInTime.toIso8601String();
-        if (clockOutTime != null) body["ClockOutTime"] = clockOutTime.toIso8601String();
-        if (totalBreakMinutes != null) body["BreakDuration"] = totalBreakMinutes;
+        if (clockInTime != null) {
+          body["ClockInTime"] = formatDateTimeForServer(clockInTime);
+        }
+        if (clockOutTime != null) {
+          body["ClockOutTime"] = formatDateTimeForServer(clockOutTime);
+        }
+        if (totalBreakMinutes != null) {
+          body["BreakDuration"] = totalBreakMinutes;
+        }
       }
 
       final response = await _apiClient.post(
@@ -529,19 +504,21 @@ class AttendanceService {
 
   /// Syncs attendance data to the Shift Service after successful clock-out
   /// This ensures the Shift Service has the latest attendance information
-  Future<void> _syncAttendanceToShiftService(int shiftId, int attendanceId, 
-      {DateTime? clockInTime, DateTime? clockOutTime, int? totalBreakMinutes}) async {
+  Future<void> _syncAttendanceToShiftService(int shiftId, int attendanceId,
+      {DateTime? clockInTime,
+      DateTime? clockOutTime,
+      int? totalBreakMinutes}) async {
     debugPrint(" Syncing attendance data to Shift Service...");
     try {
       final syncUrl = '$shiftBaseUrl/shift/sync/attendance?code=$shiftSyncKey';
-      
+
       final response = await _apiClient.post(
         syncUrl,
         body: {
           'ShiftId': shiftId,
           'AttendanceId': attendanceId,
-          'ClockInTime': clockInTime?.toIso8601String(),
-          'ClockOutTime': clockOutTime?.toIso8601String(),
+          'ClockInTime': formatDateTimeForServer(clockInTime),
+          'ClockOutTime': formatDateTimeForServer(clockOutTime),
           'BreakDuration': totalBreakMinutes,
         },
         useAuth: true,
@@ -550,7 +527,8 @@ class AttendanceService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         debugPrint(" Attendance data synced successfully to Shift Service");
       } else {
-        debugPrint(" Failed to sync attendance data: ${response.statusCode} - ${response.body}");
+        debugPrint(
+            " Failed to sync attendance data: ${response.statusCode} - ${response.body}");
       }
     } catch (e) {
       debugPrint(" Error syncing attendance data: $e");
@@ -561,16 +539,17 @@ class AttendanceService {
     debugPrint("Generating post-shift report for Shift ID: $shiftId...");
     try {
       // 1. Fetch Shift Details (Assuming we can get by shiftId, might need employeeId context or a different call if strict)
-      // For now, we might not have employeeId readily available without passing it down. 
+      // For now, we might not have employeeId readily available without passing it down.
       // Ideally, the backend triggers this, but per request, we do it here.
       // We will skip the fetch if we don't have employeeId, or rely on what we have.
       // Better approach: User passes necessary data or we just send a 'trigger report' signal.
-      
+
       // Let's constructing a specific report payload if possible.
       // Since 'getShiftsByShiftId' requires employeeId, and we don't have it here easily (only shiftId),
       // we will make a direct call to a report generation endpoint on the backend.
-      
-      final reportUrl = '$shiftBaseUrl/shift/$shiftId/report?code=$shiftReportKey'; 
+
+      final reportUrl =
+          '$shiftBaseUrl/shift/$shiftId/report?code=$shiftReportKey';
       // Using shiftAttendanceKey as generic key for now
 
       final response = await _apiClient.post(

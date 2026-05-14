@@ -1,3 +1,5 @@
+import 'package:shiftsmart/utils/date_time_parser.dart';
+
 // In models/ShiftProgress.dart
 class ShiftProgress {
   final int employeeId;
@@ -7,7 +9,7 @@ class ShiftProgress {
   DateTime? clockOutTime;
   DateTime? breakStart;
   DateTime? breakEnd;
-  double? clockInLat; 
+  double? clockInLat;
   double? clockInLng;
   final int? attendanceId;
 
@@ -19,8 +21,8 @@ class ShiftProgress {
     this.clockOutTime,
     this.breakStart,
     this.breakEnd,
-    this.clockInLat,  
-    this.clockInLng,  
+    this.clockInLat,
+    this.clockInLng,
     this.attendanceId,
   });
 
@@ -28,13 +30,13 @@ class ShiftProgress {
     return {
       'employeeId': employeeId,
       'shiftId': shiftId,
-      'scheduledStartTime': scheduledStartTime.toIso8601String(),
-      'clockInTime': clockInTime?.toIso8601String(),
-      'clockOutTime': clockOutTime?.toIso8601String(),
-      'breakStart': breakStart?.toIso8601String(),
-      'breakEnd': breakEnd?.toIso8601String(),
-      'clockInLat': clockInLat,  
-      'clockInLng': clockInLng, 
+      'scheduledStartTime': formatDateTimeForServer(scheduledStartTime),
+      'clockInTime': formatDateTimeForServer(clockInTime),
+      'clockOutTime': formatDateTimeForServer(clockOutTime),
+      'breakStart': formatDateTimeForServer(breakStart),
+      'breakEnd': formatDateTimeForServer(breakEnd),
+      'clockInLat': clockInLat,
+      'clockInLng': clockInLng,
       'attendanceId': attendanceId,
     };
   }
@@ -43,13 +45,14 @@ class ShiftProgress {
     return ShiftProgress(
       employeeId: json['employeeId'],
       shiftId: json['shiftId'],
-      scheduledStartTime: DateTime.parse(json['scheduledStartTime']),
-      clockInTime: json['clockInTime'] != null ? DateTime.parse(json['clockInTime']) : null,
-      clockOutTime: json['clockOutTime'] != null ? DateTime.parse(json['clockOutTime']) : null,
-      breakStart: json['breakStart'] != null ? DateTime.parse(json['breakStart']) : null,
-      breakEnd: json['breakEnd'] != null ? DateTime.parse(json['breakEnd']) : null,
-      clockInLat: json['clockInLat']?.toDouble(), 
-      clockInLng: json['clockInLng']?.toDouble(), 
+      scheduledStartTime:
+          parseServerDateTime(json['scheduledStartTime']) ?? DateTime.now(),
+      clockInTime: parseServerDateTime(json['clockInTime']),
+      clockOutTime: parseServerDateTime(json['clockOutTime']),
+      breakStart: parseServerDateTime(json['breakStart']),
+      breakEnd: parseServerDateTime(json['breakEnd']),
+      clockInLat: json['clockInLat']?.toDouble(),
+      clockInLng: json['clockInLng']?.toDouble(),
       attendanceId: json['attendanceId'],
     );
   }

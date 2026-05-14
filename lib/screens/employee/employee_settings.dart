@@ -14,6 +14,7 @@ import 'package:shiftsmart/widgets/emp_bottomnavbar.dart';
 import 'package:shiftsmart/widgets/emp_slidenav.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
 import 'package:shiftsmart/widgets/success_dialog.dart';
+import 'package:shiftsmart/screens/employee/employee_profile.dart';
 
 /// Employee Settings Screen
 
@@ -401,9 +402,20 @@ class _EmployeeSettingsState extends State<EmployeeSettings> {
 
   /// Build profile header section with avatar
   Widget _buildProfileHeader() {
-    return const Center(
+    void navigateToProfile() {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const EmployeeProfile(),
+        ),
+      );
+    }
+
+    return Center(
       child: ProfileAvatar(
-        editable: false,
+        editable: true,
+        onEditTap: navigateToProfile,
+        onTap: navigateToProfile,
       ),
     );
   }

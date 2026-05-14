@@ -112,30 +112,35 @@ class _ManagerjobsState extends State<Managerjobs>
   }
 
   void _applyFilters() {
-    debugPrint(" managerJobs: Applying filters. Total raw jobs: ${allJobs.length}, Tenant: '$_lastTenant', ProjectMap size: ${projectMap.length}");
-    
+    debugPrint(
+        " managerJobs: Applying filters. Total raw jobs: ${allJobs.length}, Tenant: '$_lastTenant', ProjectMap size: ${projectMap.length}");
+
     setState(() {
       // Jobs filter (tenant + search)
       List<Job> tempJobs = [];
-      
+
       if (_lastTenant.isNotEmpty) {
         tempJobs = allJobs.where((j) {
           final proj = projectMap[j.projectId];
           if (proj == null) {
-            debugPrint(" managerJobs: Job \${j.jobId} ('\${j.title}') filtered out because ProjectId \${j.projectId} not found in projectMap");
+            debugPrint(
+                " managerJobs: Job \${j.jobId} ('\${j.title}') filtered out because ProjectId \${j.projectId} not found in projectMap");
             return false;
           }
-          bool match = proj.companyName.toLowerCase() == _lastTenant.toLowerCase();
+          bool match =
+              proj.companyName.toLowerCase() == _lastTenant.toLowerCase();
           if (!match) {
-            debugPrint(" managerJobs: Job \${j.jobId} ('\${j.title}') filtered out: Project company '\${proj.companyName}' != tenant '$_lastTenant'");
+            debugPrint(
+                " managerJobs: Job \${j.jobId} ('\${j.title}') filtered out: Project company '\${proj.companyName}' != tenant '$_lastTenant'");
           }
           return match;
         }).toList();
-        
-        // FALLBACK: If filtering removed ALL jobs but allJobs was not empty, 
+
+        // FALLBACK: If filtering removed ALL jobs but allJobs was not empty,
         // show all jobs for debugging purposes.
         if (tempJobs.isEmpty && allJobs.isNotEmpty) {
-          debugPrint(" managerJobs: WARNING: Tenant filter removed all jobs. Showing all raw jobs instead for debugging.");
+          debugPrint(
+              " managerJobs: WARNING: Tenant filter removed all jobs. Showing all raw jobs instead for debugging.");
           tempJobs = List.from(allJobs);
         }
       } else {
@@ -196,7 +201,8 @@ class _ManagerjobsState extends State<Managerjobs>
                         onGotIt: () {
                           Navigator.of(context).pushReplacement(
                             MaterialPageRoute(
-                              builder: (context) => const Bottomnavbar(selectedIndex: 0),
+                              builder: (context) =>
+                                  const Bottomnavbar(selectedIndex: 0),
                             ),
                           );
                         },
@@ -301,7 +307,7 @@ class _ManagerjobsState extends State<Managerjobs>
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFB8880A).withOpacity(0.5),
+                    color: const Color(0xFFB8880A).withValues(alpha: 0.5),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -322,43 +328,72 @@ class _ManagerjobsState extends State<Managerjobs>
       String title, String countText, String buttonText, VoidCallback onAdd) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final titleAndCount = Wrap(
+            spacing: 6,
+            runSpacing: 2,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(title,
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.bold)),
-              Row(
-                children: [
-                  Text(countText,
-                      style: const TextStyle(
-                          color: Colors.blueAccent, fontSize: 13)),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: onAdd,
-                    icon: const Icon(Icons.add, size: 16),
-                    label: Text(buttonText),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                    ),
-                  ),
-                ],
-              ),
+              Text(countText,
+                  style:
+                      const TextStyle(color: Colors.blueAccent, fontSize: 13)),
             ],
-          ),
-          const SizedBox(height: 8),
-          const Divider(color: Colors.white24, height: 1),
-        ],
+          );
+
+          final addButton = ElevatedButton.icon(
+            onPressed: onAdd,
+            icon: const Icon(Icons.add, size: 16),
+            label: Text(
+              buttonText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blueAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+            ),
+          );
+
+          final headerContent = constraints.maxWidth < 340
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    titleAndCount,
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: addButton,
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: titleAndCount),
+                    const SizedBox(width: 8),
+                    addButton,
+                  ],
+                );
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              headerContent,
+              const SizedBox(height: 8),
+              const Divider(color: Colors.white24, height: 1),
+            ],
+          );
+        },
       ),
     );
   }
@@ -370,7 +405,8 @@ class _ManagerjobsState extends State<Managerjobs>
         child: PremiumFeatureGate(
           featureName: 'Job Management',
           blockedEndpoint: '/job/list',
-          customMessage: 'Contact your administrator to enable Job Management for your tenant.',
+          customMessage:
+              'Contact your administrator to enable Job Management for your tenant.',
           onGotIt: () {
             if (!tp.isEndpointBlocked('shift')) {
               DefaultTabController.of(context).animateTo(1);
@@ -442,7 +478,8 @@ class _ManagerjobsState extends State<Managerjobs>
         child: PremiumFeatureGate(
           featureName: 'Shift Management',
           blockedEndpoint: '/shift/list',
-          customMessage: 'Contact your administrator to enable Shift Management for your tenant.',
+          customMessage:
+              'Contact your administrator to enable Shift Management for your tenant.',
           onGotIt: () {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
@@ -456,8 +493,9 @@ class _ManagerjobsState extends State<Managerjobs>
 
     return Column(
       children: [
-        _buildListHeader("SHIFT LIST",
-            "Total: ${filteredShifts.length} Shifts", "Add Shift", () async {
+        _buildListHeader(
+            "SHIFT LIST", "Total: ${filteredShifts.length} Shifts", "Add Shift",
+            () async {
           final result = await Navigator.push(
               context,
               MaterialPageRoute(

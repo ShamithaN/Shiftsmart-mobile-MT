@@ -47,7 +47,7 @@ class _EmpBottomnavbarState extends State<EmpBottomnavbar> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF1C2230),
-      drawer: EmpSidenav(),
+      drawer: const EmpSidenav(currentScreen: 'Home'),
       appBar: Uppernavbar(),
       body: _pages[_selectedIndex],
       extendBody: true,

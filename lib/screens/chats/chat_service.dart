@@ -4,9 +4,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shiftsmart/models/chat_list_item.dart';
 import 'package:shiftsmart/models/message.dart';
 import 'package:shiftsmart/models/search_employee.dart';
-import 'package:shiftsmart/models/employee.dart';
 import 'package:shiftsmart/services/api_client.dart';
-import 'package:shiftsmart/services/employee_service.dart';
 
 class ChatService {
   final ApiClient _apiClient = ApiClient();
@@ -16,8 +14,7 @@ class ChatService {
 
   //  SPECIAL URL FOR MESSAGES (From your Master List & .env)
   // If MESSAGE_BASE_URL is missing in .env, fallback to baseUrl
-  String get messageBaseUrl =>
-      dotenv.env['MESSAGE_BASE_URL'] ?? baseUrl;
+  String get messageBaseUrl => dotenv.env['MESSAGE_BASE_URL'] ?? baseUrl;
 
   // Keys
   String get searchEmpKey => dotenv.env['CHAT_SEARCH_EMPLOYEES_KEY'] ?? '';
@@ -49,34 +46,28 @@ class ChatService {
 
   // --- 2. SEARCH EMPLOYEES ---
   Future<List<SearchEmployee>> searchEmployees(String query) async {
-    // If query is empty, show all active employees by default
-    if (query.isEmpty) {
-      debugPrint(" ChatService: Query empty, fetching all active employees as default list.");
-      final employeeService = EmployeeService();
-      final employees = await employeeService.fetchAllEmployees(includeAdminsAndManagers: true);
-      
-      return employees.map((e) => SearchEmployee(
-        employeeId: e.employeeId,
-        firstName: e.firstName,
-        lastName: e.lastName ?? "",
-        email: e.email,
-        profilePicture: e.profilePicture,
-        role: e.userRole ?? "Employee",
-      )).toList();
-    }
-
     final encodedQuery = Uri.encodeComponent(query);
-    // Updated endpoint back to /chat/search as /chat/employees was likely incorrect
-    final url = '$messageBaseUrl/chat/search?query=$encodedQuery&code=$searchEmpKey';
+    final url =
+        '$messageBaseUrl/chat/search?query=$encodedQuery&code=$searchEmpKey';
 
     debugPrint(" ChatService: Searching employees at $url");
 
     try {
       final response = await _apiClient.get(url, useAuth: true);
       debugPrint(" ChatService Search Status: ${response.statusCode}");
-      
+
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
+        final dynamic decodedResponse = jsonDecode(response.body);
+
+        // Handle both List and Map ({ count, results }) response formats
+        List<dynamic> data = [];
+        if (decodedResponse is List) {
+          data = decodedResponse;
+        } else if (decodedResponse is Map &&
+            decodedResponse.containsKey('results')) {
+          data = decodedResponse['results'];
+        }
+
         debugPrint(" ChatService: Found ${data.length} employees.");
         return data.map((e) => SearchEmployee.fromJson(e)).toList();
       }
@@ -87,22 +78,85 @@ class ChatService {
     }
   }
 
+  Future<List<SearchEmployee>> fetchDefaultSearchEmployees() async {
+    const seedQueries = [
+      '@',
+      'a',
+      'b',
+      'c',
+      'd',
+      'e',
+      'f',
+      'g',
+      'h',
+      'i',
+      'j',
+      'k',
+      'l',
+      'm',
+      'n',
+      'o',
+      'p',
+      'q',
+      'r',
+      's',
+      't',
+      'u',
+      'v',
+      'w',
+      'x',
+      'y',
+      'z',
+    ];
+
+    final responses = await Future.wait(seedQueries.map(searchEmployees));
+    final byId = <int, SearchEmployee>{};
+
+    for (final employees in responses) {
+      for (final employee in employees) {
+        byId[employee.employeeId] = employee;
+      }
+    }
+
+    final employees = byId.values.toList()
+      ..sort((a, b) {
+        final first = '${a.firstName} ${a.lastName}'.trim().toLowerCase();
+        final second = '${b.firstName} ${b.lastName}'.trim().toLowerCase();
+        return first.compareTo(second);
+      });
+
+    return employees;
+  }
+
   // --- 3. FETCH MESSAGES (FIXED URL & LOGS) ---
   Future<List<Message>> fetchMessages(int chatParticipantId) async {
-    //  USE THE SPECIAL MESSAGE URL HERE
-    final url = '$messageBaseUrl/chat/messages/$chatParticipantId?code=$fetchMsgKey';
-
-    // debugPrint(" Fetching Messages from: $url"); // Uncomment to see full URL if needed
+    final url =
+        '$messageBaseUrl/chat/messages/$chatParticipantId?code=$fetchMsgKey';
+    debugPrint(" ChatService: Fetching messages from $url");
 
     try {
       final response = await _apiClient.get(url, useAuth: true);
+      debugPrint(" ChatService: Message fetch status: ${response.statusCode}");
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
+        final dynamic decodedResponse = jsonDecode(response.body);
+
+        List<dynamic> data = [];
+        if (decodedResponse is List) {
+          data = decodedResponse;
+        } else if (decodedResponse is Map) {
+          // Check common keys like 'results', 'messages', 'data'
+          data = decodedResponse['results'] ??
+              decodedResponse['messages'] ??
+              decodedResponse['data'] ??
+              [];
+        }
+
+        debugPrint(" ChatService: Found ${data.length} messages.");
         return data.map((m) => Message.fromJson(m)).toList();
       } else {
-        debugPrint(" Message Status: ${response.statusCode}");
-        debugPrint(" Failed to load messages. Body: ${response.body}");
+        debugPrint(
+            " ChatService Error: ${response.statusCode} - ${response.body}");
         return [];
       }
     } catch (e) {

@@ -8,6 +8,7 @@ import 'package:shiftsmart/models/employee.dart';
 import 'package:shiftsmart/models/empcert_model.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'api_client.dart';
+import 'package:shiftsmart/utils/date_time_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class EmployeeService {
@@ -166,7 +167,7 @@ class EmployeeService {
             documentUrl: doc['DocumentUrl'] ?? doc['documentUrl'] ?? '',
             documentType: doc['DocumentType'] ?? doc['documentType'] ?? 'General',
             status: doc['Status'] ?? doc['status'] ?? 'Approved',
-            uploadedAt: doc['UploadedAt'] ?? doc['uploadedAt'] ?? DateTime.now().toIso8601String(),
+            uploadedAt: doc['UploadedAt'] ?? doc['uploadedAt'] ?? formatDateTimeForServer(DateTime.now()),
             remarks: doc['Remarks'] ?? doc['remarks'],
             updatedAt: doc['UpdatedAt'] ?? doc['updatedAt'],
           );
@@ -274,7 +275,7 @@ class EmployeeService {
             documentUrl: cert['certificateUrl'] ?? '',
             documentType: cert['certificateType'] ?? 'General',
             status: cert['status'] ?? 'Active',
-            uploadedAt: cert['issuedDate'] ?? DateTime.now().toIso8601String(),
+            uploadedAt: cert['issuedDate'] ?? formatDateTimeForServer(DateTime.now()),
             remarks: cert['remarks'],
             updatedAt: cert['updatedAt'],
           );

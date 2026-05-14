@@ -1,3 +1,5 @@
+import 'package:shiftsmart/utils/date_time_parser.dart';
+
 class Contact {
   final int employeeId;
   final String firstName;
@@ -65,7 +67,7 @@ class Contact {
       postalCode: getVal('PostalCode'),
       country: getVal('Country'),
       dateOfBirth: getVal('DateOfBirth') != null
-          ? DateTime.tryParse(getVal('DateOfBirth').toString())
+          ? parseServerDateTime(getVal('DateOfBirth').toString())
           : null,
       bankAccountName: getVal('BankAccountName'),
       bankAccountNumber: getVal('BankAccountNumber'),
@@ -120,10 +122,10 @@ class NextOfKin {
       address: json['Address'] ?? json['address'] ?? '',
       isPrimary: json['IsPrimary'] ?? json['isPrimary'] ?? false,
       createdAt: json['CreatedAt'] != null
-          ? DateTime.tryParse(json['CreatedAt']) ?? DateTime.now()
+          ? parseServerDateTime(json['CreatedAt']) ?? DateTime.now()
           : DateTime.now(),
       updatedAt: json['UpdatedAt'] != null
-          ? DateTime.tryParse(json['UpdatedAt']) ?? DateTime.now()
+          ? parseServerDateTime(json['UpdatedAt']) ?? DateTime.now()
           : DateTime.now(),
     );
   }

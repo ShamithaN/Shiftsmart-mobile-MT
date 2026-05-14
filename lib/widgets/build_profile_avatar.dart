@@ -9,12 +9,16 @@ class ProfileAvatar extends StatefulWidget {
   final bool editable;
   final File? initialImage;
   final Function(File)? onImageSelected;
+  final VoidCallback? onTap;
+  final VoidCallback? onEditTap;
 
   const ProfileAvatar({
     super.key,
     this.editable = true,
     this.initialImage,
     this.onImageSelected,
+    this.onTap,
+    this.onEditTap,
   });
 
   @override
@@ -111,43 +115,41 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
       ),
     );
 
-    return Stack(
-      children: [
-        widget.editable
-            ? GestureDetector(
-                onTap: () => _showImageSourceOptions(context),
-                child: avatar,
-              )
-            : avatar,
-        if (widget.editable)
-          Positioned(
-            right: 4,
-            bottom: 4,
-            child: GestureDetector(
-              onTap: () => _showImageSourceOptions(context),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2C2F36), // Dark premium color
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white24, width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.edit_rounded,
-                  color: Colors.white,
-                  size: 16,
+    return GestureDetector(
+      onTap: widget.onTap ?? (widget.editable ? () => _showImageSourceOptions(context) : null),
+      child: Stack(
+        children: [
+          avatar,
+          if (widget.editable)
+            Positioned(
+              right: 4,
+              bottom: 4,
+              child: GestureDetector(
+                onTap: widget.onEditTap ?? () => _showImageSourceOptions(context),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2C2F36), // Dark premium color
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white24, width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.edit_rounded,
+                    color: Colors.white,
+                    size: 16,
+                  ),
                 ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }

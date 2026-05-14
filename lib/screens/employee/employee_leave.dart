@@ -1210,7 +1210,7 @@ class _EmployeeleaveState extends State<Employeeleave> {
         const Positioned.fill(child: Background()),
         Scaffold(
           backgroundColor: Colors.transparent,
-          drawer: const EmpSidenav(),
+          drawer: const EmpSidenav(currentScreen: 'Leave'),
           // FIX: Wrap body in SafeArea so content never renders under the
           // status bar when fullscreen mode is active.
           body: SafeArea(
@@ -1416,55 +1416,7 @@ class _EmployeeleaveState extends State<Employeeleave> {
       ),
       child: Column(
         children: [
-          // ── Card header ──────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Leave Request',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: _statusBg(status),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                        color:
-                            _statusColor(status).withValues(alpha: 0.5)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(_statusIcon(status),
-                          color: _statusColor(status), size: 13),
-                      const SizedBox(width: 5),
-                      Text(
-                        _statusLabel(status),
-                        style: TextStyle(
-                          color: _statusColor(status),
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
- 
-          Divider(
-              height: 1,
-              thickness: 1,
-              color: Colors.white.withValues(alpha: 0.06)),
+
  
           // ── Card body ────────────────────────────────────────────────
           Padding(
@@ -1486,6 +1438,34 @@ class _EmployeeleaveState extends State<Employeeleave> {
                           color: _leaveTypeColor(leaveType),
                           fontSize: 13,
                           fontWeight: FontWeight.bold),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _statusBg(status),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color:
+                                _statusColor(status).withValues(alpha: 0.5)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(_statusIcon(status),
+                              color: _statusColor(status), size: 13),
+                          const SizedBox(width: 5),
+                          Text(
+                            _statusLabel(status),
+                            style: TextStyle(
+                              color: _statusColor(status),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),

@@ -152,12 +152,14 @@ import 'package:shiftsmart/widgets/emp_bottomnavbar.dart';
 
 class Uppernavbar extends StatefulWidget implements PreferredSizeWidget {
   final bool showBackButton;
-  final String? title; // 1. Added title parameter
+  final String? title;
+  final String? profileImageUrl; // Added profileImageUrl
 
   const Uppernavbar({
     super.key,
     this.showBackButton = false,
-    this.title, // 2. Initialize it in constructor
+    this.title,
+    this.profileImageUrl, // Initialize it
   });
 
   @override
@@ -219,17 +221,42 @@ class _UppernavbarState extends State<Uppernavbar> {
               ),
             ),
 
-          // --- MIDDLE: Title Text OR Logo Image ---
+          // --- MIDDLE: Title Text (+ Profile Image) OR Logo Image ---
           if (widget.title != null)
             Expanded(
-              child: Text(
-                widget.title!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-                overflow: TextOverflow.ellipsis,
+              child: Row(
+                children: [
+                  if (widget.profileImageUrl != null &&
+                      widget.profileImageUrl!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 10.0),
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: Colors.white24,
+                        backgroundImage: NetworkImage(widget.profileImageUrl!),
+                      ),
+                    )
+                  else if (widget.profileImageUrl != null)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 10.0),
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: Colors.white24,
+                        child: Icon(Icons.person, color: Colors.white, size: 20),
+                      ),
+                    ),
+                  Expanded(
+                    child: Text(
+                      widget.title!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18, // Slightly smaller to fit image
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
             )
           else

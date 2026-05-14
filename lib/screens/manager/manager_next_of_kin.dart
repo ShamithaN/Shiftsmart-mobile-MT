@@ -75,7 +75,8 @@ class _ManagerNextOfKinScreenState extends State<ManagerNextOfKinScreen> {
       } else {
         final contacts = await _contactService.getContacts();
         setState(() {
-          _kinControllers = contacts.map((kin) => KinControllers.fromModel(kin)).toList();
+          _kinControllers =
+              contacts.map((kin) => KinControllers.fromModel(kin)).toList();
         });
       }
 
@@ -117,7 +118,9 @@ class _ManagerNextOfKinScreenState extends State<ManagerNextOfKinScreen> {
         content: Row(children: [
           const Icon(Icons.error_outline, color: Colors.white),
           const SizedBox(width: 8),
-          Expanded(child: Text(message, style: const TextStyle(color: Colors.white))),
+          Expanded(
+              child:
+                  Text(message, style: const TextStyle(color: Colors.white))),
         ]),
         backgroundColor: Colors.redAccent,
         behavior: SnackBarBehavior.floating,
@@ -142,7 +145,8 @@ class _ManagerNextOfKinScreenState extends State<ManagerNextOfKinScreen> {
         return '$label: Relationship is required.';
       }
 
-      final phone = c.phoneController.text.trim().replaceAll(RegExp(r'[\s\-()]'), '');
+      final phone =
+          c.phoneController.text.trim().replaceAll(RegExp(r'[\s\-()]'), '');
       if (phone.isNotEmpty && !RegExp(r'^\+?[1-9]\d{6,14}$').hasMatch(phone)) {
         return '$label: Enter a valid phone number (e.g. +94771234567).';
       }
@@ -156,6 +160,67 @@ class _ManagerNextOfKinScreenState extends State<ManagerNextOfKinScreen> {
     return null;
   }
 
+  Map<String, dynamic> _profilePayloadFrom(
+    Map<String, dynamic> userProfile,
+    int employeeId,
+  ) {
+    final editedProfile = widget.profileData ?? const <String, dynamic>{};
+
+    String value(String key) {
+      final editedValue = editedProfile[key];
+      if (editedValue != null && editedValue.toString().trim().isNotEmpty) {
+        return editedValue.toString().trim();
+      }
+      return (userProfile[key] ?? '').toString().trim();
+    }
+
+    return {
+      'employeeId': employeeId,
+      'firstName': value('firstName'),
+      'middleName': value('middleName'),
+      'lastName': value('lastName'),
+      'gender': value('gender'),
+      'email': value('email'),
+      'mobileNumber': value('mobileNumber'),
+      'dateOfBirth': value('dateOfBirth'),
+      'street': value('street'),
+      'city': value('city'),
+      'state': value('state'),
+      'postalCode': value('postalCode'),
+      'country': value('country'),
+      'bankAccountName': value('bankAccountName'),
+      'bankBSB': value('bankBSB'),
+      'bankAccountNumber': value('bankAccountNumber'),
+      'bankName': value('bankName'),
+      'employmentStatus': value('employmentStatus').isEmpty
+          ? 'Active'
+          : value('employmentStatus'),
+      'jobRole': value('jobRole'),
+    };
+  }
+
+  List<Map<String, dynamic>> _nextOfKinPayload(int employeeId) {
+    return _kinControllers.asMap().entries.map((entry) {
+      final controller = entry.value;
+      final payload = <String, dynamic>{
+        'employeeId': employeeId,
+        'fullName': controller.nameController.text.trim(),
+        'relationship': controller.relationshipController.text.trim(),
+        'mobileNumber': controller.phoneController.text.trim(),
+        'email': controller.emailController.text.trim(),
+        'address': controller.addressController.text.trim(),
+        'isPrimary': entry.key == 0,
+      };
+
+      final id = controller.id;
+      if (id != null && id > 0) {
+        payload['nextOfKinId'] = id;
+      }
+
+      return payload;
+    }).toList();
+  }
+
   Future<void> _save() async {
     final validationError = _validateNoK();
     if (validationError != null) {
@@ -166,23 +231,17 @@ class _ManagerNextOfKinScreenState extends State<ManagerNextOfKinScreen> {
     setState(() => _isSaving = true);
     try {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final employeeId =
-          userProvider.userProfile['EmployeeId'] ?? userProvider.userProfile['employeeId'];
+      final rawEmployeeId = userProvider.userProfile['EmployeeId'] ??
+          userProvider.userProfile['employeeId'];
+      final employeeId = int.tryParse(rawEmployeeId?.toString() ?? '');
 
-      if (employeeId == null) throw Exception('User ID not found in userProfile');
+      if (employeeId == null) {
+        throw Exception('User ID not found in userProfile');
+      }
 
-      final nextOfKins = _kinControllers.asMap().entries.map((e) => {
-        'NextOfKinId': e.value.id ?? 0,
-        'EmployeeId': employeeId,
-        'FullName': e.value.nameController.text.trim(),
-        'Relationship': e.value.relationshipController.text.trim(),
-        'MobileNumber': e.value.phoneController.text.trim(),
-        'Email': e.value.emailController.text.trim(),
-        'Address': e.value.addressController.text.trim(),
-        'IsPrimary': e.key == 0,
-      }).toList();
-
-      final profileData = widget.profileData ?? {};
+      final profileData =
+          _profilePayloadFrom(userProvider.userProfile, employeeId);
+      final nextOfKins = _nextOfKinPayload(employeeId);
 
       final error = await _profileService.updateProfile(
         employeeId: employeeId,
@@ -203,7 +262,8 @@ class _ManagerNextOfKinScreenState extends State<ManagerNextOfKinScreen> {
             onPressed: () {
               Navigator.pushAndRemoveUntil(
                 context,
-                MaterialPageRoute(builder: (_) => const Bottomnavbar(selectedIndex: 0)),
+                MaterialPageRoute(
+                    builder: (_) => const Bottomnavbar(selectedIndex: 0)),
                 (route) => false,
               );
             },
@@ -245,7 +305,8 @@ class _ManagerNextOfKinScreenState extends State<ManagerNextOfKinScreen> {
                   ),
                   padding: const EdgeInsets.all(16.0),
                   child: _isLoading
-                      ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                      ? const Center(
+                          child: CircularProgressIndicator(color: Colors.white))
                       : Column(
                           children: [
                             Row(
@@ -271,7 +332,6 @@ class _ManagerNextOfKinScreenState extends State<ManagerNextOfKinScreen> {
                             ),
                             const Divider(color: Colors.white24),
                             const SizedBox(height: 8),
-
                             Expanded(
                               child: SingleChildScrollView(
                                 child: Column(
@@ -285,7 +345,6 @@ class _ManagerNextOfKinScreenState extends State<ManagerNextOfKinScreen> {
                                 ),
                               ),
                             ),
-
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
@@ -330,7 +389,8 @@ class _ManagerNextOfKinScreenState extends State<ManagerNextOfKinScreen> {
             if (_kinControllers.length > 1)
               GestureDetector(
                 onTap: () => _removeKin(index),
-                child: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 22),
+                child: const Icon(Icons.delete_outline,
+                    color: Colors.redAccent, size: 22),
               ),
           ],
         ),

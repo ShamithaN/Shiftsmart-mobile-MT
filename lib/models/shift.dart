@@ -52,13 +52,13 @@ class EmployeeResponse {
       'EmployeeId': employeeId,
       'Status': status,
       'Reason': reason,
-      'RespondedAt': respondedAt?.toIso8601String(),
-      'ClockInTime': clockInTime?.toIso8601String(),
-      'ClockOutTime': clockOutTime?.toIso8601String(),
+      'RespondedAt': formatDateTimeForServer(respondedAt),
+      'ClockInTime': formatDateTimeForServer(clockInTime),
+      'ClockOutTime': formatDateTimeForServer(clockOutTime),
       'IsEarlyExit': isEarlyExit,
       'EarlyExitReason': earlyExitReason,
       'ApprovalStatus': approvalStatus,
-      'CompletedAt': completedAt?.toIso8601String(),
+      'CompletedAt': formatDateTimeForServer(completedAt),
     };
   }
 }
@@ -190,7 +190,7 @@ class Shift {
       'ShiftId': shiftId,
       'ProjectId': projectId,
       'TaskName': taskName,
-      'Date': date.toIso8601String(),
+      'Date': formatDateTimeForServer(date),
       'StartTime': startTime,
       'EndTime': endTime,
       'Location': location,
@@ -201,7 +201,7 @@ class Shift {
       'SiteId': siteId,
       'Latitude': latitude,
       'Longitude': longitude,
-      'CompletedAt': completedAt?.toIso8601String(),
+      'CompletedAt': formatDateTimeForServer(completedAt),
     };
   }
 }

@@ -10,6 +10,7 @@ import 'package:intl/intl.dart'; // Add this for formatting dates
 import 'package:shiftsmart/services/super_admin_service.dart'; // Add this to call your active announcements API
 import 'package:provider/provider.dart';
 import 'package:shiftsmart/providers/tenant_provider.dart';
+import 'package:shiftsmart/utils/date_time_parser.dart';
 
 class Notifications extends StatefulWidget {
   const Notifications({super.key});
@@ -25,6 +26,7 @@ class _NotificationsState extends State<Notifications> {
       []; // NEW: Array for real DB announcements
   bool isLoading = true;
   int _selectedTabIndex = 0; // Defaulting to 0 (Unread) is usually better UX
+  String _userRole = 'Employee'; // Added to track user role
 
   final NotificationService _notificationService = NotificationService();
   final SuperAdminService _superAdminService =
@@ -41,6 +43,7 @@ class _NotificationsState extends State<Notifications> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final employeeId = prefs.getInt('employeeId');
+      final role = prefs.getString('userRole') ?? 'Employee';
 
       if (employeeId == null) {
         throw Exception("Employee ID not found in SharedPreferences");
@@ -94,6 +97,7 @@ class _NotificationsState extends State<Notifications> {
         setState(() {
           allNotifications = [...fetchedRead, ...fetchedUnread];
           activeAnnouncements = fetchedAnnouncements;
+          _userRole = role; // Set the role in state
           isLoading = false;
         });
       }
@@ -274,6 +278,22 @@ class _NotificationsState extends State<Notifications> {
     );
   }
 
+  bool _isBillingAnnouncement(dynamic ann) {
+    final title = (ann['title'] ?? ann['Title'] ?? '').toString().toLowerCase();
+    final body =
+        (ann['body'] ?? ann['Body'] ?? ann['message'] ?? ann['Message'] ?? '')
+            .toString()
+            .toLowerCase();
+
+    // Check for common billing/subscription keywords
+    return title.contains('billing alert') ||
+        title.contains('subscription') ||
+        title.contains('billing') ||
+        body.contains('subscription') ||
+        body.contains('grace period') ||
+        body.contains('billing');
+  }
+
   Widget _buildAnnouncementsList() {
     if (isLoading) {
       return const Center(
@@ -286,11 +306,26 @@ class _NotificationsState extends State<Notifications> {
               style: TextStyle(color: Colors.white70)));
     }
 
+    // Filter announcements based on role: Billing/Subscription alerts -> Admin/Manager only
+    final bool isAdminOrManager = _userRole.toLowerCase().contains("admin") ||
+        _userRole.toLowerCase().contains("manager");
+
+    final filteredAnnouncements = activeAnnouncements.where((ann) {
+      if (isAdminOrManager) return true;
+      return !_isBillingAnnouncement(ann);
+    }).toList();
+
+    if (filteredAnnouncements.isEmpty) {
+      return const Center(
+          child: Text("No active announcements.",
+              style: TextStyle(color: Colors.white70)));
+    }
+
     return ListView.builder(
       padding: EdgeInsets.zero,
-      itemCount: activeAnnouncements.length,
+      itemCount: filteredAnnouncements.length,
       itemBuilder: (context, index) {
-        final ann = activeAnnouncements[index];
+        final ann = filteredAnnouncements[index];
 
         // Safely extract properties accommodating backend case-naming variations
         final title = ann['title'] ?? ann['Title'] ?? 'Announcement';
@@ -302,8 +337,7 @@ class _NotificationsState extends State<Notifications> {
 
         // Format the date securely
         final rawDate = ann['createdAt'] ?? ann['CreatedAt'] ?? '';
-        final dateInfo =
-            DateTime.tryParse(rawDate.toString()) ?? DateTime.now();
+        final dateInfo = parseServerDateTime(rawDate) ?? DateTime.now();
         final displayDate = DateFormat('MM/dd/yyyy, HH:mm:ss').format(dateInfo);
 
         return Container(
@@ -444,15 +478,18 @@ class _NotificationsState extends State<Notifications> {
                           Padding(
                             padding: const EdgeInsets.only(
                                 left: 20, top: 20, bottom: 10),
-                            child: Row(
-                              children: [
-                                _buildTabButton("Unread", 0),
-                                const SizedBox(width: 20),
-                                _buildTabButton("Read", 1),
-                                const SizedBox(width: 20),
-                                _buildTabButton("Announcements", 2,
-                                    icon: Icons.campaign),
-                              ],
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  _buildTabButton("Unread", 0),
+                                  const SizedBox(width: 20),
+                                  _buildTabButton("Read", 1),
+                                  const SizedBox(width: 20),
+                                  _buildTabButton("Announcements", 2,
+                                      icon: Icons.campaign),
+                                ],
+                              ),
                             ),
                           ),
                           // Content area

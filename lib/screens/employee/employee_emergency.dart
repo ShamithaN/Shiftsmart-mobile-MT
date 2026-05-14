@@ -46,7 +46,8 @@ class _EmployeeEmergencyState extends State<EmployeeEmergency> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Failed to load emergency contacts. Please try again later.'),
+            content: Text(
+                'Failed to load emergency contacts. Please try again later.'),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -87,73 +88,11 @@ class _EmployeeEmergencyState extends State<EmployeeEmergency> {
       return;
     }
 
-    // Prioritize primary contact, then fallback to first available
-    final targetContact = _contacts.firstWhere(
-      (c) => c.isPrimary,
-      orElse: () => _contacts.first,
-    );
+    final targetContact = _contacts.first;
 
-    debugPrint(" SOS Triggered: Dialing ${targetContact.fullName} (${targetContact.mobileNumber})");
+    debugPrint(
+        "SOS Triggered: Dialing first next of kin ${targetContact.fullName} (${targetContact.mobileNumber})");
     _makePhoneCall(targetContact.mobileNumber);
-  }
-
-  void _showEmergencyContactSelector() {
-    if (_contacts.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No emergency contacts available')),
-      );
-      return;
-    } else if (_contacts.length == 1) {
-      _makePhoneCall(_contacts[0].mobileNumber);
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2C2F36), // Matches app theme
-        titleTextStyle: const TextStyle(
-          color: Colors.white,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
-        contentTextStyle: const TextStyle(
-          color: Colors.white70,
-          fontSize: 14,
-        ),
-        title: const Text('Select Emergency Contact'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: _contacts.length,
-            itemBuilder: (context, index) {
-              final contact = _contacts[index];
-              return ListTile(
-                title: Text(
-                  contact.fullName,
-                  style: const TextStyle(color: Colors.white),
-                ),
-                subtitle: Text(
-                  contact.mobileNumber,
-                  style: const TextStyle(color: Colors.white70),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _makePhoneCall(contact.mobileNumber);
-                },
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -186,8 +125,10 @@ class _EmployeeEmergencyState extends State<EmployeeEmergency> {
                             const SizedBox(height: 40),
                             sosButton(context, _handleSosPressed),
                             const SizedBox(height: 20),
-                            ..._contacts.map(
-                                (contact) => contactItem(context, contact, () => _makePhoneCall(contact.mobileNumber))),
+                            ..._contacts.map((contact) => contactItem(
+                                context,
+                                contact,
+                                () => _makePhoneCall(contact.mobileNumber))),
                           ],
                         ),
                       ),
@@ -321,8 +262,8 @@ Widget sosButton(BuildContext context, VoidCallback onSosPressed) {
             ),
             boxShadow: [
               BoxShadow(
-                color:
-                    const Color.fromARGB(255, 246, 237, 237).withOpacity(0.6),
+                color: const Color.fromARGB(255, 246, 237, 237)
+                    .withValues(alpha: 0.6),
                 blurRadius: 20,
                 spreadRadius: 5,
               ),

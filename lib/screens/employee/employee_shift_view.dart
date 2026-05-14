@@ -52,11 +52,16 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
   Map<String, dynamic>? shiftDetails;
   StreamSubscription<Position>? _positionStreamSubscription;
   DateTime? currentBreakStart;
+  Timer? _breakTicker;
+  Duration _activeBreakElapsed = Duration.zero;
   DateTime? clockInTime;
   DateTime? clockOutTime;
   bool isClockedIn = false;
   File? clockInPhoto;
   File? clockOutPhoto;
+  String? clockInPhotoUrl;
+  String? clockOutPhotoUrl;
+  String? earlyExitReason;
   int? attendanceId;
   Site? currentSite;
   bool isLoading = false;
@@ -77,6 +82,97 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
 
   // --- Helpers ---
 
+  void _startBreakTicker() {
+    _breakTicker?.cancel();
+    if (currentBreakStart == null) return;
+    _activeBreakElapsed = DateTime.now().difference(currentBreakStart!);
+    _breakTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && currentBreakStart != null) {
+        setState(() {
+          _activeBreakElapsed = DateTime.now().difference(currentBreakStart!);
+        });
+      }
+    });
+  }
+
+  void _stopBreakTicker() {
+    _breakTicker?.cancel();
+    _breakTicker = null;
+    _activeBreakElapsed = Duration.zero;
+  }
+
+  String _formatBreakDuration(Duration duration) {
+    final safeDuration = duration.isNegative ? Duration.zero : duration;
+    final hours = safeDuration.inHours.toString().padLeft(2, '0');
+    final minutes =
+        safeDuration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds =
+        safeDuration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$hours:$minutes:$seconds';
+  }
+
+  String _activeBreakTimeText() {
+    if (currentBreakStart == null) return 'Time: 00:00:00';
+    return 'Time: ${_formatBreakDuration(_activeBreakElapsed)}';
+  }
+
+  String _formatDeviceLocalTime(DateTime time) {
+    return DateFormat('hh:mm a').format(time.toLocal());
+  }
+
+  String _formatDeviceLocalTimeWithSeconds(DateTime time) {
+    return DateFormat('hh:mm:ss a').format(time.toLocal());
+  }
+
+  String? _stringValue(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = data[key];
+      if (value != null && value.toString().trim().isNotEmpty) {
+        return value.toString().trim();
+      }
+    }
+    return null;
+  }
+
+  int? _intValue(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+
+  Map<String, dynamic>? _myShiftResponse(Map<String, dynamic> shift) {
+    final responses = shift['EmployeeResponses'] ??
+        shift['employeeResponses'] ??
+        shift['EmployeResponses'];
+
+    if (responses is! List) return null;
+
+    for (final response in responses) {
+      if (response is Map<String, dynamic> &&
+          _intValue(response['EmployeeId'] ?? response['employeeId']) ==
+              widget.employeeId) {
+        return response;
+      }
+    }
+    return null;
+  }
+
+  bool _isStatus(String status) {
+    return myStatus.trim().toLowerCase() == status.toLowerCase();
+  }
+
+  bool _isCompletedStatusValue(String? value) {
+    final status = value?.trim().toLowerCase() ?? '';
+    return status == 'completed' ||
+        status == 'complete' ||
+        status == 'done' ||
+        status == 'clocked out' ||
+        status == 'clockout';
+  }
+
+  bool _isCompletedStatus() => _isCompletedStatusValue(myStatus);
+
   String formatTime(String timeString) {
     try {
       final time = TimeOfDay(
@@ -96,7 +192,8 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
     if (normalized.contains(',') && !normalized.contains('.')) {
       return double.tryParse(normalized.replaceAll(',', '.'));
     }
-    final match = RegExp(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?').firstMatch(normalized);
+    final match =
+        RegExp(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?').firstMatch(normalized);
     return match != null ? double.tryParse(match.group(0)!) : null;
   }
 
@@ -162,11 +259,13 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
     _loadSiteData();
     _loadShiftDetailsAndStatus();
     _loadShiftProgress();
+    _startBreakTicker();
     enableFullScreen();
   }
 
   @override
   void dispose() {
+    _breakTicker?.cancel();
     _positionStreamSubscription?.cancel();
     if (mounted) _disposePhotos();
     super.dispose();
@@ -175,6 +274,81 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
   void _disposePhotos() {
     clockInPhoto = null;
     clockOutPhoto = null;
+  }
+
+  void _syncAttendanceEvidence(Map<String, dynamic> data) {
+    final nextClockInPhotoUrl = _stringValue(data, [
+      'ClockInPhotoUrl',
+      'clockInPhotoUrl',
+      'clockInPhotoURL',
+      'ClockInPhotoURL',
+    ]);
+    final nextClockOutPhotoUrl = _stringValue(data, [
+      'ClockOutPhotoUrl',
+      'clockOutPhotoUrl',
+      'clockOutPhotoURL',
+      'ClockOutPhotoURL',
+    ]);
+    final nextEarlyExitReason = _stringValue(data, [
+      'EarlyExitReason',
+      'earlyExitReason',
+      'EmergencyReason',
+      'emergencyReason',
+      'Reason',
+      'reason',
+    ]);
+
+    clockInPhotoUrl = nextClockInPhotoUrl ?? clockInPhotoUrl;
+    clockOutPhotoUrl = nextClockOutPhotoUrl ?? clockOutPhotoUrl;
+    earlyExitReason = nextEarlyExitReason ?? earlyExitReason;
+  }
+
+  bool _hasPhotoUrl(String? url) => url != null && url.trim().isNotEmpty;
+
+  Future<void> _loadAttendancePhotos() async {
+    try {
+      String? nextClockInUrl;
+      String? nextClockOutUrl;
+
+      if (attendanceId != null) {
+        nextClockInUrl = await _attendanceService.fetchClockPhotoUrl(
+          attendanceId!,
+          isClockIn: true,
+        );
+        nextClockOutUrl = await _attendanceService.fetchClockPhotoUrl(
+          attendanceId!,
+          isClockIn: false,
+        );
+      }
+
+      if (!_hasPhotoUrl(nextClockInUrl) || !_hasPhotoUrl(nextClockOutUrl)) {
+        final photos = await _attendanceService.fetchAttendancePhotos(
+          widget.employeeId,
+          widget.shiftId,
+        );
+
+        nextClockInUrl ??= photos['clockIn'];
+        nextClockOutUrl ??= photos['clockOut'];
+      }
+
+      if (!mounted) return;
+
+      final shouldUpdateClockIn =
+          _hasPhotoUrl(nextClockInUrl) && nextClockInUrl != clockInPhotoUrl;
+      final shouldUpdateClockOut =
+          _hasPhotoUrl(nextClockOutUrl) && nextClockOutUrl != clockOutPhotoUrl;
+
+      if (!shouldUpdateClockIn && !shouldUpdateClockOut) return;
+
+      setState(() {
+        if (shouldUpdateClockIn) clockInPhotoUrl = nextClockInUrl;
+        if (shouldUpdateClockOut) clockOutPhotoUrl = nextClockOutUrl;
+      });
+
+      await _saveShiftProgress();
+    } catch (e) {
+      debugPrint('Error loading attendance photos: $e');
+    }
   }
 
   Future<void> _loadShiftDetailsAndStatus() async {
@@ -187,26 +361,61 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
       );
 
       if (shift.isNotEmpty && mounted) {
+        final myResponse = _myShiftResponse(shift);
+        final topLevelStatus = (shift['Status'] ?? shift['status'])?.toString();
+        final nextStatus = shift['MyStatus'] ??
+            shift['myStatus'] ??
+            myResponse?['Status'] ??
+            myResponse?['status'] ??
+            (_isCompletedStatusValue(topLevelStatus) ? topLevelStatus : null) ??
+            "Pending";
+        final responseClockInTime = myResponse == null
+            ? null
+            : parseServerDateTime(myResponse['ClockInTime'] ??
+                myResponse['clockInTime'] ??
+                myResponse['ClockinTime']);
+        final responseClockOutTime = myResponse == null
+            ? null
+            : parseServerDateTime(
+                myResponse['ClockOutTime'] ?? myResponse['clockOutTime']);
+
         setState(() {
           shiftDetails = shift;
-          myStatus = shift['MyStatus'] ?? "Pending";
-          myRejectionReason =
-              (shift['MyRejectionReason'] ?? shift['RejectionReason'] ?? shift['Reason'] ??
-                      shift['DeclineReason'])
-                  ?.toString();
+          myStatus = nextStatus.toString();
+          myRejectionReason = (shift['MyRejectionReason'] ??
+                  shift['RejectionReason'] ??
+                  shift['Reason'] ??
+                  shift['DeclineReason'] ??
+                  myResponse?['Reason'] ??
+                  myResponse?['reason'])
+              ?.toString();
+          if (responseClockInTime != null && clockInTime == null) {
+            clockInTime = responseClockInTime;
+          }
+          if (responseClockOutTime != null &&
+              responseClockOutTime.year > 1900) {
+            clockOutTime = responseClockOutTime;
+          }
+          if (myResponse != null) {
+            _syncAttendanceEvidence(myResponse);
+          }
         });
 
         // If SiteId was missing from Job object, try loading it from Shift details
         if (currentSite == null) {
           final int? siteIdFromShift = shift['SiteId'] ?? shift['siteId'];
-          final String? latFromShift = shift['Latitude']?.toString() ?? shift['latitude']?.toString();
-          final String? lngFromShift = shift['Longitude']?.toString() ?? shift['longitude']?.toString();
+          final String? latFromShift =
+              shift['Latitude']?.toString() ?? shift['latitude']?.toString();
+          final String? lngFromShift =
+              shift['Longitude']?.toString() ?? shift['longitude']?.toString();
 
           if (siteIdFromShift != null && siteIdFromShift != 0) {
-            debugPrint("Site Loading: Found SiteId in shift details: $siteIdFromShift. Retrying load.");
+            debugPrint(
+                "Site Loading: Found SiteId in shift details: $siteIdFromShift. Retrying load.");
             _loadSiteData(overrideSiteId: siteIdFromShift);
           } else if (latFromShift != null && lngFromShift != null) {
-            debugPrint("Site Loading: Found Coordinates in shift details. Creating virtual site.");
+            debugPrint(
+                "Site Loading: Found Coordinates in shift details. Creating virtual site.");
             setState(() {
               currentSite = Site(
                 siteId: 0,
@@ -308,7 +517,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
 
   Future<void> _loadSiteData({int? overrideSiteId}) async {
     final targetSiteId = overrideSiteId ?? widget.job.siteId;
-    
+
     if (mounted) setState(() => isLoading = true);
     debugPrint("Site Loading: Starting for SiteId: $targetSiteId");
     try {
@@ -325,7 +534,8 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
         }
         debugPrint("Site Loading: Success! Site Name: ${site.siteName}");
       } else {
-        debugPrint("Site Loading: Failed. Site not found for ID: $targetSiteId");
+        debugPrint(
+            "Site Loading: Failed. Site not found for ID: $targetSiteId");
       }
     } catch (e) {
       debugPrint('Site Loading: Error: $e');
@@ -350,16 +560,28 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
           if (progress['breaks'] != null) {
             breaks = (progress['breaks'] as List<dynamic>).map((b) {
               return {
-                'start': parseServerDateTime(b['start']) ?? DateTime.parse(b['start']),
-                'end': parseServerDateTime(b['end']) ?? DateTime.parse(b['end']),
+                'start': parseServerDateTime(b['start']) ??
+                    DateTime.parse(b['start']),
+                'end':
+                    parseServerDateTime(b['end']) ?? DateTime.parse(b['end']),
               };
             }).toList();
           }
           if (progress['currentBreakStart'] != null) {
-            currentBreakStart = parseServerDateTime(progress['currentBreakStart']);
+            currentBreakStart =
+                parseServerDateTime(progress['currentBreakStart']);
           }
+          clockInPhotoUrl = progress['clockInPhotoUrl'];
+          clockOutPhotoUrl = progress['clockOutPhotoUrl'];
+          earlyExitReason = progress['earlyExitReason'];
           attendanceId = progress['attendanceId'];
         });
+        if (currentBreakStart != null) {
+          _startBreakTicker();
+        }
+        if (clockOutTime != null) {
+          await _loadAttendancePhotos();
+        }
       }
     }
 
@@ -371,19 +593,22 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
 
       if (shift != null && mounted) {
         // --- Parse Backend Times ---
-        final backendClockInTime = parseServerDateTime(
-            shift['ClockInTime'] ?? shift['clockInTime'] ?? shift['ClockinTime']);
-        final backendClockOutTime = parseServerDateTime(
-            shift['ClockOutTime'] ?? shift['clockOutTime']);
+        final backendClockInTime = parseServerDateTime(shift['ClockInTime'] ??
+            shift['clockInTime'] ??
+            shift['ClockinTime']);
+        final backendClockOutTime =
+            parseServerDateTime(shift['ClockOutTime'] ?? shift['clockOutTime']);
 
         // --- NEW: Parse Backend Break Times ---
-        final backendBreakStart = parseServerDateTime(
-            shift['BreakStart'] ?? shift['breakStart']);
-        final backendBreakEnd = parseServerDateTime(
-            shift['BreakEnd'] ?? shift['breakEnd']);
+        final backendBreakStart =
+            parseServerDateTime(shift['BreakStart'] ?? shift['breakStart']);
+        final backendBreakEnd =
+            parseServerDateTime(shift['BreakEnd'] ?? shift['breakEnd']);
 
         if (mounted) {
           setState(() {
+            _syncAttendanceEvidence(shift);
+
             // Sync Clock In
             if (backendClockInTime != null) {
               if (attendanceId == null || clockInTime == null) {
@@ -411,10 +636,13 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
               // Active Break
               if (backendBreakEnd == null) {
                 currentBreakStart = backendBreakStart;
+                _activeBreakElapsed =
+                    DateTime.now().difference(backendBreakStart);
               }
               // Finished Break
               else {
                 currentBreakStart = null;
+                _stopBreakTicker();
                 final DateTime backendBreakEndNonNull = backendBreakEnd;
                 // Add to history if unique
                 bool exists = breaks.any((b) =>
@@ -431,7 +659,13 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
             }
           });
 
-          _saveShiftProgress();
+          if (currentBreakStart != null) {
+            _startBreakTicker();
+          }
+          await _saveShiftProgress();
+          if (clockOutTime != null) {
+            await _loadAttendancePhotos();
+          }
         }
       }
     } catch (e) {
@@ -443,15 +677,18 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
     final prefs = await SharedPreferences.getInstance();
     final key = 'shift_progress_${widget.employeeId}_${widget.shiftId}';
     final progressData = {
-      'clockInTime': clockInTime?.toIso8601String(),
-      'clockOutTime': clockOutTime?.toIso8601String(),
+      'clockInTime': formatDateTimeForServer(clockInTime),
+      'clockOutTime': formatDateTimeForServer(clockOutTime),
       'breaks': breaks
           .map((b) => {
-                'start': b['start']!.toIso8601String(),
-                'end': b['end']!.toIso8601String()
+                'start': formatDateTimeForServer(b['start']),
+                'end': formatDateTimeForServer(b['end'])
               })
           .toList(),
-      'currentBreakStart': currentBreakStart?.toIso8601String(),
+      'currentBreakStart': formatDateTimeForServer(currentBreakStart),
+      'clockInPhotoUrl': clockInPhotoUrl,
+      'clockOutPhotoUrl': clockOutPhotoUrl,
+      'earlyExitReason': earlyExitReason,
       'attendanceId': attendanceId,
     };
     await prefs.setString(key, jsonEncode(progressData));
@@ -483,8 +720,10 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
       final siteLat = _parseCoordinate(siteLatStr);
       final siteLng = _parseCoordinate(siteLngStr);
 
-      debugPrint("Geofence Check: User Position: (${position.latitude}, ${position.longitude})");
-      debugPrint("Geofence Check: Site Position (ID: ${currentSite!.siteId}): ($siteLatStr, $siteLngStr)");
+      debugPrint(
+          "Geofence Check: User Position: (${position.latitude}, ${position.longitude})");
+      debugPrint(
+          "Geofence Check: Site Position (ID: ${currentSite!.siteId}): ($siteLatStr, $siteLngStr)");
 
       if (siteLat == null || siteLng == null) {
         debugPrint("Geofence Check: Site coordinates are invalid (null)");
@@ -497,14 +736,16 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
         siteLat,
         siteLng,
       );
-      
+
       final allowedRadius = currentSite!.radius ?? 150.0;
       final tolerance = 20.0;
-      debugPrint("Geofence Check: Distance: ${distance.toStringAsFixed(2)}m, Allowed Radius: ${allowedRadius}m");
+      debugPrint(
+          "Geofence Check: Distance: ${distance.toStringAsFixed(2)}m, Allowed Radius: ${allowedRadius}m");
 
       bool inRange = distance <= allowedRadius + tolerance;
-      debugPrint("Geofence Check: In Range: $inRange (with ${tolerance}m tolerance)");
-      
+      debugPrint(
+          "Geofence Check: In Range: $inRange (with ${tolerance}m tolerance)");
+
       return inRange;
     } catch (e) {
       debugPrint("Geofence Check Failed with error: $e");
@@ -599,9 +840,10 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
       final now = DateTime.now();
       final scheduledStart = _getScheduledStartDateTime();
       final scheduledEnd = _getScheduledEndDateTime();
-      
+
       // Allow clock-in up to 15 minutes before start
-      final earliestAllowed = scheduledStart.subtract(const Duration(minutes: 15));
+      final earliestAllowed =
+          scheduledStart.subtract(const Duration(minutes: 15));
 
       if (now.isBefore(earliestAllowed)) {
         if (mounted) {
@@ -610,13 +852,16 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
             context: context,
             builder: (ctx) => AlertDialog(
               backgroundColor: const Color(0xFF1C2230),
-              title: const Text("Too Early", style: TextStyle(color: Colors.orangeAccent)),
+              title: const Text("Too Early",
+                  style: TextStyle(color: Colors.orangeAccent)),
               content: Text(
                 "You cannot clock in yet.\n\nScheduled Start: ${DateFormat('hh:mm a').format(scheduledStart)}\nEarliest Clock-in: ${DateFormat('hh:mm a').format(earliestAllowed)}",
                 style: const TextStyle(color: Colors.white70),
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("OK")),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text("OK")),
               ],
             ),
           );
@@ -631,13 +876,16 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
             context: context,
             builder: (ctx) => AlertDialog(
               backgroundColor: const Color(0xFF1C2230),
-              title: const Text("Shift Ended", style: TextStyle(color: Colors.redAccent)),
+              title: const Text("Shift Ended",
+                  style: TextStyle(color: Colors.redAccent)),
               content: Text(
                 "The scheduled shift has already ended.\n\nScheduled End: ${DateFormat('hh:mm a').format(scheduledEnd)}",
                 style: const TextStyle(color: Colors.white70),
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("OK")),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text("OK")),
               ],
             ),
           );
@@ -673,15 +921,14 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
 
       if (result['success']) {
         final attendanceIdFromResponse = result['attendanceId'];
-        final serverClockInString = result['data']?['ClockInTime'] ?? result['data']?['clockInTime'];
-        final serverClockInTime = serverClockInString != null
-            ? DateTime.tryParse(serverClockInString.toString())
-            : null;
 
         if (mounted) {
           setState(() {
-            clockInTime = serverClockInTime ?? now;
+            clockInTime = now;
             attendanceId = attendanceIdFromResponse;
+            if (result['data'] is Map<String, dynamic>) {
+              _syncAttendanceEvidence(result['data'] as Map<String, dynamic>);
+            }
             clockInPhoto =
                 _capturedPhotos.isNotEmpty ? _capturedPhotos.first : null;
           });
@@ -783,7 +1030,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
     //  CHECK: Is it Early Departure?
     bool isEarly =
         now.isBefore(scheduledEnd.subtract(const Duration(minutes: 5)));
-    
+
     String? earlyExitReason;
 
     if (isEarly) {
@@ -845,8 +1092,8 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
                       fillColor: Colors.white.withValues(alpha: 0.05),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide:
-                            BorderSide(color: Colors.blueAccent.withValues(alpha: 0.3)),
+                        borderSide: BorderSide(
+                            color: Colors.blueAccent.withValues(alpha: 0.3)),
                       ),
                     ),
                     validator: (value) {
@@ -881,7 +1128,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
         if (mounted) setState(() => isLoading = false);
         return; // User cancelled or didn't provide reason
       }
-      
+
       earlyExitReason = reason;
     }
 
@@ -929,16 +1176,23 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
         if (mounted) {
           setState(() {
             clockOutTime = now;
+            if (result['data'] is Map<String, dynamic>) {
+              _syncAttendanceEvidence(result['data'] as Map<String, dynamic>);
+            }
+            if (isEarly && earlyExitReason != null) {
+              this.earlyExitReason = earlyExitReason;
+            }
             clockOutPhoto =
                 _capturedPhotos.isNotEmpty ? _capturedPhotos.first : null;
           });
         }
         final userProvider = Provider.of<UserProvider>(context, listen: false);
         final profile = userProvider.userProfile;
-        final employeeName = profile.isNotEmpty 
-            ? "${profile['firstName'] ?? ''} ${profile['lastName'] ?? ''}".trim()
+        final employeeName = profile.isNotEmpty
+            ? "${profile['firstName'] ?? ''} ${profile['lastName'] ?? ''}"
+                .trim()
             : "An employee";
-            
+
         await NotificationService()
             .sendShiftCompletionNotification(employeeName, widget.shiftId, now);
         await _saveShiftProgress();
@@ -982,7 +1236,13 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
           await _attendanceService.breakStart(attendanceId!, startTime: now);
 
       if (result == true) {
-        if (mounted) setState(() => currentBreakStart = now);
+        if (mounted) {
+          setState(() {
+            currentBreakStart = now;
+            _activeBreakElapsed = Duration.zero;
+          });
+          _startBreakTicker();
+        }
         await _saveShiftProgress();
         if (mounted) {
           ScaffoldMessenger.of(context)
@@ -1014,8 +1274,10 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
             if (currentBreakStart != null) {
               breaks.add({'start': currentBreakStart!, 'end': now});
               currentBreakStart = null;
+              _activeBreakElapsed = Duration.zero;
             }
           });
+          _stopBreakTicker();
         }
         await _saveShiftProgress();
         if (mounted) {
@@ -1051,20 +1313,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
                         children: [
                           _buildShiftInfoCard(),
                           const SizedBox(height: 24),
-                          if (isActionLoading)
-                            const CircularProgressIndicator()
-                          else if (myStatus == "Pending")
-                            _buildAcknowledgementCard()
-                          else if (myStatus == "Declined")
-                            _buildStatusMessage(
-                                "You have declined this shift.${myRejectionReason != null && myRejectionReason!.isNotEmpty ? '\nReason: $myRejectionReason' : ''}",
-                                Colors.red)
-                          else if (myStatus == "Swap Requested")
-                            _buildStatusMessage(
-                                " Swap Requested. Waiting for approval.",
-                                Colors.orange)
-                          else if (myStatus == "Accepted")
-                            _buildTimeTrackingCard(),
+                          _buildShiftActionArea(),
                         ],
                       ),
                     ),
@@ -1073,6 +1322,47 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
         ),
       ],
     );
+  }
+
+  Widget _buildShiftActionArea() {
+    if (isActionLoading) {
+      return const CircularProgressIndicator();
+    }
+
+    if (clockInTime != null && clockOutTime != null) {
+      return _buildShiftSummary();
+    }
+
+    if (_isCompletedStatus()) {
+      return _buildStatusMessage(
+        "This shift is completed. Summary details are loading...",
+        Colors.green,
+      );
+    }
+
+    if (_isStatus("Pending")) {
+      return _buildAcknowledgementCard();
+    }
+
+    if (_isStatus("Declined")) {
+      return _buildStatusMessage(
+        "You have declined this shift.${myRejectionReason != null && myRejectionReason!.isNotEmpty ? '\nReason: $myRejectionReason' : ''}",
+        Colors.red,
+      );
+    }
+
+    if (_isStatus("Swap Requested")) {
+      return _buildStatusMessage(
+        " Swap Requested. Waiting for approval.",
+        Colors.orange,
+      );
+    }
+
+    if (_isStatus("Accepted") || clockInTime != null) {
+      return _buildTimeTrackingCard();
+    }
+
+    return _buildStatusMessage("Shift status: $myStatus", Colors.blueAccent);
   }
 
   Widget _buildLiveTrackingButton() {
@@ -1216,8 +1506,8 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
             const SizedBox(width: 8),
             Text(
               'Date: $formattedDate',
-              style:
-                  TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 16),
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.9), fontSize: 16),
             ),
           ],
         ),
@@ -1229,8 +1519,8 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
             const SizedBox(width: 8),
             Text(
               'Start: ${formatTime(widget.scheduledStartTime)}',
-              style:
-                  TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 16),
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.9), fontSize: 16),
             ),
           ],
         ),
@@ -1242,8 +1532,8 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
             const SizedBox(width: 8),
             Text(
               'End: ${formatTime(widget.scheduledEndTime)}',
-              style:
-                  TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 16),
+              style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.9), fontSize: 16),
             ),
           ],
         ),
@@ -1269,8 +1559,10 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
   }
 
   Widget _buildTimeTrackingCard() {
-    final canClockOut = clockInTime != null && clockOutTime == null && attendanceId != null;
-    final needsAttendanceSync = clockInTime != null && clockOutTime == null && attendanceId == null;
+    final canClockOut =
+        clockInTime != null && clockOutTime == null && attendanceId != null;
+    final needsAttendanceSync =
+        clockInTime != null && clockOutTime == null && attendanceId == null;
     final isBreakEnabled = clockInTime != null && clockOutTime == null;
 
     bool isEarlyDeparture = false;
@@ -1280,145 +1572,144 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
           .isBefore(scheduledEnd.subtract(const Duration(minutes: 1)));
     }
 
-    return Container(
-      child: Column(
-        children: [
-          Container(width: double.infinity),
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              children: [
-                if (clockOutTime != null) ...[
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
+    return Column(
+      children: [
+        const SizedBox(width: double.infinity),
+        Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(
+            children: [
+              if (clockOutTime != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: isEarlyDeparture
+                        ? Colors.orange.withValues(alpha: 0.1)
+                        : Colors.green.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
                       color: isEarlyDeparture
-                          ? Colors.orange.withValues(alpha: 0.1)
-                          : Colors.green.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isEarlyDeparture
-                            ? Colors.orange.withValues(alpha: 0.5)
-                            : Colors.green.withValues(alpha: 0.3),
-                        width: 2,
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          isEarlyDeparture
-                              ? Icons.warning_amber_rounded
-                              : Icons.check_circle,
-                          color:
-                              isEarlyDeparture ? Colors.orange : Colors.green,
-                          size: 24,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                isEarlyDeparture
-                                    ? 'Early Departure'
-                                    : 'Shift Completed!',
-                                style: TextStyle(
-                                  color: isEarlyDeparture
-                                      ? Colors.orange
-                                      : Colors.green,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                isEarlyDeparture
-                                    ? 'You clocked out at ${DateFormat('hh:mm a').format(clockOutTime!)} before the scheduled end time.'
-                                    : 'You have successfully completed your shift at ${DateFormat('hh:mm a').format(clockOutTime!)}',
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                          ? Colors.orange.withValues(alpha: 0.5)
+                          : Colors.green.withValues(alpha: 0.3),
+                      width: 2,
                     ),
                   ),
-                ],
-                if (clockOutTime == null) ...[
-                  _buildTimeTrackingItem(
-                    clockInTime == null ? "Clock In" : "Clock Out",
-                    clockInTime,
-                    clockInTime == null ? Icons.login : Icons.logout,
-                    clockInTime == null ? "Clock In" : "Clock Out",
-                    clockInTime == null
-                        ? () => _handleClockIn()
-                        : () => _handleClockOut(),
-                    isEnabled: clockInTime == null ? true : canClockOut,
-                    photo: clockInTime == null ? clockInPhoto : clockOutPhoto,
-                  ),
-                  if (needsAttendanceSync)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Text(
-                        'Attendance record is still syncing. Please refresh the shift or reopen it before trying to clock out.',
-                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        isEarlyDeparture
+                            ? Icons.warning_amber_rounded
+                            : Icons.check_circle,
+                        color: isEarlyDeparture ? Colors.orange : Colors.green,
+                        size: 24,
                       ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isEarlyDeparture
+                                  ? 'Early Departure'
+                                  : 'Shift Completed!',
+                              style: TextStyle(
+                                color: isEarlyDeparture
+                                    ? Colors.orange
+                                    : Colors.green,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              isEarlyDeparture
+                                  ? 'You clocked out at ${_formatDeviceLocalTime(clockOutTime!)} before the scheduled end time.'
+                                  : 'You have successfully completed your shift at ${_formatDeviceLocalTime(clockOutTime!)}',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              if (clockOutTime == null) ...[
+                _buildTimeTrackingItem(
+                  clockInTime == null ? "Clock In" : "Clock Out",
+                  clockInTime,
+                  clockInTime == null ? Icons.login : Icons.logout,
+                  clockInTime == null ? "Clock In" : "Clock Out",
+                  clockInTime == null
+                      ? () => _handleClockIn()
+                      : () => _handleClockOut(),
+                  isEnabled: clockInTime == null ? true : canClockOut,
+                  photo: clockInTime == null ? clockInPhoto : clockOutPhoto,
+                ),
+                if (needsAttendanceSync)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Text(
+                      'Attendance record is still syncing. Please refresh the shift or reopen it before trying to clock out.',
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 13),
                     ),
-                ] else
+                  ),
+              ] else
+                _buildTimeTrackingItem(
+                  "Clock Out",
+                  clockOutTime,
+                  Icons.logout,
+                  "Shift Completed",
+                  () {},
+                  isEnabled: false,
+                  photo: clockOutPhoto,
+                ),
+              const SizedBox(height: 16),
+              if (clockInTime != null && clockOutTime == null) ...[
+                if (currentBreakStart == null)
                   _buildTimeTrackingItem(
-                    "Clock Out",
-                    clockOutTime,
-                    Icons.logout,
-                    "Shift Completed",
-                    () {},
-                    isEnabled: false,
-                    photo: clockOutPhoto,
+                    "Start Break",
+                    null,
+                    Icons.free_breakfast,
+                    "Start Break",
+                    _handleBreakStart,
+                    isEnabled: isBreakEnabled,
+                  )
+                else
+                  //  UPDATED: End Break Button with Distinct Color
+                  _buildTimeTrackingItem(
+                    "End Break",
+                    currentBreakStart,
+                    Icons.task_alt,
+                    "End Break",
+                    _handleBreakEnd,
+                    isEnabled: isBreakEnabled,
+                    customButtonColor: Colors.orangeAccent, // Changed color
+                    customTextColor: Colors.black,
+                    trailingText: _activeBreakTimeText(),
                   ),
                 const SizedBox(height: 16),
-                if (clockInTime != null && clockOutTime == null) ...[
-                  if (currentBreakStart == null)
-                    _buildTimeTrackingItem(
-                      "Start Break",
-                      null,
-                      Icons.free_breakfast,
-                      "Start Break",
-                      _handleBreakStart,
-                      isEnabled: isBreakEnabled,
-                    )
-                  else
-                    //  UPDATED: End Break Button with Distinct Color
-                    _buildTimeTrackingItem(
-                      "End Break",
-                      currentBreakStart,
-                      Icons.task_alt,
-                      "End Break",
-                      _handleBreakEnd,
-                      isEnabled: isBreakEnabled,
-                      customButtonColor: Colors.orangeAccent, // Changed color
-                      customTextColor: Colors.black,
-                    ),
-                  const SizedBox(height: 16),
-                  _buildLiveTrackingButton(),
-                  const SizedBox(height: 16),
-                ],
-                if (breaks.isNotEmpty) ...[
-                  _buildBreakHistory(),
-                  const SizedBox(height: 16),
-                ],
-                if (clockOutTime != null) ...[
-                  _buildShiftSummary(),
-                ],
+                _buildLiveTrackingButton(),
+                const SizedBox(height: 16),
               ],
-            ),
+              if (breaks.isNotEmpty) ...[
+                _buildBreakHistory(),
+                const SizedBox(height: 16),
+              ],
+              if (clockOutTime != null) ...[
+                _buildShiftSummary(),
+              ],
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1435,8 +1726,16 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
 
     final hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60);
+    final showEarlyExitReason = _wasEarlyDeparture();
+    final earlyExitReasonText = earlyExitReason?.trim().isNotEmpty == true
+        ? earlyExitReason!
+        : 'No reason provided';
+    final hasAttendanceEvidence =
+        _hasAttendancePhoto(clockInPhoto, clockInPhotoUrl) ||
+            _hasAttendancePhoto(clockOutPhoto, clockOutPhotoUrl);
 
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
@@ -1468,7 +1767,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
               Icon(Icons.login, color: Colors.green, size: 16),
               const SizedBox(width: 8),
               Text(
-                'Clock In: ${DateFormat('hh:mm a').format(clockInTime!)}',
+                'Clock In: ${_formatDeviceLocalTime(clockInTime!)}',
                 style: TextStyle(color: Colors.white70, fontSize: 14),
               ),
             ],
@@ -1479,7 +1778,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
               Icon(Icons.logout, color: Colors.red, size: 16),
               const SizedBox(width: 8),
               Text(
-                'Clock Out: ${DateFormat('hh:mm a').format(clockOutTime!)}',
+                'Clock Out: ${_formatDeviceLocalTime(clockOutTime!)}',
                 style: TextStyle(color: Colors.white70, fontSize: 14),
               ),
             ],
@@ -1499,20 +1798,205 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
               ),
             ],
           ),
-          if (breaks.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.free_breakfast, color: Colors.orange, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                'Breaks Taken: ${breaks.length}',
+                style: TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+            ],
+          ),
+          if (showEarlyExitReason) ...[
             const SizedBox(height: 8),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.free_breakfast, color: Colors.orange, size: 16),
+                const Icon(Icons.warning_amber_rounded,
+                    color: Colors.orangeAccent, size: 16),
                 const SizedBox(width: 8),
-                Text(
-                  'Breaks Taken: ${breaks.length}',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                Expanded(
+                  child: Text(
+                    'Early Exit Reason: $earlyExitReasonText',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
               ],
             ),
           ],
+          const SizedBox(height: 12),
+          Divider(color: Colors.white.withValues(alpha: 0.2)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(Icons.photo_library_outlined,
+                  color: Colors.white70, size: 16),
+              const SizedBox(width: 8),
+              const Text(
+                'Attendance Photos',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (hasAttendanceEvidence)
+            Row(
+              children: [
+                if (_hasAttendancePhoto(clockInPhoto, clockInPhotoUrl))
+                  Expanded(
+                    child: _buildAttendancePhotoPreview(
+                      'Clock In',
+                      file: clockInPhoto,
+                      url: clockInPhotoUrl,
+                    ),
+                  ),
+                if (_hasAttendancePhoto(clockInPhoto, clockInPhotoUrl) &&
+                    _hasAttendancePhoto(clockOutPhoto, clockOutPhotoUrl))
+                  const SizedBox(width: 12),
+                if (_hasAttendancePhoto(clockOutPhoto, clockOutPhotoUrl))
+                  Expanded(
+                    child: _buildAttendancePhotoPreview(
+                      'Clock Out',
+                      file: clockOutPhoto,
+                      url: clockOutPhotoUrl,
+                    ),
+                  ),
+              ],
+            )
+          else
+            const Text(
+              'No attendance photos recorded for this shift.',
+              style: TextStyle(color: Colors.white54, fontSize: 13),
+            ),
         ],
+      ),
+    );
+  }
+
+  bool _wasEarlyDeparture() {
+    if (clockOutTime == null) return false;
+    final scheduledEnd = _getScheduledEndDateTime();
+    return clockOutTime!
+        .isBefore(scheduledEnd.subtract(const Duration(minutes: 1)));
+  }
+
+  bool _hasAttendancePhoto(File? file, String? url) {
+    return file != null || (url != null && url.trim().isNotEmpty);
+  }
+
+  Widget _buildAttendancePhotoPreview(
+    String label, {
+    File? file,
+    String? url,
+  }) {
+    return GestureDetector(
+      onTap: () => _showAttendancePhotoDialog(label, file: file, url: url),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            height: 96,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: _buildAttendanceImage(
+                  file: file, url: url, fit: BoxFit.cover),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttendanceImage({
+    File? file,
+    String? url,
+    BoxFit fit = BoxFit.contain,
+  }) {
+    if (file != null) {
+      return Image.file(file, fit: fit);
+    }
+
+    if (url != null && url.trim().isNotEmpty) {
+      return Image.network(
+        url,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) => const Center(
+          child: Icon(Icons.broken_image_outlined, color: Colors.white38),
+        ),
+      );
+    }
+
+    return const Center(
+      child: Icon(Icons.image_not_supported_outlined, color: Colors.white38),
+    );
+  }
+
+  void _showAttendancePhotoDialog(
+    String label, {
+    File? file,
+    String? url,
+  }) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: const Color(0xFF1C2230),
+        insetPadding: const EdgeInsets.all(18),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 10),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 520),
+                child: InteractiveViewer(
+                  child: _buildAttendanceImage(file: file, url: url),
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1527,6 +2011,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
     File? photo,
     Color? customButtonColor,
     Color? customTextColor,
+    String? trailingText,
   }) {
     final isRecorded = time != null;
     final buttonEnabled = isEnabled ?? !isRecorded;
@@ -1555,18 +2040,22 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
             children: [
               Icon(icon, color: Colors.white70, size: 18),
               const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Text(
-                time != null
-                    ? DateFormat('hh:mm:ss a').format(time)
-                    : "Time: 00:00:00",
+                trailingText ??
+                    (time != null
+                        ? _formatDeviceLocalTimeWithSeconds(time)
+                        : "Time: 00:00:00"),
                 style: TextStyle(color: Colors.white70, fontSize: 14),
               ),
             ],
@@ -1590,8 +2079,9 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
                 ),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    buttonEnabled ? buttonColor : buttonColor.withValues(alpha: 0.4),
+                backgroundColor: buttonEnabled
+                    ? buttonColor
+                    : buttonColor.withValues(alpha: 0.4),
                 foregroundColor: textColor,
                 disabledForegroundColor: Colors.white.withValues(alpha: 0.6),
                 shape: RoundedRectangleBorder(
@@ -1640,9 +2130,23 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
                   children: [
                     Icon(Icons.circle, color: Colors.white70, size: 8),
                     const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${DateFormat('hh:mm a').format(breakItem['start']!)} - ${DateFormat('hh:mm a').format(breakItem['end']!)}',
+                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Text(
-                      '${DateFormat('hh:mm a').format(breakItem['start']!)} - ${DateFormat('hh:mm a').format(breakItem['end']!)}',
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                      'Used: ${_formatBreakDuration(
+                        breakItem['end']!.difference(breakItem['start']!),
+                      )}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),

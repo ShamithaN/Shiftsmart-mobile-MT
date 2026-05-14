@@ -1,3 +1,5 @@
+import 'package:shiftsmart/utils/date_time_parser.dart';
+
 class NotificationItem {
   final int id;
   final String type;
@@ -24,8 +26,10 @@ class NotificationItem {
       subject: json['Subject'] ?? '',
       message: json['Message'] ?? '',
       status: json['Status'] ?? '',
-      createdAt: DateTime.parse(json['CreatedAt']),
-      recipientId: json['RecipientId'] is int ? json['RecipientId'] : int.parse(json['RecipientId'].toString()),
+      createdAt: parseServerDateTime(json['CreatedAt']) ?? DateTime.now(),
+      recipientId: json['RecipientId'] is int
+          ? json['RecipientId']
+          : int.parse(json['RecipientId'].toString()),
     );
   }
 }

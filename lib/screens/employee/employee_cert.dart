@@ -10,6 +10,8 @@ import 'package:shiftsmart/widgets/emp_slidenav.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:path/path.dart' as path;
+import 'package:image_picker/image_picker.dart';
+
 
 class Employeecert extends StatefulWidget {
   const Employeecert({super.key});
@@ -209,17 +211,65 @@ class _EmployeecertState extends State<Employeecert> {
               const SizedBox(height: 8),
               InkWell(
                 onTap: () async {
-                  final result = await FilePicker.pickFiles(
-                    type: FileType.custom,
-                    allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
+                  final ImagePicker picker = ImagePicker();
+                  
+                  await showModalBottomSheet(
+                    context: context,
+                    backgroundColor: const Color(0xFF1C2230),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                    ),
+                    builder: (context) => SafeArea(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(height: 10),
+                          const Text(
+                            "Select Attachment Method",
+                            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 10),
+                          ListTile(
+                            leading: const Icon(Icons.camera_alt, color: Color(0xFF3498DB)),
+                            title: const Text("Take Photo", style: TextStyle(color: Colors.white)),
+                            onTap: () async {
+                              Navigator.pop(context);
+                              final XFile? image = await picker.pickImage(
+                                source: ImageSource.camera,
+                                imageQuality: 80,
+                              );
+                              if (image != null) {
+                                setModalState(() {
+                                  selectedFile = File(image.path);
+                                  fileName = path.basename(selectedFile!.path);
+                                });
+                              }
+                            },
+                          ),
+                          ListTile(
+                            leading: const Icon(Icons.upload_file, color: Color(0xFF3498DB)),
+                            title: const Text("Select File", style: TextStyle(color: Colors.white)),
+                            onTap: () async {
+                              Navigator.pop(context);
+                              final result = await FilePicker.pickFiles(
+                                type: FileType.custom,
+                                allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
+                              );
+                              if (result != null && result.files.single.path != null) {
+                                setModalState(() {
+                                  selectedFile = File(result.files.single.path!);
+                                  fileName = path.basename(selectedFile!.path);
+                                });
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                      ),
+                    ),
                   );
-                  if (result != null && result.files.single.path != null) {
-                    setModalState(() {
-                      selectedFile = File(result.files.single.path!);
-                      fileName = path.basename(selectedFile!.path);
-                    });
-                  }
                 },
+
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -442,10 +492,12 @@ class _EmployeecertState extends State<Employeecert> {
                     onPressed: () => _showAddUpdateDialog(existingDoc: doc),
                     child: const Text("UPDATE", style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
                   ),
-                  TextButton(
-                    onPressed: () => _deleteDocument(doc),
-                    child: const Text("DELETE", style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
-                  ),
+                  if (doc.documentType.toLowerCase() == 'general')
+                    TextButton(
+                      onPressed: () => _deleteDocument(doc),
+                      child: const Text("DELETE", style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+
                 ],
               ),
             ],
