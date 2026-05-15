@@ -202,21 +202,30 @@ class _ManagerattendaceviewState extends State<Managerattendaceview> {
   }
 
   // --- PDF Component: Time Calculations ---
+  // --- PDF Component: Time Calculations ---
   pw.Widget _buildTimeSummary() {
     final clockIn = parseServerDateTime(widget.attendance.clockInTime);
     final clockOut = parseServerDateTime(widget.attendance.clockOutTime);
     final breakStart = parseServerDateTime(widget.attendance.breakStart);
     final breakEnd = parseServerDateTime(widget.attendance.breakEnd);
 
-    // Calculate durations safely
-    final totalHours =
-        clockOut != null ? clockOut.difference(clockIn!).inMinutes / 60.0 : 0.0;
+    // Calculate durations safely in minutes
+    final int totalMins = (clockIn != null && clockOut != null)
+        ? clockOut.difference(clockIn).inMinutes
+        : 0;
 
-    final breakDuration = breakEnd != null && breakStart != null
-        ? breakEnd.difference(breakStart).inMinutes / 60.0
-        : 0.0;
+    final int breakMins = (breakStart != null && breakEnd != null)
+        ? breakEnd.difference(breakStart).inMinutes
+        : 0;
 
-    final workingHours = totalHours - breakDuration;
+    final int netMins = totalMins > breakMins ? totalMins - breakMins : 0;
+
+    // Helper function to format minutes into "Xh Ym"
+    String formatMinutes(int totalMinutes) {
+      final int hours = totalMinutes ~/ 60;
+      final int minutes = totalMinutes % 60;
+      return '${hours}h ${minutes}m';
+    }
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -277,12 +286,9 @@ class _ManagerattendaceviewState extends State<Managerattendaceview> {
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
             children: [
-              _buildSummaryItem(
-                  "Total Hours", "${totalHours.toStringAsFixed(2)}h"),
-              _buildSummaryItem(
-                  "Break Time", "${breakDuration.toStringAsFixed(2)}h"),
-              _buildSummaryItem(
-                  "Net Working Hours", "${workingHours.toStringAsFixed(2)}h"),
+              _buildSummaryItem("Total Hours", formatMinutes(totalMins)),
+              _buildSummaryItem("Break Time", formatMinutes(breakMins)),
+              _buildSummaryItem("Net Working Hours", formatMinutes(netMins)),
             ],
           ),
         ),

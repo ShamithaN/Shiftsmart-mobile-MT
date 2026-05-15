@@ -233,6 +233,18 @@ class _ManagerEmployeePerformanceReportState
               onPressed: () {
                 if (startDateController.text.isNotEmpty &&
                     endDateController.text.isNotEmpty) {
+                  DateTime startDate = DateTime.parse(startDateController.text);
+                  DateTime endDate = DateTime.parse(endDateController.text);
+
+                  if (endDate.isBefore(startDate)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text(
+                              "End Date cannot be earlier than Start Date.")),
+                    );
+                    return;
+                  }
+
                   Navigator.pop(context); // Close the dialog
                   _generateDateRangeReport(
                     employeeId: employee.employeeId,
