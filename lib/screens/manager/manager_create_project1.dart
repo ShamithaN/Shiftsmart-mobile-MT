@@ -34,7 +34,15 @@ class _ManagercreateprojectState extends State<Managercreateproject> {
       _nameController.text = widget.project!.name;
       _descController.text = widget.project!.description;
       _additionalController.text = widget.project!.additionalRemark;
-      _datedueController.text = widget.project!.projectDue;
+      _datedueController.text = _dateOnly(widget.project!.projectDue);
+    }
+  }
+
+  String _dateOnly(String value) {
+    try {
+      return DateFormat('yyyy-MM-dd').format(DateTime.parse(value));
+    } catch (_) {
+      return value.split('T').first;
     }
   }
 

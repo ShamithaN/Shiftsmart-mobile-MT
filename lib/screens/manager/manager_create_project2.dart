@@ -6,7 +6,6 @@ import 'package:shiftsmart/widgets/custom_date_picker.dart';
 import 'package:shiftsmart/models/company.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
-import 'package:shiftsmart/widgets/bottomnavbar.dart';
 import 'package:shiftsmart/widgets/gradient_button.dart';
 import 'package:shiftsmart/widgets/gradienthorizontal.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
@@ -38,12 +37,10 @@ class _Managercreateproject2State extends State<Managercreateproject2> {
   // Controllers
   final TextEditingController _startdateController = TextEditingController();
   final TextEditingController _enddateController = TextEditingController();
-  final TextEditingController _comController = TextEditingController();
 
   // Data
   List<Company> allCom = [];
   int? _selectedComId; // Track ID instead of Name String
-  bool _isLoading = false;
 
   @override
   void initState() {
@@ -51,8 +48,8 @@ class _Managercreateproject2State extends State<Managercreateproject2> {
     enableFullScreen();
     fetchCompanies().then((_) {
       if (widget.project != null) {
-        _startdateController.text = widget.project!.startDate;
-        _enddateController.text = widget.project!.endDate;
+        _startdateController.text = _dateOnly(widget.project!.startDate);
+        _enddateController.text = _dateOnly(widget.project!.endDate);
 
         // Find the company ID that matches the company name
         final existingCom = allCom
@@ -84,9 +81,10 @@ class _Managercreateproject2State extends State<Managercreateproject2> {
   // --- Date Picker Logic ---
   Future<void> _selectDate(
       BuildContext context, TextEditingController controller) async {
+    final initialDate = _parseDate(controller.text) ?? DateTime.now();
     DateTime? pickedDate = await showDatePicker(
         context: context,
-        initialDate: DateTime.now(),
+        initialDate: initialDate,
         firstDate: DateTime(2000),
         lastDate: DateTime(2100),
         builder: datePickerThemeBuilder);
@@ -94,6 +92,23 @@ class _Managercreateproject2State extends State<Managercreateproject2> {
       final formattedDate = DateFormat('yyyy-MM-dd').format(pickedDate);
       setState(() => controller.text = formattedDate);
     }
+  }
+
+  DateTime? _parseDate(String value) {
+    if (value.trim().isEmpty) return null;
+    return DateTime.tryParse(value.trim());
+  }
+
+  String _dateOnly(String value) {
+    final parsed = _parseDate(value);
+    if (parsed != null) {
+      return DateFormat('yyyy-MM-dd').format(parsed);
+    }
+    return value.split('T').first;
+  }
+
+  String _dateTimeUtc(String value) {
+    return '${_dateOnly(value)}T00:00:00Z';
   }
 
   // --- Submit Logic ---
@@ -108,17 +123,39 @@ class _Managercreateproject2State extends State<Managercreateproject2> {
       return;
     }
 
-    setState(() => _isLoading = true);
+    final startDate = _parseDate(_startdateController.text);
+    final endDate = _parseDate(_enddateController.text);
+    final projectDue = _parseDate(widget.projectDue);
+
+    if (startDate == null || endDate == null || projectDue == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select valid project dates")),
+      );
+      return;
+    }
+
+    if (endDate.isBefore(startDate)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text("End Date cannot be earlier than Start Date")),
+      );
+      return;
+    }
 
     final projectData = {
       "Name": widget.name, // Capitalized Keys
       "CompanyId": _selectedComId, // Capitalized Keys
       "Description": widget.description,
       "AdditionalRemarks": widget.additionalRemark,
-      "ProjectDue": "${widget.projectDue}T00:00:00Z", // Added Z
-      "StartDate": "${_startdateController.text.trim()}T00:00:00Z", // Added Z
-      "EndDate": "${_enddateController.text.trim()}T00:00:00Z", // Added Z
+      "ProjectDue": _dateTimeUtc(widget.projectDue),
+      "StartDate": _dateTimeUtc(_startdateController.text),
+      "EndDate": _dateTimeUtc(_enddateController.text),
     };
+
+    if (widget.project != null) {
+      projectData["ProjectId"] = widget.project!.projectId;
+      projectData["Status"] = widget.project!.status;
+    }
 
     bool success;
 
@@ -129,8 +166,6 @@ class _Managercreateproject2State extends State<Managercreateproject2> {
     } else {
       success = await ProjectService().addProject(projectData);
     }
-
-    setState(() => _isLoading = false);
 
     // 3. Success Handling
     if (mounted) {

@@ -8,8 +8,9 @@ class ProjectService {
   final ApiClient _apiClient = ApiClient();
 
   //  PROD ENDPOINT CONFIGURATION (from func-projects)
-  final String baseUrl = dotenv.env['PROJECT_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
-  
+  final String baseUrl =
+      dotenv.env['PROJECT_BASE_URL'] ?? dotenv.env['BASE_URL'] ?? "";
+
   //  PROD ENDPOINT KEYS (from func-projects)
   final String projectCreateKey = dotenv.env['PROJECT_CREATE_KEY'] ?? "";
   final String projectUpdateKey = dotenv.env['PROJECT_UPDATE_KEY'] ?? "";
@@ -28,7 +29,9 @@ class ProjectService {
   final String locationUpdateKey = dotenv.env['LOCATION_UPDATE_KEY'] ?? "";
 
   ProjectService() {
-    if (baseUrl.isEmpty) debugPrint(" ProjectService: PROJECT_BASE_URL is missing");
+    if (baseUrl.isEmpty) {
+      debugPrint(" ProjectService: PROJECT_BASE_URL is missing");
+    }
   }
 
   // --- ADD PROJECT ---
@@ -57,7 +60,8 @@ class ProjectService {
 
   // --- UPDATE PROJECT ---
   Future<bool> updateProject(int id, Map<String, dynamic> projectData) async {
-final updateUrl = '$baseUrl/project/update/$id?code=$projectUpdateKey';
+    final updateUrl = '$baseUrl/project/update/$id?code=$projectUpdateKey';
+    projectData['ProjectId'] = id;
 
     try {
       // FIX: Enable authentication for tenant context
@@ -70,7 +74,8 @@ final updateUrl = '$baseUrl/project/update/$id?code=$projectUpdateKey';
       if (response.statusCode == 200 || response.statusCode == 201) {
         return true;
       } else {
-        debugPrint('Failed to update project: ${response.body}');
+        debugPrint(
+            'Failed to update project: ${response.statusCode} - ${response.body}');
         return false;
       }
     } catch (e) {
@@ -85,7 +90,8 @@ final updateUrl = '$baseUrl/project/update/$id?code=$projectUpdateKey';
 
     try {
       // FIX: Enable authentication for tenant context
-      final response = await _apiClient.get(geturl, useAuth: true, showDialog: false);
+      final response =
+          await _apiClient.get(geturl, useAuth: true, showDialog: false);
 
       debugPrint("Project response: ${response.body}");
 
