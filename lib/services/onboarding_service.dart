@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http_parser/http_parser.dart';
@@ -9,10 +8,12 @@ import 'api_client.dart';
 
 class OnboardingService {
   final ApiClient _apiClient = ApiClient();
-  
+
   final String baseUrl = dotenv.env['BASE_URL'] ?? '';
   final String fetchInviteKey = dotenv.env['FETCH_INVITE_KEY'] ?? '';
-  final String onboardingKey = dotenv.env['SUBMIT_ONBOARD_KEY'] ?? '';
+  final String submitOnboardKey = dotenv.env['SUBMIT_ONBOARD_KEY'] ?? '';
+  final String completeOnboardingKey =
+      dotenv.env['COMPLETE_ONBOARDING_KEY'] ?? '';
   final String empResubmitKey = dotenv.env['RESUBMIT_KEY'] ?? '';
   final String resubmitDocKey = dotenv.env['DOCUMENT_RESUBMIT_KEY'] ?? '';
 
@@ -26,8 +27,7 @@ class OnboardingService {
 
     try {
       print(" Fetching Invitation: $url");
-      // Use ApiClient to ensure headers (like Bearer token) are sent if available
-      final response = await _apiClient.get(url, useAuth: true);
+      final response = await _apiClient.get(url, useAuth: false);
 
       print(" Fetch Status: ${response.statusCode}");
       print(" Fetch Body: ${response.body}");
@@ -35,7 +35,8 @@ class OnboardingService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        print(" Fetch failed. Status: ${response.statusCode}. Body: ${response.body}");
+        print(
+            " Fetch failed. Status: ${response.statusCode}. Body: ${response.body}");
       }
       return null;
     } catch (e) {
@@ -52,6 +53,7 @@ class OnboardingService {
     required List<Map<String, dynamic>> nextOfKins,
     required String password,
     bool isResubmission = false,
+    String? invitationToken,
   }) async {
     String url;
 
@@ -63,8 +65,11 @@ class OnboardingService {
       }
     } else {
       url = '$baseUrl/employee/onboarding-complete';
-      if (onboardingKey.isNotEmpty) {
-        url += '?code=$onboardingKey';
+      final key = completeOnboardingKey.isNotEmpty
+          ? completeOnboardingKey
+          : submitOnboardKey;
+      if (key.isNotEmpty) {
+        url += '?code=$key';
       }
     }
 
@@ -75,22 +80,25 @@ class OnboardingService {
     try {
       var request = http.MultipartRequest('POST', Uri.parse(url));
 
-      // 2. AUTH TOKEN  read from FlutterSecureStorage (same place auth_service.dart writes it)
-      const storage = FlutterSecureStorage();
-      final String? token = await storage.read(key: 'appToken');
+      // 2. AUTH TOKEN
+      // Resubmission endpoints are function-key based, same as rejected-info.
+      // Sending a stale/limited app token can make Azure reject the request with 401.
+      if (!isResubmission) {
+        final String? token = invitationToken;
 
-      if (token != null && token.isNotEmpty) {
-        request.headers['Authorization'] = 'Bearer $token';
-      } else {
-        print(
-            " Warning: No Auth Token found. Proceeding without it (as allowed by backend).");
+        if (token != null && token.isNotEmpty) {
+          request.headers['Authorization'] = 'Bearer $token';
+        } else {
+          print(
+              " Warning: No invitation token found. Proceeding without Authorization header.");
+        }
       }
 
       // 3. ADD DATA FIELDS
       request.fields['profile'] = jsonEncode(profile);
 
       // Add 'employeeId' as a standalone field
-      var empId = profile['employeeId'];
+      var empId = profile['employeeId'] ?? profile['EmployeeId'];
       if (empId != null) {
         request.fields['employeeId'] = empId.toString();
       }
@@ -98,6 +106,10 @@ class OnboardingService {
       if (!isResubmission) {
         request.fields['nextOfKins'] = jsonEncode(nextOfKins);
         request.fields['password'] = password;
+        if (invitationToken != null && invitationToken.isNotEmpty) {
+          request.fields['token'] = invitationToken;
+          request.fields['invitationToken'] = invitationToken;
+        }
       }
 
       // 4. ADD PROFILE PICTURE
