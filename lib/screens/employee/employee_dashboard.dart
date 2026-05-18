@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shiftsmart/models/shift.dart';
 import 'package:shiftsmart/models/job.dart';
@@ -12,7 +13,6 @@ import 'package:shiftsmart/utils/date_time_parser.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/responsive.dart';
-import 'package:shiftsmart/widgets/search.dart';
 
 class Employeedashboard extends StatefulWidget {
   const Employeedashboard({super.key});
@@ -35,7 +35,7 @@ class _EmployeedashboardState extends State<Employeedashboard> {
   Shift? currentShift;
   bool _isLoading = true;
   List<Map<String, dynamic>> jobs = []; // today's jobs
-  Map<String, dynamic>? upcomingJob; // only one upcoming job
+  List<Map<String, dynamic>> upcomingJobs = []; // tomorrow and future jobs
 
   Map<int, bool> expandedJobs = {}; // tracking expanded job
   Map<int, List<Map<String, dynamic>>> jobShifts =
@@ -103,7 +103,7 @@ class _EmployeedashboardState extends State<Employeedashboard> {
 
       final jobMap = {for (var job in jobsData) job.jobId: job};
 
-      List<Map<String, dynamic>> upcomingJobs = [];
+      List<Map<String, dynamic>> futureJobs = [];
       List<Map<String, dynamic>> todayJobs = [];
       Map<int, List<Map<String, dynamic>>> tempJobShifts = {};
 
@@ -134,25 +134,25 @@ class _EmployeedashboardState extends State<Employeedashboard> {
 
           // Only show shifts scheduled for today
           final localShiftDate = shiftDate.toLocal();
-          if (localShiftDate.year == today.year &&
-              localShiftDate.month == today.month &&
-              localShiftDate.day == today.day) {
+          final shiftDay = DateTime(
+              localShiftDate.year, localShiftDate.month, localShiftDate.day);
+
+          if (shiftDay == today) {
             todayJobs.add(fullJob);
 
             tempJobShifts.putIfAbsent(shiftJobId, () => []);
             tempJobShifts[shiftJobId]!.add(fullJob);
           }
 
-          // For upcomingJob only
-          if (shiftStart.isAfter(now)) {
-            upcomingJobs.add(fullJob);
+          if (shiftDay.isAfter(today)) {
+            futureJobs.add(fullJob);
           }
         } catch (e) {
           debugPrint("Error processing shift: $e");
         }
       }
 
-      upcomingJobs.sort((a, b) => a['ShiftStart'].compareTo(b['ShiftStart']));
+      futureJobs.sort((a, b) => a['ShiftStart'].compareTo(b['ShiftStart']));
       todayJobs.sort((a, b) => a['ShiftStart'].compareTo(b['ShiftStart']));
       for (var jobId in tempJobShifts.keys) {
         tempJobShifts[jobId]!
@@ -162,7 +162,7 @@ class _EmployeedashboardState extends State<Employeedashboard> {
       setState(() {
         jobs = todayJobs;
         jobShifts = tempJobShifts;
-        upcomingJob = upcomingJobs.isNotEmpty ? upcomingJobs.first : null;
+        upcomingJobs = futureJobs;
       });
     } catch (e) {
       debugPrint("Error fetching dashboard data: $e");
@@ -298,19 +298,14 @@ class _EmployeedashboardState extends State<Employeedashboard> {
           // Group jobs by JobId to avoid duplicates
           if (jobs.isEmpty)
             const Center(
-              // ========== UPDATED CODE START ==========
-              child: Center(
-                child: Text(
-                  "No upcoming job scheduled.",
-                  style: TextStyle(
-                    color: Colors.white60,
-                    fontSize: 16, // Increased font size (default is ~14)
-                    fontWeight:
-                        FontWeight.w500, // Optional: make it slightly bold
-                  ),
+              child: Text(
+                "No jobs scheduled for today.",
+                style: TextStyle(
+                  color: Colors.white60,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              // ========== UPDATED CODE END ==========
             )
           else
             ...jobs
@@ -535,7 +530,7 @@ class _EmployeedashboardState extends State<Employeedashboard> {
   }
 
   Widget upcomingJobCard() {
-    if (upcomingJob == null) {
+    if (upcomingJobs.isEmpty) {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
@@ -543,25 +538,18 @@ class _EmployeedashboardState extends State<Employeedashboard> {
           color: Colors.black26,
           borderRadius: BorderRadius.circular(12),
         ),
-        // ========== UPDATED CODE START ==========
         child: const Center(
           child: Text(
             "No upcoming job scheduled.",
             style: TextStyle(
               color: Colors.white60,
-              fontSize: 16, // Increased font size (default is ~14)
-              fontWeight: FontWeight.w500, // Optional: make it slightly bold
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
-        // ========== UPDATED CODE END ==========
       );
     }
-
-    final shift = upcomingJob!['Shift'];
-    final taskName = upcomingJob!['Title'] ?? "Unnamed Job";
-    final location = shift['Location'] ?? "No location";
-    final startTime = shift['StartTime'] ?? "TBD";
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -582,7 +570,7 @@ class _EmployeedashboardState extends State<Employeedashboard> {
           Row(
             children: const [
               Text(
-                "UPCOMING JOB",
+                "UPCOMING JOBS",
                 style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -593,10 +581,76 @@ class _EmployeedashboardState extends State<Employeedashboard> {
             ],
           ),
           const SizedBox(height: 20),
-          shiftInfoRowInline("Name", taskName),
-          shiftInfoRowInline("Location", location),
-          shiftInfoRowInline("Start Time", startTime),
+          ...upcomingJobs.map((job) => upcomingJobItem(job)),
         ],
+      ),
+    );
+  }
+
+  Widget upcomingJobItem(Map<String, dynamic> job) {
+    final shift = job['Shift'];
+    final taskName = job['Title'] ?? "Unnamed Job";
+    final location = shift['Location'] ?? "No location";
+    final startTime = shift['StartTime'] ?? "TBD";
+    final shiftStart = job['ShiftStart'];
+    final date = shiftStart is DateTime
+        ? DateFormat('dd MMM yyyy').format(shiftStart.toLocal())
+        : "TBD";
+
+    return InkWell(
+      onTap: () => _navigateToShiftView(job),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1C2230),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.event_available,
+                  color: Color(0xFF00C8FF),
+                  size: 22,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        taskName,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      shiftInfoRowInline("Date", date),
+                      shiftInfoRowInline("Location", location),
+                      shiftInfoRowInline("Start Time", startTime),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  color: Colors.white38,
+                  size: 16,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

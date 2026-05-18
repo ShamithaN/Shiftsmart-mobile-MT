@@ -12,7 +12,7 @@ import 'package:shiftsmart/screens/manager/manager_settings.dart';
 import 'package:shiftsmart/services/site_service.dart'; // Import SiteService
 import 'package:shiftsmart/services/auth_service.dart';
 import 'package:shiftsmart/widgets/bottomnavbar.dart';
-import 'package:shiftsmart/widgets/build_profile_avatar.dart';
+import 'package:shiftsmart/widgets/sidenav_profile_header.dart';
 
 class AppTextStyle {
   static const sidenavtext = TextStyle(
@@ -179,29 +179,15 @@ class _SidenavState extends State<Sidenav> {
                   EdgeInsets.only(top: paddingUnit * 3, bottom: paddingUnit),
               child: Column(
                 children: [
-                  GestureDetector(
+                  SidenavProfileHeader(
+                    userProfile: userProfile,
                     onTap: () {
                       Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => ManagerProfile()));
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => ManagerProfile()),
+                      );
                     },
-                    child: Column(
-                      children: [
-                        const ProfileAvatar(editable: false),
-                        const SizedBox(height: 10),
-                        Text(
-                            '${userProfile['firstName'] ?? ''} ${userProfile['lastName'] ?? ''}'
-                                .trim(),
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold)),
-                        Text(userProfile['jobRole'] ?? 'No Position',
-                            style: const TextStyle(
-                                color: Colors.grey, fontSize: 12)),
-                      ],
-                    ),
                   ),
                   const SizedBox(height: 10),
                   const Divider(color: Colors.white24, thickness: 1),

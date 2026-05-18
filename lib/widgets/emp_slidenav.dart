@@ -10,9 +10,9 @@ import 'package:shiftsmart/screens/login.dart';
 
 import 'package:shiftsmart/screens/employee/employee_profile.dart';
 import 'package:shiftsmart/services/phone_service.dart';
-import 'package:shiftsmart/widgets/build_profile_avatar.dart';
 import 'package:shiftsmart/widgets/emp_bottomnavbar.dart';
 import 'package:shiftsmart/services/auth_service.dart';
+import 'package:shiftsmart/widgets/sidenav_profile_header.dart';
 
 class AppTextStyle {
   static const sidenavtext = TextStyle(
@@ -91,7 +91,8 @@ class _EmpSidenavState extends State<EmpSidenav> {
                   EdgeInsets.only(top: paddingUnit * 3, bottom: paddingUnit),
               child: Column(
                 children: [
-                  GestureDetector(
+                  SidenavProfileHeader(
+                    userProfile: userProfile,
                     onTap: () {
                       Navigator.push(
                         context,
@@ -99,31 +100,6 @@ class _EmpSidenavState extends State<EmpSidenav> {
                             builder: (context) => const EmployeeProfile()),
                       );
                     },
-                    child: Column(
-                      children: [
-                        const ProfileAvatar(editable: false),
-                        const SizedBox(height: 10),
-                        Text(
-                          '${userProfile['firstName'] ?? ''} ${userProfile['lastName'] ?? ''}'
-                                  .trim()
-                                  .isEmpty
-                              ? 'No Name'
-                              : '${userProfile['firstName'] ?? ''} ${userProfile['lastName'] ?? ''}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          userProfile['jobRole'] ?? 'No Position',
-                          style: const TextStyle(
-                            color: Colors.grey,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                   const SizedBox(height: 10),
                   const Divider(color: Colors.white24, thickness: 1),
