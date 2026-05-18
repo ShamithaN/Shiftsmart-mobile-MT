@@ -45,19 +45,14 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
   // Services & Maps
   final ProjectService _projectService = ProjectService();
   GoogleMapController? mapController;
-  final LatLng _center = const LatLng(-33.8688, 151.2093);
+  static const LatLng _defaultCenter = LatLng(-33.8688, 151.2093);
 
   @override
   void initState() {
     super.initState();
     enableFullScreen();
     fetchProjects();
-    _selectedLocation = LatLng(
-      double.parse(_latitudeController.text),
-      double.parse(_longitudeController.text),
-    );
 
-    // Populate fields if editing
     // Populate fields if editing
     if (widget.site != null) {
       _siteNameController.text = widget.site!.siteName;
@@ -67,6 +62,8 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
       _longitudeController.text = widget.site!.longitude ?? "151.2093";
       _selectedProjectId = widget.site!.projectId;
     }
+
+    _selectedLocation = _currentLatLng();
   }
 
   // --- Fetch Projects ---
@@ -86,6 +83,64 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
   // --- Map Controller ---
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
+    final selected = _selectedLocation;
+    if (selected != null) {
+      mapController?.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: selected, zoom: 15),
+        ),
+      );
+    }
+  }
+
+  LatLng _currentLatLng() {
+    return LatLng(
+      double.tryParse(_latitudeController.text.trim()) ??
+          _defaultCenter.latitude,
+      double.tryParse(_longitudeController.text.trim()) ??
+          _defaultCenter.longitude,
+    );
+  }
+
+  Future<void> _selectLocation(LatLng latLng,
+      {bool updateAddress = true}) async {
+    setState(() {
+      _latitudeController.text = latLng.latitude.toString();
+      _longitudeController.text = latLng.longitude.toString();
+      _selectedLocation = latLng;
+    });
+
+    mapController?.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: latLng, zoom: 16),
+      ),
+    );
+
+    if (!updateAddress) return;
+
+    try {
+      final placemarks =
+          await geo.placemarkFromCoordinates(latLng.latitude, latLng.longitude);
+      if (placemarks.isNotEmpty && mounted) {
+        final place = placemarks.first;
+        final parts = [
+          place.name,
+          place.street,
+          place.locality,
+          place.administrativeArea,
+          place.country,
+        ]
+            .where((part) => part != null && part.trim().isNotEmpty)
+            .map((part) => part!.trim())
+            .toSet()
+            .toList();
+        if (parts.isNotEmpty) {
+          setState(() => _addressController.text = parts.join(', '));
+        }
+      }
+    } catch (e) {
+      debugPrint("Reverse geo error: $e");
+    }
   }
 
   // --- Address Lookup (Forward Geocoding) ---
@@ -97,18 +152,9 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
       final locations = await geo.locationFromAddress(address);
       if (locations.isNotEmpty) {
         final location = locations.first;
+        final latLng = LatLng(location.latitude, location.longitude);
 
-        setState(() {
-          _selectedLocation = LatLng(location.latitude, location.longitude);
-          _latitudeController.text = location.latitude.toString();
-          _longitudeController.text = location.longitude.toString();
-        });
-
-        mapController?.animateCamera(
-          CameraUpdate.newLatLng(
-            LatLng(location.latitude, location.longitude),
-          ),
-        );
+        await _selectLocation(latLng, updateAddress: false);
       }
     } catch (e) {
       debugPrint("Address lookup failed: $e");
@@ -161,6 +207,11 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
     if (_selectedProjectId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Please select a project")));
+      return;
+    }
+    if (_selectedLocation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please select a map location")));
       return;
     }
 
@@ -274,7 +325,7 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
                         const SizedBox(height: 16),
 
                         // Map Widget
-                        _buildMap(),
+                        _buildMapPinSection(),
 
                         const SizedBox(height: 20),
 
@@ -421,55 +472,78 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
   }
 
   // --- UI Helper: Google Map ---
-  Widget _buildMap() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text(
-        "Select Location",
-        style: TextStyle(
-            color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
+  Widget _buildMapPinSection() {
+    final selected = _selectedLocation ?? _currentLatLng();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
-      const SizedBox(height: 8),
-      Container(
-        height: 200,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          color: Colors.white.withValues(alpha: 0.2),
-        ),
-        child: ClipRRect(
-          // Added ClipRRect for rounded map corners
-          borderRadius: BorderRadius.circular(8),
-          child: GoogleMap(
-            onMapCreated: _onMapCreated,
-            initialCameraPosition: CameraPosition(target: _center, zoom: 10),
-            onTap: (LatLng latLng) async {
-              setState(() {
-                _latitudeController.text = latLng.latitude.toString();
-                _longitudeController.text = latLng.longitude.toString();
-                _selectedLocation = latLng;
-              });
-              // Reverse Geocoding (Lat/Lng -> Address)
-              try {
-                final placemarks = await geo.placemarkFromCoordinates(
-                    latLng.latitude, latLng.longitude);
-                if (placemarks.isNotEmpty) {
-                  final place = placemarks.first;
-                  final formattedAddress =
-                      "${place.name}, ${place.locality}, ${place.country}";
-                  setState(() => _addressController.text = formattedAddress);
-                }
-              } catch (e) {
-                debugPrint("Reverse geo error: $e");
-              }
-            },
-            markers: {
-              if (_selectedLocation != null)
-                Marker(
-                    markerId: const MarkerId('selected'),
-                    position: _selectedLocation!),
-            },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Map Pin",
+            style: TextStyle(
+              color: Color(0xFF85E8FF),
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        ),
-      )
-    ]);
+          const SizedBox(height: 10),
+          const Text(
+            "Tap on the map to adjust the exact site coordinates.",
+            style: TextStyle(color: Colors.white60, fontSize: 14),
+          ),
+          const SizedBox(height: 18),
+          RichText(
+            text: const TextSpan(
+              text: "Select Location",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+              children: [
+                TextSpan(text: "*", style: TextStyle(color: Colors.redAccent)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              height: 300,
+              width: double.infinity,
+              child: GoogleMap(
+                onMapCreated: _onMapCreated,
+                initialCameraPosition: CameraPosition(
+                  target: selected,
+                  zoom: 15,
+                ),
+                onTap: _selectLocation,
+                markers: {
+                  Marker(
+                    markerId: const MarkerId('selected_location'),
+                    position: selected,
+                    infoWindow: const InfoWindow(title: 'Selected location'),
+                  ),
+                },
+                mapType: MapType.normal,
+                zoomControlsEnabled: true,
+                myLocationEnabled: false,
+                myLocationButtonEnabled: false,
+                compassEnabled: true,
+                mapToolbarEnabled: false,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
