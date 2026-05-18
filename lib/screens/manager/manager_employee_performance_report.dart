@@ -174,93 +174,118 @@ class _ManagerEmployeePerformanceReportState
     // ... (This function is unchanged)
     final TextEditingController startDateController = TextEditingController();
     final TextEditingController endDateController = TextEditingController();
+    String? dateRangeError;
 
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF2A3243),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Select Date Range'),
-          titleTextStyle: const TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: startDateController,
-                readOnly: true,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Start Date',
-                  labelStyle: const TextStyle(color: Colors.white70),
-                  suffixIcon: IconButton(
-                    icon:
-                        const Icon(Icons.calendar_today, color: Colors.white70),
-                    onPressed: () => _selectDate(context, startDateController),
-                  ),
-                ),
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF2A3243),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              title: const Text('Select Date Range'),
+              titleTextStyle: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: endDateController,
-                readOnly: true,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'End Date',
-                  labelStyle: const TextStyle(color: Colors.white70),
-                  suffixIcon: IconButton(
-                    icon:
-                        const Icon(Icons.calendar_today, color: Colors.white70),
-                    onPressed: () => _selectDate(context, endDateController),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: startDateController,
+                    readOnly: true,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'Start Date',
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.calendar_today,
+                            color: Colors.white70),
+                        onPressed: () async {
+                          await _selectDate(context, startDateController);
+                          setDialogState(() => dateRangeError = null);
+                        },
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: endDateController,
+                    readOnly: true,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'End Date',
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.calendar_today,
+                            color: Colors.white70),
+                        onPressed: () async {
+                          await _selectDate(context, endDateController);
+                          setDialogState(() => dateRangeError = null);
+                        },
+                      ),
+                    ),
+                  ),
+                  if (dateRangeError != null) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        dateRangeError!,
+                        style: const TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              child:
-                  const Text('Cancel', style: TextStyle(color: Colors.white)),
-              onPressed: () => Navigator.pop(context),
-            ),
-            ElevatedButton(
-              child: const Text('Generate'),
-              onPressed: () {
-                if (startDateController.text.isNotEmpty &&
-                    endDateController.text.isNotEmpty) {
-                  DateTime startDate = DateTime.parse(startDateController.text);
-                  DateTime endDate = DateTime.parse(endDateController.text);
+              actions: [
+                TextButton(
+                  child: const Text('Cancel',
+                      style: TextStyle(color: Colors.white)),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                ElevatedButton(
+                  child: const Text('Generate'),
+                  onPressed: () {
+                    if (startDateController.text.isEmpty ||
+                        endDateController.text.isEmpty) {
+                      setDialogState(() {
+                        dateRangeError =
+                            "Please select both start and end dates.";
+                      });
+                      return;
+                    }
 
-                  if (endDate.isBefore(startDate)) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text(
-                              "End Date cannot be earlier than Start Date.")),
+                    final startDate = DateFormat('yyyy-MM-dd')
+                        .parseStrict(startDateController.text);
+                    final endDate = DateFormat('yyyy-MM-dd')
+                        .parseStrict(endDateController.text);
+
+                    if (endDate.isBefore(startDate)) {
+                      setDialogState(() {
+                        dateRangeError =
+                            "End Date cannot be earlier than Start Date.";
+                      });
+                      return;
+                    }
+
+                    Navigator.pop(context); // Close the dialog
+                    _generateDateRangeReport(
+                      employeeId: employee.employeeId,
+                      startDate: startDateController.text,
+                      endDate: endDateController.text,
                     );
-                    return;
-                  }
-
-                  Navigator.pop(context); // Close the dialog
-                  _generateDateRangeReport(
-                    employeeId: employee.employeeId,
-                    startDate: startDateController.text,
-                    endDate: endDateController.text,
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content:
-                            Text("Please select both start and end dates")),
-                  );
-                }
-              },
-            ),
-          ],
+                  },
+                ),
+              ],
+            );
+          },
         );
       },
     );

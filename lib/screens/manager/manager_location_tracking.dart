@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
@@ -34,11 +35,13 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
   List<SiteEmployee> filteredEmployees = [];
   final SiteService _siteService = SiteService();
   Timer? _refreshTimer;
+  String? _darkMapStyle;
 
   @override
   void initState() {
     super.initState();
     enableFullScreen();
+    _loadMapStyle();
     _loadSiteData();
 
     // Auto-refresh locations every 30 seconds
@@ -53,6 +56,17 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
   void dispose() {
     _refreshTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadMapStyle() async {
+    try {
+      final style = await rootBundle.loadString('assets/mapStyles/dark.json');
+      if (mounted) {
+        setState(() => _darkMapStyle = style);
+      }
+    } catch (e) {
+      debugPrint('Error loading map style: $e');
+    }
   }
 
   Future<void> _loadSiteData() async {
@@ -92,6 +106,7 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
           isLoading = false;
           _createMarkers(currentSite!, siteEmployees);
         });
+        await _fitMapToContent();
       }
     } catch (e) {
       debugPrint("Error refreshing locations: $e");
@@ -139,15 +154,55 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
   }
 
   Future<void> _onMapCreated(GoogleMapController controller) async {
-    _mapController.complete(controller);
-    if (kIsWeb || !mounted) return;
-    try {
-      final darkMapStyle = await DefaultAssetBundle.of(context)
-          .loadString('assets/map_styles/dark.json');
-      controller.setMapStyle(darkMapStyle);
-    } catch (e) {
-      debugPrint('Error loading map style: $e');
+    if (!_mapController.isCompleted) {
+      _mapController.complete(controller);
     }
+    await _fitMapToContent();
+  }
+
+  Future<void> _fitMapToContent() async {
+    if (!_mapController.isCompleted || _mapCenter == null) return;
+
+    final controller = await _mapController.future;
+    final points = <LatLng>[_mapCenter!];
+
+    for (final employee in employees) {
+      if (employee.clockInLat != null && employee.clockInLng != null) {
+        points.add(LatLng(employee.clockInLat!, employee.clockInLng!));
+      }
+    }
+
+    if (points.length == 1) {
+      await controller.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: _mapCenter!, zoom: _mapZoom),
+        ),
+      );
+      return;
+    }
+
+    await controller.animateCamera(
+      CameraUpdate.newLatLngBounds(_boundsFromLatLngList(points), 56),
+    );
+  }
+
+  LatLngBounds _boundsFromLatLngList(List<LatLng> points) {
+    var minLat = points.first.latitude;
+    var maxLat = points.first.latitude;
+    var minLng = points.first.longitude;
+    var maxLng = points.first.longitude;
+
+    for (final point in points.skip(1)) {
+      if (point.latitude < minLat) minLat = point.latitude;
+      if (point.latitude > maxLat) maxLat = point.latitude;
+      if (point.longitude < minLng) minLng = point.longitude;
+      if (point.longitude > maxLng) maxLng = point.longitude;
+    }
+
+    return LatLngBounds(
+      southwest: LatLng(minLat, minLng),
+      northeast: LatLng(maxLat, maxLng),
+    );
   }
 
   Future<Site> _fetchSiteDetails(int siteId) async {
@@ -176,6 +231,7 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
     return Scaffold(
       drawer: const Sidenav(currentScreen: 'LocationTracking'),
       backgroundColor: const Color(0xFF1C2230),
+      resizeToAvoidBottomInset: false,
       // 1. Extend body to allow content under the transparent navbar
       extendBodyBehindAppBar: true,
       // 2. Hide default back button (we add our own below)
@@ -189,12 +245,12 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
                 // 3. Add spacing for the transparent AppBar
                 const SizedBox(height: 70),
                 Search(onQueryChanged: onQueryChanged),
-                Expanded(
-                  flex: 2,
+                Flexible(
+                  flex: 5,
                   child: _buildMapSection(),
                 ),
-                Expanded(
-                  flex: 1,
+                Flexible(
+                  flex: 3,
                   child: _buildEmployeeListSection(),
                 ),
               ],
@@ -237,57 +293,101 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
 
   Widget _buildMapSection() {
     if (isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return _buildMapShell(
+        child: const Center(child: CircularProgressIndicator()),
+      );
     }
 
     if (_mapCenter == null) {
-      return const Center(
-          child: Text("No location data available",
-              style: TextStyle(color: Colors.white)));
+      return _buildMapShell(
+        child: const Center(
+          child: Text(
+            "No location data available",
+            style: TextStyle(color: Colors.black54),
+          ),
+        ),
+      );
     }
 
+    return _buildMapShell(
+      child: Stack(
+        children: [
+          GoogleMap(
+            onMapCreated: _onMapCreated,
+            initialCameraPosition: CameraPosition(
+              target: _mapCenter!,
+              zoom: _mapZoom,
+            ),
+            markers: _markers,
+            mapType: MapType.normal,
+            zoomControlsEnabled: false,
+            myLocationEnabled: false,
+            myLocationButtonEnabled: false,
+            compassEnabled: false,
+            mapToolbarEnabled: false,
+            style: kIsWeb ? null : _darkMapStyle,
+            padding: const EdgeInsets.only(bottom: 58, right: 10),
+            circles: currentSite != null
+                ? {
+                    Circle(
+                      circleId: CircleId('geofence_${currentSite!.siteId}'),
+                      center: LatLng(
+                        double.tryParse(currentSite!.latitude ?? '') ?? 0.0,
+                        double.tryParse(currentSite!.longitude ?? '') ?? 0.0,
+                      ),
+                      radius: currentSite!.radius ?? 0.0,
+                      strokeWidth: 2,
+                      strokeColor: const Color(0xFF6EA8FF),
+                      fillColor:
+                          const Color(0xFF6EA8FF).withValues(alpha: 0.18),
+                    )
+                  }
+                : {},
+          ),
+          Positioned(
+            right: 14,
+            bottom: 14,
+            child: Material(
+              color: Colors.white,
+              shape: const CircleBorder(),
+              elevation: 5,
+              child: IconButton(
+                tooltip: 'Fit map',
+                icon: const Icon(Icons.my_location, color: Color(0xFF5C6575)),
+                onPressed: _fitMapToContent,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMapShell({required Widget child}) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(15),
-        child: GoogleMap(
-          onMapCreated: _onMapCreated,
-          initialCameraPosition: CameraPosition(
-            target: _mapCenter!,
-            zoom: _mapZoom,
-          ),
-          markers: _markers,
-          mapType: MapType.normal,
-          zoomControlsEnabled: false,
-          myLocationEnabled: false,
-          circles: currentSite != null
-              ? {
-                  Circle(
-                    circleId: CircleId('geofence_${currentSite!.siteId}'),
-                    center: LatLng(
-                      double.tryParse(currentSite!.latitude ?? '') ?? 0.0,
-                      double.tryParse(currentSite!.longitude ?? '') ?? 0.0,
-                    ),
-                    radius: currentSite!.radius ?? 0.0,
-                    strokeWidth: 2,
-                    strokeColor: Colors.blueAccent.withValues(alpha: 0.6),
-                    fillColor: Colors.blue.withValues(alpha: 0.15),
-                  )
-                }
-              : {},
-        ),
+        borderRadius: BorderRadius.circular(18),
+        child: child,
       ),
     );
   }
 
   Widget _buildEmployeeListSection() {
     return Container(
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
       decoration: BoxDecoration(
         color: const Color.fromARGB(255, 255, 255, 255).withValues(alpha: 0.95),
         borderRadius: const BorderRadius.only(
