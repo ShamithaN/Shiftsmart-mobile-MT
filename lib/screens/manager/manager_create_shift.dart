@@ -135,13 +135,16 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
       if (_selectedDates.isNotEmpty) {
         formattedDate = DateFormat('MMM dd').format(_selectedDates.first);
       }
-    } catch (e) {}
+    } catch (e) {
+      debugPrint("Unable to format selected shift date: $e");
+    }
 
     String newTitle = selectedJob.title;
     if (formattedDate.isNotEmpty) newTitle += " - $formattedDate";
     if (start.isNotEmpty && end.isNotEmpty) newTitle += " $start-$end";
-    if (matchingSite.siteName.isNotEmpty)
+    if (matchingSite.siteName.isNotEmpty) {
       newTitle += " (${matchingSite.siteName})";
+    }
 
     setState(() {
       _titleController.text = newTitle;
@@ -187,23 +190,7 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
     return "${names.take(2).join(", ")} +${names.length - 2} more";
   }
 
-  // --- Date & Time Pickers ---
-  Future<void> _selectDate(
-      BuildContext context, TextEditingController controller) async {
-    DateTime? pickedDate = await showDatePicker(
-        context: context,
-        initialDate: DateTime.tryParse(controller.text) ?? DateTime.now(),
-        firstDate: DateTime(2000),
-        lastDate: DateTime(2100),
-        builder: datePickerThemeBuilder);
-    if (pickedDate != null) {
-      setState(() {
-        controller.text = DateFormat('yyyy-MM-dd').format(pickedDate);
-      });
-      _updateAutoShiftName();
-    }
-  }
-
+  // --- Time Picker ---
   Future<void> _selectTime(
       BuildContext context, TextEditingController controller) async {
     // Parse current text to set initial time in picker
@@ -214,7 +201,9 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
         initialTime =
             TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
       }
-    } catch (e) {}
+    } catch (e) {
+      debugPrint("Unable to parse initial shift time: $e");
+    }
 
     final TimeOfDay? picked = await showTimePicker(
       context: context,
@@ -242,6 +231,25 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
       final s2 = fmt.parse(start2);
       final e2 = fmt.parse(end2);
       return s1.isBefore(e2) && s2.isBefore(e1);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  String _cleanTime(String value) {
+    var time = value.trim();
+    if (time.contains('T')) time = time.split('T').last;
+    if (time.endsWith('Z')) time = time.substring(0, time.length - 1);
+    if (time.contains('.')) time = time.split('.').first;
+    if (time.length >= 8) return time.substring(0, 8);
+    if (RegExp(r'^\d{1,2}:\d{2}$').hasMatch(time)) return "$time:00";
+    return time;
+  }
+
+  bool _isEndTimeAfterStart(String start, String end) {
+    try {
+      final fmt = DateFormat('HH:mm:ss');
+      return fmt.parse(end).isAfter(fmt.parse(start));
     } catch (e) {
       return false;
     }
@@ -303,12 +311,38 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
       return;
     }
 
-    if (_isSubmitting) return; // Prevent double taps
+    if (_selectedEmptIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please select at least one employee")));
+      return;
+    }
 
-    setState(() => _isSubmitting = true);
+    if (_titleController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please enter a shift name")));
+      return;
+    }
+
+    if (_isSubmitting) return; // Prevent double taps
 
     final start = _starttimecontroller.text.trim();
     final end = _endtimecontroller.text.trim();
+    final timeOnlyStart = _cleanTime(start);
+    final timeOnlyEnd = _cleanTime(end);
+
+    if (timeOnlyStart.isEmpty || timeOnlyEnd.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please select start and end times")));
+      return;
+    }
+
+    if (!_isEndTimeAfterStart(timeOnlyStart, timeOnlyEnd)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("End time must be later than start time")));
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
 
     // Check Leaves & Overlaps for ALL selected dates
     for (final date in _selectedDates) {
@@ -338,7 +372,8 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
 
           if (DateFormat('yyyy-MM-dd').format(shift.date) == dateStr &&
               shift.assignedEmployeeIds.contains(empId)) {
-            if (isOverlapping(shift.startTime, shift.endTime, start, end)) {
+            if (isOverlapping(
+                shift.startTime, shift.endTime, timeOnlyStart, timeOnlyEnd)) {
               conflictingAssignments[empId] = shift.shiftId;
             }
           }
@@ -386,44 +421,28 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
     for (final date in _selectedDates) {
       final dateStr = DateFormat('yyyy-MM-dd').format(date);
       final String taskNameForThisDate = _selectedDates.length > 1
-          ? "${selectedJob.title} - ${DateFormat('MMM dd').format(date)} ${start.split(':').take(2).join(':')}-${end.split(':').take(2).join(':')} (${matchingSite.siteName})"
+          ? "${selectedJob.title} - ${DateFormat('MMM dd').format(date)} ${timeOnlyStart.split(':').take(2).join(':')}-${timeOnlyEnd.split(':').take(2).join(':')} (${matchingSite.siteName})"
           : _titleController.text.trim();
-
-      // Ensure time strings are merged with the date to create valid ISO-8601 DateTimes format expected by C#
-      // Ensure we only have the time part like "07:00:00" before appending
-      // Ensure we only have the time part like "07:00:00" before appending
-      String cleanTime(String t) {
-        if (t.contains('T')) t = t.split('T').last;
-        if (t.endsWith('Z')) t = t.replaceAll('Z', '');
-        return t.length == 5 ? "$t:00" : t;
-      }
-
-      final timeOnlyStart = cleanTime(start);
-      final timeOnlyEnd = cleanTime(end);
 
       final isUpdate = widget.shift != null && _selectedDates.length == 1;
 
-      // Create Request needs full ISO string (DateTime). Update Request needs clean string (TimeSpan).
-      final startTimeForPayload =
-          isUpdate ? timeOnlyStart : "${dateStr}T${timeOnlyStart}Z";
-      final endTimeForPayload =
-          isUpdate ? timeOnlyEnd : "${dateStr}T${timeOnlyEnd}Z";
-
       final Map<String, dynamic> shiftData = {
-        "ShiftId": widget.shift?.shiftId ?? 0,
         "ProjectId": selectedJob.projectId,
         "JobId": _selectedJobId,
         "SiteId": selectedJob.siteId,
         "TaskName": taskNameForThisDate,
         "Date": "${dateStr}T00:00:00Z",
-        "StartDate": "${dateStr}T00:00:00Z",
         "IsRecurring": false,
-        "StartTime": startTimeForPayload,
-        "EndTime": endTimeForPayload,
+        "StartTime": timeOnlyStart,
+        "EndTime": timeOnlyEnd,
         "Location": matchingSite.siteName,
         "Status": isUpdate ? widget.shift!.status : "Scheduled",
         "AssignedEmployeeIds": _selectedEmptIds,
       };
+
+      if (isUpdate) {
+        shiftData["ShiftId"] = widget.shift!.shiftId;
+      }
 
       // Log the refined payload for final verification
       debugPrint(" Submitting payload for $dateStr: ${jsonEncode(shiftData)}");
@@ -443,7 +462,7 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
           // Send Notifications
           for (var empId in _selectedEmptIds) {
             await _notificationService.sendShiftNotification(
-                empId, "New shift assigned: $dateStr at $start");
+                empId, "New shift assigned: $dateStr at $timeOnlyStart");
           }
         } else {
           anyFailure = true;

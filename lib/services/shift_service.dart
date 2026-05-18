@@ -231,10 +231,11 @@ class ShiftService {
   // 9. Create New Shift
   Future<bool> addShift(Map<String, dynamic> shiftData) async {
     final String url = '$baseUrl/shift/create?code=$shiftCreateKey';
+    final createPayload = _normalizeCreatePayload(shiftData);
 
     try {
       final response =
-          await _apiClient.post(url, body: shiftData, useAuth: true);
+          await _apiClient.post(url, body: createPayload, useAuth: true);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return true;
@@ -247,6 +248,32 @@ class ShiftService {
       debugPrint('Exception in addShift: $e');
       return false;
     }
+  }
+
+  Map<String, dynamic> _normalizeCreatePayload(Map<String, dynamic> shiftData) {
+    final payload = Map<String, dynamic>.from(shiftData);
+
+    if (payload['ShiftId'] == null || payload['ShiftId'] == 0) {
+      payload.remove('ShiftId');
+    }
+    payload.remove('StartDate');
+
+    final startTime = _timeOnly(payload['StartTime']);
+    final endTime = _timeOnly(payload['EndTime']);
+    if (startTime.isNotEmpty) payload['StartTime'] = startTime;
+    if (endTime.isNotEmpty) payload['EndTime'] = endTime;
+
+    return payload;
+  }
+
+  String _timeOnly(dynamic value) {
+    var time = value?.toString().trim() ?? '';
+    if (time.contains('T')) time = time.split('T').last;
+    if (time.endsWith('Z')) time = time.substring(0, time.length - 1);
+    if (time.contains('.')) time = time.split('.').first;
+    if (time.length >= 8) return time.substring(0, 8);
+    if (RegExp(r'^\d{1,2}:\d{2}$').hasMatch(time)) return "$time:00";
+    return time;
   }
 
   // 10. Update Existing Shift
