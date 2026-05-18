@@ -426,15 +426,18 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
 
       final isUpdate = widget.shift != null && _selectedDates.length == 1;
 
+      // The Date string comes from your loop (e.g. 2026-05-19)
       final Map<String, dynamic> shiftData = {
         "ProjectId": selectedJob.projectId,
         "JobId": _selectedJobId,
         "SiteId": selectedJob.siteId,
         "TaskName": taskNameForThisDate,
-        "Date": "${dateStr}T00:00:00Z",
+        "StartDate": "${dateStr}T00:00:00Z", // Changed to generic StartDate
         "IsRecurring": false,
-        "StartTime": timeOnlyStart,
-        "EndTime": timeOnlyEnd,
+        "StartTime":
+            "${dateStr}T${timeOnlyStart}Z", // Formats securely as full DateTime
+        "EndTime":
+            "${dateStr}T${timeOnlyEnd}Z", // Formats securely as full DateTime
         "Location": matchingSite.siteName,
         "Status": isUpdate ? widget.shift!.status : "Scheduled",
         "AssignedEmployeeIds": _selectedEmptIds,

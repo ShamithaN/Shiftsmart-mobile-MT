@@ -228,66 +228,72 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      drawer: const Sidenav(currentScreen: 'LocationTracking'),
-      backgroundColor: const Color(0xFF1C2230),
-      resizeToAvoidBottomInset: false,
-      // 1. Extend body to allow content under the transparent navbar
-      extendBodyBehindAppBar: true,
-      // 2. Hide default back button (we add our own below)
-      appBar: const Uppernavbar(showBackButton: false),
-      body: Stack(
-        children: [
-          const Positioned.fill(child: Background()),
-          SafeArea(
-            child: Column(
-              children: [
-                // 3. Add spacing for the transparent AppBar
-                const SizedBox(height: 70),
-                Search(onQueryChanged: onQueryChanged),
-                Flexible(
-                  flex: 5,
-                  child: _buildMapSection(),
-                ),
-                Flexible(
-                  flex: 3,
-                  child: _buildEmployeeListSection(),
-                ),
-              ],
-            ),
-          ),
+    return Stack(
+      // 1. Add an outer Stack
+      children: [
+        const Positioned.fill(
+            child: Background()), // 2. Put Background at the very bottom
+        Scaffold(
+          backgroundColor:
+              Colors.transparent, // 3. Make the Scaffold transparent
 
-          // 4. THE CUSTOM BACK BUTTON (Bubble Style)
-          Positioned(
-            top: 50, // Aligns with the AppBar area
-            left: 15,
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                width: 45,
-                height: 45,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1C2230).withValues(alpha: 0.85),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white24, width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.4),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+          drawer: const Sidenav(currentScreen: 'LocationTracking'),
+          extendBodyBehindAppBar: true,
+          appBar: const Uppernavbar(showBackButton: false),
+          body: Stack(
+            children: [
+              // NOTE: Remove the Background() widget from here
+
+              SafeArea(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 70),
+                    Search(onQueryChanged: onQueryChanged),
+                    Expanded(
+                      flex: 2,
+                      child: _buildMapSection(),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: _buildEmployeeListSection(),
                     ),
                   ],
                 ),
-                child: const Icon(
-                  Icons.arrow_back_ios_new,
-                  color: Colors.white,
-                  size: 20,
+              ),
+
+              // 4. THE CUSTOM BACK BUTTON (Bubble Style)
+              Positioned(
+                top: 50, // Aligns with the AppBar area
+                left: 15,
+                child: GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    width: 45,
+                    height: 45,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1C2230).withValues(alpha: 0.85),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white24, width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.arrow_back_ios_new,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

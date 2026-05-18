@@ -62,21 +62,26 @@ class SiteService {
   }
 
   // --- UPDATE SITE ---
+  // --- UPDATE SITE ---
   Future<bool> updateSite(int id, Map<String, dynamic> siteData) async {
     final updateUrl = '$baseUrl/site/update/$id?code=$siteUpdateKey';
-    siteData['siteId'] = id;
+
+    // FIX 1: Send the exact capitalized key expected by your C# backend
+    siteData['SiteId'] = id;
 
     try {
       final response = await _apiClient.put(
         updateUrl,
         body: siteData,
-        useAuth: false,
+        // FIX 2: Set useAuth to true so AuthGuard won't reject the request
+        useAuth: true,
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return true;
       } else {
-        debugPrint('Failed to update site: ${response.body}');
+        debugPrint(
+            'Failed to update site: ${response.statusCode} - ${response.body}');
         return false;
       }
     } catch (e) {
@@ -113,7 +118,8 @@ class SiteService {
     debugPrint(" SiteService: Fetching all sites from $url");
 
     try {
-      final response = await _apiClient.get(url, useAuth: true, showDialog: false);
+      final response =
+          await _apiClient.get(url, useAuth: true, showDialog: false);
       debugPrint(" SiteService Status: ${response.statusCode}");
       debugPrint(
           " SiteService Body Snippet: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}");
@@ -164,6 +170,7 @@ class SiteService {
       return [];
     }
   }
+
   // --- DELETE SITE ---
   Future<bool> deleteSite(int id) async {
     final url = '$baseUrl/site/delete/$id?code=$siteDeleteKey';

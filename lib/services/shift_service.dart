@@ -256,13 +256,8 @@ class ShiftService {
     if (payload['ShiftId'] == null || payload['ShiftId'] == 0) {
       payload.remove('ShiftId');
     }
-    payload.remove('StartDate');
 
-    final startTime = _timeOnly(payload['StartTime']);
-    final endTime = _timeOnly(payload['EndTime']);
-    if (startTime.isNotEmpty) payload['StartTime'] = startTime;
-    if (endTime.isNotEmpty) payload['EndTime'] = endTime;
-
+    // Send payload intact to preserve valid ISODate formatting
     return payload;
   }
 

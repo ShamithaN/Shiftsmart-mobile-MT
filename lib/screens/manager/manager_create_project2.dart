@@ -48,13 +48,21 @@ class _Managercreateproject2State extends State<Managercreateproject2> {
     enableFullScreen();
     fetchCompanies().then((_) {
       if (widget.project != null) {
-        _startdateController.text = _dateOnly(widget.project!.startDate);
-        _enddateController.text = _dateOnly(widget.project!.endDate);
+        // Safe check for null dates
+        if (widget.project!.startDate.isNotEmpty) {
+          _startdateController.text = _dateOnly(widget.project!.startDate);
+        }
+        if (widget.project!.endDate.isNotEmpty) {
+          _enddateController.text = _dateOnly(widget.project!.endDate);
+        }
 
-        // Find the company ID that matches the company name
+        // Find the company ID that matches the company name (case-insensitive & trimmed)
         final existingCom = allCom
-            .where((c) => c.name == widget.project!.companyName)
+            .where((c) =>
+                c.name.trim().toLowerCase() ==
+                widget.project!.companyName.trim().toLowerCase())
             .firstOrNull;
+
         if (existingCom != null) {
           setState(() {
             _selectedComId = existingCom.id;
