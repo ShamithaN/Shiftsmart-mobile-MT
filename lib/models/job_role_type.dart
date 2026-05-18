@@ -29,7 +29,9 @@ class JobRoleType {
 
     return JobRoleType(
       // Safely fall back through possible backend key names and default to 0
-      id: json['JobRoleTypeId'] ?? json['jobRoleTypeId'] ?? json['id'] ?? 0,
+      id: _readInt(
+              json['JobRoleTypeId'] ?? json['jobRoleTypeId'] ?? json['id']) ??
+          0,
 
       // Safely fall back through possible backend key names and default to 'Unknown'
       name: json['JobRoleName'] ??
@@ -47,5 +49,11 @@ class JobRoleType {
       'JobRoleName': name,
       'RequiredDocuments': requiredDocuments.join(','),
     };
+  }
+
+  static int? _readInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '');
   }
 }

@@ -60,74 +60,66 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
 
   // --- 1. ROBUST INITIALIZATION LOGIC ---
   Future<void> _initializeData() async {
+    final existingJob = widget.existingJob;
+    if (existingJob != null) {
+      _populateExistingJobFields(existingJob);
+    }
+
+    final projectsFuture = ProjectService().fetchAllProjects().catchError((e) {
+      debugPrint("Error loading projects for job form: $e");
+      return <Project>[];
+    });
+    final sitesFuture = SiteService().fetchAllSites().catchError((e) {
+      debugPrint("Error loading sites for job form: $e");
+      return <Site>[];
+    });
+    final roleTypesFuture = JobService().fetchJobRoleType().catchError((e) {
+      debugPrint("Error loading job role types for job form: $e");
+      return <JobRoleType>[];
+    });
+
     try {
-      // Fetch all necessary data first
-      final results = await Future.wait([
-        ProjectService().fetchAllProjects(),
-        SiteService().fetchAllSites(),
-        JobService().fetchJobRoleType(),
-      ]);
-
-      final allProjects = results[0] as List<Project>;
-      final allSites = results[1] as List<Site>;
-      final allJobRoleTypes = results[2] as List<JobRoleType>;
-
+      final allProjects = await projectsFuture;
+      final allSites = await sitesFuture;
+      final allJobRoleTypes = await roleTypesFuture;
       // Variables to hold initial selections
       Project? initialProject;
       Site? initialSite;
       List<JobRole> initialRoles = [];
 
       // If Editing, populate data
-      if (widget.existingJob != null) {
-        final job = widget.existingJob!;
-
-        // Fill Text Fields
-        _jobNameController.text = job.title;
-        _descriptionController.text = job.description;
-        _startDateController.text = job.startDate.split('T')[0];
-        _endDateController.text = job.jobDueDate.split('T')[0];
-
+      if (existingJob != null) {
         // Find Project (Safe check)
         try {
-          initialProject =
-              allProjects.firstWhere((p) => p.projectId == job.projectId);
+          initialProject = allProjects
+              .firstWhere((p) => p.projectId == existingJob.projectId);
         } catch (e) {
-          debugPrint("Warning: Project ID ${job.projectId} not found in list.");
+          debugPrint(
+              "Warning: Project ID ${existingJob.projectId} not found in list.");
         }
 
         // Find Site (Safe check)
         if (initialProject != null) {
           try {
             initialSite = allSites.firstWhere((s) =>
-                s.siteId == job.siteId &&
+                s.siteId == existingJob.siteId &&
                 s.projectId == initialProject!.projectId);
           } catch (e) {
             debugPrint(
-                "Warning: Site ID ${job.siteId} not found for this project.");
+                "Warning: Site ID ${existingJob.siteId} not found for this project.");
           }
         }
 
         // Fetch & Populate Roles
-        if (job.jobId != 0) {
+        initialRoles =
+            _withRoleTypeNames(existingJob.jobRoles, allJobRoleTypes);
+        if (existingJob.jobId != 0) {
           try {
             final jobRolesFromServer =
-                await JobService().fetchJobRole(job.jobId);
-            for (final role in jobRolesFromServer) {
-              try {
-                // Find matching role type name
-                final roleType = allJobRoleTypes
-                    .firstWhere((t) => t.id == role.jobRoleTypeId);
-
-                initialRoles.add(JobRole(
-                  jobRoleTypeId: role.jobRoleTypeId,
-                  estimatedTime: role.estimatedTime,
-                  numberOfRoles: role.numberOfRoles,
-                  notes: role.notes,
-                  roleName: roleType.name,
-                ));
-              } catch (e) {
-                // Role type mismatch, skip adding this role to UI
-              }
+                await JobService().fetchJobRole(existingJob.jobId);
+            if (jobRolesFromServer.isNotEmpty) {
+              initialRoles =
+                  _withRoleTypeNames(jobRolesFromServer, allJobRoleTypes);
             }
           } catch (e) {
             debugPrint("Error fetching existing job roles: $e");
@@ -161,6 +153,38 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
         );
       }
     }
+  }
+
+  void _populateExistingJobFields(Job job) {
+    _jobNameController.text = job.title;
+    _descriptionController.text = job.description;
+    _startDateController.text = _dateOnly(job.startDate);
+    _endDateController.text = _dateOnly(job.jobDueDate);
+  }
+
+  String _dateOnly(String value) {
+    if (value.trim().isEmpty) return '';
+    return value.split('T').first.split(' ').first;
+  }
+
+  List<JobRole> _withRoleTypeNames(
+    List<JobRole> roles,
+    List<JobRoleType> roleTypes,
+  ) {
+    return roles.map((role) {
+      final matchingType = roleTypes.where((t) => t.id == role.jobRoleTypeId);
+      final roleName = matchingType.isNotEmpty
+          ? matchingType.first.name
+          : (role.roleName.isNotEmpty ? role.roleName : 'Unknown Role');
+
+      return JobRole(
+        jobRoleTypeId: role.jobRoleTypeId,
+        estimatedTime: role.estimatedTime,
+        numberOfRoles: role.numberOfRoles,
+        notes: role.notes,
+        roleName: roleName,
+      );
+    }).toList();
   }
 
   // --- Helper: Get Sites for current Project ---
@@ -649,6 +673,70 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
 
   // --- UI Helper: Role Card ---
   Widget _buildRoleCard(int index, JobRole role) {
+    if (_jobRoleTypes.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2E3545),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    role.roleName.isNotEmpty ? role.roleName : 'Job Role',
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => _removeJobRole(index),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.close,
+                        color: Colors.redAccent, size: 18),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildCardField(
+                    label: "Count:",
+                    initialValue: role.numberOfRoles,
+                    onChanged: (v) {
+                      setState(
+                          () => _selectedJobRoles[index].numberOfRoles = v);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: _buildCardField(
+                    label: "Time(Hrs):",
+                    initialValue: role.estimatedTime,
+                    onChanged: (v) {
+                      setState(
+                          () => _selectedJobRoles[index].estimatedTime = v);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
     // Ensure we have a valid role type to show in dropdown
     final currentRoleType = _jobRoleTypes.firstWhere(
       (type) => type.id == role.jobRoleTypeId,

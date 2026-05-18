@@ -17,11 +17,19 @@ class JobRole {
   // Factory constructor to create JobRole from JSON
   factory JobRole.fromJson(Map<String, dynamic> json) {
     return JobRole(
-      jobRoleTypeId: json['jobRoleTypeId'] ?? 0,
-      estimatedTime: json['estimatedTime'] ?? 8,
-      numberOfRoles: json['numberOfRoles'] ?? 1,
-      notes: json['notes'] ?? '',
-      roleName: json['roleName'] ?? '',
+      jobRoleTypeId:
+          _readInt(json['JobRoleTypeId'] ?? json['jobRoleTypeId']) ?? 0,
+      estimatedTime:
+          _readInt(json['EstimatedTime'] ?? json['estimatedTime']) ?? 8,
+      numberOfRoles:
+          _readInt(json['NumberOfRoles'] ?? json['numberOfRoles']) ?? 1,
+      notes: (json['Notes'] ?? json['notes'] ?? '').toString(),
+      roleName: (json['RoleName'] ??
+              json['JobRoleName'] ??
+              json['roleName'] ??
+              json['jobRoleName'] ??
+              '')
+          .toString(),
     );
   }
 
@@ -31,7 +39,13 @@ class JobRole {
       'jobRoleTypeId': jobRoleTypeId,
       'estimatedTime': estimatedTime,
       'numberOfRoles': numberOfRoles,
-      'notes': notes ?? '',
+      'notes': notes,
     };
+  }
+
+  static int? _readInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '');
   }
 }

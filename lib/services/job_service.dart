@@ -41,8 +41,9 @@ class JobService {
 
   void _debugEnv() {
     if (baseUrl.isEmpty) debugPrint(" JobService: JOB_BASE_URL is missing");
-    if (jobGetAllKey.isEmpty)
+    if (jobGetAllKey.isEmpty) {
       debugPrint(" JobService: JOB_GET_ALL_KEY is missing");
+    }
     // ... adding more checks if needed, but the ?? "" is already safer
   }
 
@@ -174,17 +175,23 @@ class JobService {
     final url = '$baseUrl/job/roles/$jobId?code=$jobRoleBreakdownByJobKey';
     try {
       // FIX: Use ApiClient with useAuth: true
-      final response = await _apiClient.get(url, useAuth: true);
+      final response =
+          await _apiClient.get(url, useAuth: true, showDialog: false);
 
       if (response.statusCode == 200) {
-        final List<dynamic> jsonData = jsonDecode(response.body);
-        return jsonData.map((e) => JobRole.fromJson(e)).toList();
+        final jsonData = jsonDecode(response.body);
+        final rolesData = _extractList(jsonData);
+        return rolesData
+            .whereType<Map<String, dynamic>>()
+            .map((e) => JobRole.fromJson(e))
+            .toList();
       } else {
-        throw Exception("Failed to fetch job roles");
+        debugPrint("Failed to fetch job roles. Status: ${response.statusCode}");
+        return [];
       }
     } catch (e) {
-      debugPrint("Error fetching job roles");
-      rethrow;
+      debugPrint("Error fetching job roles: $e");
+      return [];
     }
   }
 
@@ -244,15 +251,33 @@ class JobService {
           await _apiClient.get(url, useAuth: true, showDialog: false);
 
       if (response.statusCode == 200) {
-        final List<dynamic> jsonData = jsonDecode(response.body);
-        return jsonData.map((e) => JobRoleType.fromJson(e)).toList();
+        final jsonData = jsonDecode(response.body);
+        final roleTypesData = _extractList(jsonData);
+        return roleTypesData
+            .whereType<Map<String, dynamic>>()
+            .map((e) => JobRoleType.fromJson(e))
+            .toList();
       } else {
-        throw Exception("Failed to fetch job role types");
+        debugPrint(
+            "Failed to fetch job role types. Status: ${response.statusCode}");
+        return [];
       }
     } catch (e) {
-      debugPrint("Error fetching data");
-      rethrow;
+      debugPrint("Error fetching job role types: $e");
+      return [];
     }
+  }
+
+  List<dynamic> _extractList(dynamic jsonData) {
+    if (jsonData is List) return jsonData;
+    if (jsonData is Map<String, dynamic>) {
+      for (final key in ['data', 'items', 'results', 'value']) {
+        final value = jsonData[key];
+        if (value is List) return value;
+      }
+    }
+    debugPrint("Unexpected list response format: ${jsonData.runtimeType}");
+    return [];
   }
 
   // --- CREATE JOB ROLE TYPE ---
