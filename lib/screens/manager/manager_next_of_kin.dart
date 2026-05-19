@@ -9,6 +9,7 @@ import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/utils/profile_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/bottomnavbar.dart';
+import 'package:shiftsmart/widgets/country_code_phone_field.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
 import 'package:shiftsmart/widgets/gradient_button.dart';
 import 'package:shiftsmart/widgets/success_dialog.dart';
@@ -166,37 +167,70 @@ class _ManagerNextOfKinScreenState extends State<ManagerNextOfKinScreen> {
   ) {
     final editedProfile = widget.profileData ?? const <String, dynamic>{};
 
-    String value(String key) {
-      final editedValue = editedProfile[key];
+    String value(String key, [String? apiKey]) {
+      final editedValue = editedProfile[key] ?? editedProfile[apiKey];
       if (editedValue != null && editedValue.toString().trim().isNotEmpty) {
         return editedValue.toString().trim();
       }
-      return (userProfile[key] ?? '').toString().trim();
+      final profileValue = userProfile[key];
+      if (profileValue != null && profileValue.toString().trim().isNotEmpty) {
+        return profileValue.toString().trim();
+      }
+      return (userProfile[apiKey] ?? '').toString().trim();
     }
 
     return {
       'employeeId': employeeId,
-      'firstName': value('firstName'),
-      'middleName': value('middleName'),
-      'lastName': value('lastName'),
-      'gender': value('gender'),
-      'email': value('email'),
-      'mobileNumber': value('mobileNumber'),
-      'dateOfBirth': value('dateOfBirth'),
-      'street': value('street'),
-      'city': value('city'),
-      'state': value('state'),
-      'postalCode': value('postalCode'),
-      'country': value('country'),
-      'bankAccountName': value('bankAccountName'),
-      'bankBSB': value('bankBSB'),
-      'bankAccountNumber': value('bankAccountNumber'),
-      'bankName': value('bankName'),
-      'employmentStatus': value('employmentStatus').isEmpty
+      'firstName': value('firstName', 'FirstName'),
+      'middleName': value('middleName', 'MiddleName'),
+      'lastName': value('lastName', 'LastName'),
+      'gender': value('gender', 'Gender'),
+      'email': value('email', 'Email'),
+      'mobileNumber': value('mobileNumber', 'MobileNumber'),
+      'dateOfBirth': _dateOnly(value('dateOfBirth', 'DateOfBirth')),
+      'street': value('street', 'Street'),
+      'city': value('city', 'City'),
+      'state': value('state', 'State'),
+      'postalCode': value('postalCode', 'PostalCode'),
+      'country': value('country', 'Country'),
+      'bankAccountName': value('bankAccountName', 'BankAccountName'),
+      'bankBSB': value('bankBSB', 'BankBSB'),
+      'bankAccountNumber': value('bankAccountNumber', 'BankAccountNumber'),
+      'bankName': value('bankName', 'BankName'),
+      'profilePicture': value('profilePicture', 'ProfilePicture'),
+      'employmentStatus': value('employmentStatus', 'EmploymentStatus').isEmpty
           ? 'Active'
-          : value('employmentStatus'),
-      'jobRole': value('jobRole'),
+          : value('employmentStatus', 'EmploymentStatus'),
+      'jobRole': value('jobRole', 'JobRole'),
     };
+  }
+
+  String _dateOnly(String value) {
+    final text = value.trim();
+    return text.contains('T') ? text.split('T').first : text;
+  }
+
+  String? _validateRequiredProfile(Map<String, dynamic> profile) {
+    final requiredFields = <String, String>{
+      'firstName': 'First Name',
+      'lastName': 'Last Name',
+      'gender': 'Gender',
+      'email': 'Email',
+      'mobileNumber': 'Phone Number',
+      'dateOfBirth': 'Date of Birth',
+      'street': 'Street Address',
+      'city': 'City/Suburb',
+      'country': 'Country',
+      'jobRole': 'Job Role',
+    };
+
+    for (final entry in requiredFields.entries) {
+      if ((profile[entry.key] ?? '').toString().trim().isEmpty) {
+        return '${entry.value} is required. Please complete your profile first.';
+      }
+    }
+
+    return null;
   }
 
   List<Map<String, dynamic>> _nextOfKinPayload(int employeeId) {
@@ -241,6 +275,12 @@ class _ManagerNextOfKinScreenState extends State<ManagerNextOfKinScreen> {
 
       final profileData =
           _profilePayloadFrom(userProvider.userProfile, employeeId);
+      final profileValidationError = _validateRequiredProfile(profileData);
+      if (profileValidationError != null) {
+        _showValidationError(profileValidationError);
+        return;
+      }
+
       final nextOfKins = _nextOfKinPayload(employeeId);
 
       final error = await _profileService.updateProfile(
@@ -397,8 +437,12 @@ class _ManagerNextOfKinScreenState extends State<ManagerNextOfKinScreen> {
         const SizedBox(height: 10),
         _buildField('Full Name', c.nameController),
         _buildField('Relationship', c.relationshipController),
-        _buildField('Mobile Number', c.phoneController,
-            keyboardType: TextInputType.phone),
+        CountryCodePhoneField(
+          label: 'Mobile Number',
+          controller: c.phoneController,
+          labelFontSize: 14,
+          fillColor: Colors.white.withValues(alpha: 0.15),
+        ),
         _buildField('Email', c.emailController,
             keyboardType: TextInputType.emailAddress),
         _buildField('Address', c.addressController),

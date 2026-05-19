@@ -7,6 +7,7 @@ import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/utils/profile_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/build_profile_avatar.dart';
+import 'package:shiftsmart/widgets/country_code_phone_field.dart';
 import 'package:shiftsmart/widgets/emp_slidenav.dart';
 import 'package:shiftsmart/widgets/gradient_button.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
@@ -58,6 +59,16 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
   void initState() {
     super.initState();
     enableFullScreen();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadLatestProfile();
+    });
+  }
+
+  Future<void> _loadLatestProfile() async {
+    await refreshUserProfileFromBackend(context);
+    if (!mounted) return;
+    _populateFieldsFromUserProvider();
+    _isInitialized = true;
   }
 
   // Load initial data from UserProvider when screen opens
@@ -78,37 +89,62 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
         Provider.of<UserProvider>(context, listen: false).userProfile;
 
     setState(() {
-      _firstNameController.text = userProfile['firstName'] ?? '';
-      _midNameController.text = userProfile['middleName'] ?? '';
-      _lastNameController.text = userProfile['lastName'] ?? '';
-      _genderController.text = userProfile['gender'] ?? '';
-      _phoneController.text = userProfile['mobileNumber'] ?? '';
-      _emailController.text = userProfile['email'] ?? '';
-      
-      // Format Date of Birth: Remove time part (T00:00:00) if present
-      String dob = userProfile['dateOfBirth'] ?? '';
-      if (dob.contains('T')) {
-        dob = dob.split('T')[0];
-      }
-      _dateController.text = dob;
+      _firstNameController.text =
+          _profileText(userProfile, 'firstName', 'FirstName');
+      _midNameController.text =
+          _profileText(userProfile, 'middleName', 'MiddleName');
+      _lastNameController.text =
+          _profileText(userProfile, 'lastName', 'LastName');
+      _genderController.text = _profileText(userProfile, 'gender', 'Gender');
+      _phoneController.text =
+          _profileText(userProfile, 'mobileNumber', 'MobileNumber');
+      _emailController.text = _profileText(userProfile, 'email', 'Email');
+      _dateController.text =
+          _profileDate(userProfile, 'dateOfBirth', 'DateOfBirth');
+      _streetController.text = _profileText(userProfile, 'street', 'Street');
+      _suburbController.text = _profileText(userProfile, 'city', 'City');
+      _stateController.text = _profileText(userProfile, 'state', 'State');
+      _postalController.text =
+          _profileText(userProfile, 'postalCode', 'PostalCode');
+      _countryController.text = _profileText(userProfile, 'country', 'Country');
 
-      _streetController.text = userProfile['street'] ?? '';
-      _suburbController.text = userProfile['city'] ?? '';
-      _stateController.text = userProfile['state'] ?? '';
-      _postalController.text = userProfile['postalCode'] ?? '';
-      _countryController.text = userProfile['country'] ?? '';
-
-      _accountNameController.text = userProfile['bankAccountName'] ?? '';
-      _bsbController.text = userProfile['bankBSB'] ?? '';
-      _accountNumberController.text = userProfile['bankAccountNumber'] ?? '';
-      _bankNameController.text = userProfile['bankName'] ?? '';
-      _jobroleController.text = userProfile['jobRole'] ?? '';
+      _accountNameController.text = _optionalBankValue(
+          _profileText(userProfile, 'bankAccountName', 'BankAccountName'));
+      _bsbController.text =
+          _optionalBankValue(_profileText(userProfile, 'bankBSB', 'BankBSB'));
+      _accountNumberController.text = _optionalBankValue(
+          _profileText(userProfile, 'bankAccountNumber', 'BankAccountNumber'));
+      _bankNameController.text =
+          _optionalBankValue(_profileText(userProfile, 'bankName', 'BankName'));
+      _jobroleController.text = _profileText(userProfile, 'jobRole', 'JobRole');
     });
   }
 
+  String _profileText(Map<String, dynamic> profile, String key, String apiKey) {
+    final normalValue = profile[key];
+    if (normalValue != null && normalValue.toString().trim().isNotEmpty) {
+      return normalValue.toString().trim();
+    }
+    return (profile[apiKey] ?? '').toString().trim();
+  }
 
+  String _profileDate(Map<String, dynamic> profile, String key, String apiKey) {
+    final value = _profileText(profile, key, apiKey);
+    return value.contains('T') ? value.split('T').first : value;
+  }
 
-  //  INLINE VALIDATION 
+  String _optionalBankValue(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    return text.toUpperCase() == 'N/A' ? '' : text;
+  }
+
+  String _currentProfilePicture() {
+    final userProfile =
+        Provider.of<UserProvider>(context, listen: false).userProfile;
+    return _profileText(userProfile, 'profilePicture', 'ProfilePicture');
+  }
+
+  //  INLINE VALIDATION
   /// Returns true if all fields in the current step are valid.
   bool _validateStep() {
     final errors = <String, String>{};
@@ -130,7 +166,8 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
         errors['gender'] = 'Gender is required.';
       }
 
-      final phone = _phoneController.text.trim().replaceAll(RegExp(r'[\s\-()]'), '');
+      final phone =
+          _phoneController.text.trim().replaceAll(RegExp(r'[\s\-()]'), '');
       if (phone.isEmpty) {
         errors['phone'] = 'Phone Number is required.';
       } else if (!RegExp(r'^\+?[1-9]\d{6,14}$').hasMatch(phone))
@@ -139,8 +176,8 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
       final email = _emailController.text.trim();
       if (email.isEmpty) {
         errors['email'] = 'Email is required.';
-      } else if (!RegExp(r'^[\w._%+\-]+@[\w.\-]+\.[a-zA-Z]{2,}$').hasMatch(email))
-        errors['email'] = 'Enter a valid email address.';
+      } else if (!RegExp(r'^[\w._%+\-]+@[\w.\-]+\.[a-zA-Z]{2,}$')
+          .hasMatch(email)) errors['email'] = 'Enter a valid email address.';
 
       final dob = _dateController.text.trim();
       if (dob.isEmpty) {
@@ -165,22 +202,17 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
         errors['country'] = 'Country is required.';
       }
       final postal = _postalController.text.trim();
-      if (postal.isNotEmpty && !RegExp(r'^[A-Za-z0-9\s\-]{2,10}$').hasMatch(postal)) {
+      if (postal.isNotEmpty &&
+          !RegExp(r'^[A-Za-z0-9\s\-]{2,10}$').hasMatch(postal)) {
         errors['postal'] = 'Enter a valid Postal/ZIP code.';
       }
     }
 
     if (_currentStep == 2) {
-      if (_accountNameController.text.trim().isEmpty) {
-        errors['accountName'] = 'Account Name is required.';
-      }
-      final accNo = _accountNumberController.text.trim();
-      if (accNo.isEmpty) {
-        errors['accountNumber'] = 'Account Number is required.';
-      } else if (!RegExp(r'^[0-9A-Za-z\-]{4,34}$').hasMatch(accNo))
-        errors['accountNumber'] = 'Enter a valid account number (434 chars).';
-      if (_bankNameController.text.trim().isEmpty) {
-        errors['bankName'] = 'Bank Name is required.';
+      final accNo = _optionalBankValue(_accountNumberController.text);
+      if (accNo.isNotEmpty &&
+          !RegExp(r'^[0-9A-Za-z\-]{4,34}$').hasMatch(accNo)) {
+        errors['accountNumber'] = 'Enter a valid account number (4-34 chars).';
       }
       if (_jobroleController.text.trim().isEmpty) {
         errors['jobRole'] = 'Job Role is required.';
@@ -251,10 +283,11 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
       "state": _stateController.text,
       "postalCode": _postalController.text,
       "country": _countryController.text,
-      "bankAccountName": _accountNameController.text,
-      "bankBSB": _bsbController.text,
-      "bankAccountNumber": _accountNumberController.text,
-      "bankName": _bankNameController.text,
+      "bankAccountName": _optionalBankValue(_accountNameController.text),
+      "bankBSB": _optionalBankValue(_bsbController.text),
+      "bankAccountNumber": _optionalBankValue(_accountNumberController.text),
+      "bankName": _optionalBankValue(_bankNameController.text),
+      "profilePicture": _currentProfilePicture(),
       "employmentStatus": "Active",
       "jobRole": _jobroleController.text
     };
@@ -272,24 +305,25 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
   // Builds the profile map from current form fields
   Map<String, dynamic> _buildProfileMap() {
     return {
-      "firstName": _firstNameController.text,
-      "middleName": _midNameController.text,
-      "lastName": _lastNameController.text,
-      "gender": _genderController.text,
-      "email": _emailController.text,
-      "mobileNumber": _phoneController.text,
-      "dateOfBirth": _dateController.text,
-      "street": _streetController.text,
-      "city": _suburbController.text,
-      "state": _stateController.text,
-      "postalCode": _postalController.text,
-      "country": _countryController.text,
-      "bankAccountName": _accountNameController.text,
-      "bankBSB": _bsbController.text,
-      "bankAccountNumber": _accountNumberController.text,
-      "bankName": _bankNameController.text,
+      "firstName": _firstNameController.text.trim(),
+      "middleName": _midNameController.text.trim(),
+      "lastName": _lastNameController.text.trim(),
+      "gender": _genderController.text.trim(),
+      "email": _emailController.text.trim(),
+      "mobileNumber": _phoneController.text.trim(),
+      "dateOfBirth": _dateController.text.trim(),
+      "street": _streetController.text.trim(),
+      "city": _suburbController.text.trim(),
+      "state": _stateController.text.trim(),
+      "postalCode": _postalController.text.trim(),
+      "country": _countryController.text.trim(),
+      "bankAccountName": _optionalBankValue(_accountNameController.text),
+      "bankBSB": _optionalBankValue(_bsbController.text),
+      "bankAccountNumber": _optionalBankValue(_accountNumberController.text),
+      "bankName": _optionalBankValue(_bankNameController.text),
+      "profilePicture": _currentProfilePicture(),
       "employmentStatus": "Active",
-      "jobRole": _jobroleController.text,
+      "jobRole": _jobroleController.text.trim(),
     };
   }
 
@@ -401,24 +435,33 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
           },
         )),
         const SizedBox(height: 20),
-        _buildTextField("First Name", _firstNameController, errorKey: 'firstName'),
+        _buildTextField("First Name", _firstNameController,
+            errorKey: 'firstName'),
         _buildTextField("Middle Name", _midNameController),
         _buildTextField("Last Name", _lastNameController, errorKey: 'lastName'),
         _buildTextField("Gender", _genderController, errorKey: 'gender'),
-        _buildTextField("Phone Number", _phoneController, errorKey: 'phone'),
+        CountryCodePhoneField(
+          label: "Phone Number",
+          controller: _phoneController,
+          errorText: _fieldErrors['phone'],
+          onChanged: (_) {
+            if (_fieldErrors.containsKey('phone')) {
+              setState(() => _fieldErrors.remove('phone'));
+            }
+          },
+        ),
         _buildTextField("Email", _emailController, errorKey: 'email'),
-        _buildTextField("Date of birth", _dateController, 
-            errorKey: 'dob', 
-            readOnly: true, 
-            onTap: _selectDate),
+        _buildTextField("Date of birth", _dateController,
+            errorKey: 'dob', readOnly: true, onTap: _selectDate),
         const Text("Address",
             style: TextStyle(color: Colors.white70, fontSize: 16)),
         const SizedBox(height: 12),
-        _buildSubTextField("Street Address", _streetController, errorKey: 'street'),
+        _buildSubTextField("Street Address", _streetController,
+            errorKey: 'street'),
         _buildSubTextField("Suburb", _suburbController, errorKey: 'suburb'),
         _buildSubTextField("State/Territory", _stateController),
-        _buildSubTextField("Postal Code", _postalController, errorKey: 'postal',
-            keyboardType: TextInputType.number),
+        _buildSubTextField("Postal Code", _postalController,
+            errorKey: 'postal', keyboardType: TextInputType.number),
         _buildSubTextField("Country", _countryController, errorKey: 'country'),
       ],
     );
@@ -430,21 +473,22 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 40),
-        const Text("Bank Details",
+        const Text("Bank Details (Optional)",
             style: TextStyle(color: Colors.white70, fontSize: 16)),
         const SizedBox(height: 12),
-        _buildSubTextField("Account Name", _accountNameController, errorKey: 'accountName'),
+        _buildSubTextField("Account Name", _accountNameController,
+            errorKey: 'accountName'),
         _buildSubTextField("BSB Number", _bsbController,
             keyboardType: TextInputType.number),
         _buildSubTextField("Account Number", _accountNumberController,
             keyboardType: TextInputType.number, errorKey: 'accountNumber'),
-        _buildSubTextField("Bank Name", _bankNameController, errorKey: 'bankName'),
+        _buildSubTextField("Bank Name", _bankNameController,
+            errorKey: 'bankName'),
         const SizedBox(height: 20),
         _buildTextField("Job Role", _jobroleController, errorKey: 'jobRole'),
       ],
     );
   }
-
 
   // --- UI Helper: Main Text Fields ---
   Widget _buildTextField(String label, TextEditingController controller,
@@ -455,13 +499,15 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 16)),
+          Text(label,
+              style: const TextStyle(color: Colors.white70, fontSize: 16)),
           const SizedBox(height: 8),
           Container(
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: error != null ? Colors.redAccent : Colors.white),
+              border: Border.all(
+                  color: error != null ? Colors.redAccent : Colors.white),
             ),
             child: TextField(
               controller: controller,
@@ -474,23 +520,30 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
                 }
               },
               decoration: InputDecoration(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 border: InputBorder.none,
                 hintText: ' $label',
                 hintStyle: const TextStyle(color: Colors.white70),
-                suffixIcon: onTap != null ? const Icon(Icons.calendar_today, color: Colors.white70, size: 20) : null,
+                suffixIcon: onTap != null
+                    ? const Icon(Icons.calendar_today,
+                        color: Colors.white70, size: 20)
+                    : null,
               ),
             ),
           ),
-          if (error != null) ...
-            [
-              const SizedBox(height: 4),
-              Row(children: [
-                const Icon(Icons.error_outline, color: Colors.redAccent, size: 14),
-                const SizedBox(width: 4),
-                Expanded(child: Text(error, style: const TextStyle(color: Colors.redAccent, fontSize: 12))),
-              ]),
-            ],
+          if (error != null) ...[
+            const SizedBox(height: 4),
+            Row(children: [
+              const Icon(Icons.error_outline,
+                  color: Colors.redAccent, size: 14),
+              const SizedBox(width: 4),
+              Expanded(
+                  child: Text(error,
+                      style: const TextStyle(
+                          color: Colors.redAccent, fontSize: 12))),
+            ]),
+          ],
           const SizedBox(height: 12),
         ],
       ),
@@ -514,31 +567,39 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: error != null ? Colors.redAccent : Colors.white),
+              border: Border.all(
+                  color: error != null ? Colors.redAccent : Colors.white),
             ),
             child: TextField(
               controller: controller,
               style: const TextStyle(color: Colors.white),
               keyboardType: keyboardType,
-              onChanged: (_) { if (errorKey != null && _fieldErrors.containsKey(errorKey)) setState(() => _fieldErrors.remove(errorKey)); },
+              onChanged: (_) {
+                if (errorKey != null && _fieldErrors.containsKey(errorKey))
+                  setState(() => _fieldErrors.remove(errorKey));
+              },
               decoration: InputDecoration(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 border: InputBorder.none,
                 hintText: ' $label',
                 hintStyle: const TextStyle(color: Colors.white70),
               ),
             ),
           ),
-          if (error != null) ...
-            [
-              const SizedBox(height: 4),
-              Row(children: [
-                const SizedBox(width: 4),
-                const Icon(Icons.error_outline, color: Colors.redAccent, size: 14),
-                const SizedBox(width: 4),
-                Expanded(child: Text(error, style: const TextStyle(color: Colors.redAccent, fontSize: 12))),
-              ]),
-            ],
+          if (error != null) ...[
+            const SizedBox(height: 4),
+            Row(children: [
+              const SizedBox(width: 4),
+              const Icon(Icons.error_outline,
+                  color: Colors.redAccent, size: 14),
+              const SizedBox(width: 4),
+              Expanded(
+                  child: Text(error,
+                      style: const TextStyle(
+                          color: Colors.redAccent, fontSize: 12))),
+            ]),
+          ],
           const SizedBox(height: 12),
         ],
       ),
