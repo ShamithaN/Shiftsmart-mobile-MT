@@ -10,6 +10,7 @@ import 'package:shiftsmart/screens/login.dart';
 
 import 'package:shiftsmart/screens/employee/employee_profile.dart';
 import 'package:shiftsmart/services/phone_service.dart';
+import 'package:shiftsmart/utils/profile_helper.dart';
 import 'package:shiftsmart/widgets/emp_bottomnavbar.dart';
 import 'package:shiftsmart/services/auth_service.dart';
 import 'package:shiftsmart/widgets/sidenav_profile_header.dart';
@@ -38,6 +39,9 @@ class _EmpSidenavState extends State<EmpSidenav> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      refreshUserProfileFromBackend(context, authService: _authService);
+    });
   }
 
   void _handleLogout() async {

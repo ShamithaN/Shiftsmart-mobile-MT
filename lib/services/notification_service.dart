@@ -237,6 +237,9 @@ class NotificationService {
       final response = await _apiClient.post(url, body: payload, useAuth: true);
       if (response.statusCode == 200) {
         debugPrint("Notification sent to user_$employeeId");
+      } else if (response.statusCode == 404) {
+        debugPrint(
+            "Notification not sent: user_$employeeId has no registered device.");
       } else {
         debugPrint("Failed to send notification: ${response.body}");
       }

@@ -11,6 +11,7 @@ import 'package:shiftsmart/screens/manager/manager_profile.dart';
 import 'package:shiftsmart/screens/manager/manager_settings.dart';
 import 'package:shiftsmart/services/site_service.dart'; // Import SiteService
 import 'package:shiftsmart/services/auth_service.dart';
+import 'package:shiftsmart/utils/profile_helper.dart';
 import 'package:shiftsmart/widgets/bottomnavbar.dart';
 import 'package:shiftsmart/widgets/sidenav_profile_header.dart';
 
@@ -34,6 +35,14 @@ class _SidenavState extends State<Sidenav> {
   final AuthService _authService = AuthService();
   // 1. Initialize SiteService
   final SiteService _siteService = SiteService();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      refreshUserProfileFromBackend(context, authService: _authService);
+    });
+  }
 
   void _handleLogout() async {
     final prefs = await SharedPreferences.getInstance();
