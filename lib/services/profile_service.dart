@@ -18,8 +18,25 @@ class ProfileService {
 
   String _text(dynamic value) => (value ?? '').toString().trim();
 
+  dynamic _firstNonEmpty(dynamic first, dynamic second) {
+    if (first != null && first.toString().trim().isNotEmpty) {
+      return first;
+    }
+    return second;
+  }
+
+  String _optionalBankText(dynamic value) {
+    final text = _text(value);
+    return text.isEmpty ? 'N/A' : text;
+  }
+
   String _phone(dynamic value) =>
       _text(value).replaceAll(RegExp(r'[\s\-()]'), '');
+
+  String _dateOnly(dynamic value) {
+    final text = _text(value);
+    return text.contains('T') ? text.split('T').first : text;
+  }
 
   Map<String, dynamic> _employeePayload(
     Map<String, dynamic> profile,
@@ -27,31 +44,41 @@ class ProfileService {
   ) {
     return {
       'EmployeeId': employeeId,
-      'FirstName': _text(profile['firstName'] ?? profile['FirstName']),
-      'MiddleName': _text(profile['middleName'] ?? profile['MiddleName']),
-      'LastName': _text(profile['lastName'] ?? profile['LastName']),
-      'Gender': _text(profile['gender'] ?? profile['Gender']),
-      'Email': _text(profile['email'] ?? profile['Email']),
-      'MobileNumber':
-          _phone(profile['mobileNumber'] ?? profile['MobileNumber']),
-      'DateOfBirth': _text(profile['dateOfBirth'] ?? profile['DateOfBirth']),
-      'Street': _text(profile['street'] ?? profile['Street']),
-      'City': _text(profile['city'] ?? profile['City']),
-      'State': _text(profile['state'] ?? profile['State']),
-      'PostalCode': _text(profile['postalCode'] ?? profile['PostalCode']),
-      'Country': _text(profile['country'] ?? profile['Country']),
-      'BankAccountName':
-          _text(profile['bankAccountName'] ?? profile['BankAccountName']),
-      'BankBSB': _text(profile['bankBSB'] ?? profile['BankBSB']),
-      'BankAccountNumber':
-          _text(profile['bankAccountNumber'] ?? profile['BankAccountNumber']),
-      'BankName': _text(profile['bankName'] ?? profile['BankName']),
-      'EmploymentStatus': _text(
-                  profile['employmentStatus'] ?? profile['EmploymentStatus'])
+      'FirstName':
+          _text(_firstNonEmpty(profile['firstName'], profile['FirstName'])),
+      'MiddleName':
+          _text(_firstNonEmpty(profile['middleName'], profile['MiddleName'])),
+      'LastName':
+          _text(_firstNonEmpty(profile['lastName'], profile['LastName'])),
+      'Gender': _text(_firstNonEmpty(profile['gender'], profile['Gender'])),
+      'Email': _text(_firstNonEmpty(profile['email'], profile['Email'])),
+      'MobileNumber': _phone(
+          _firstNonEmpty(profile['mobileNumber'], profile['MobileNumber'])),
+      'DateOfBirth': _dateOnly(
+          _firstNonEmpty(profile['dateOfBirth'], profile['DateOfBirth'])),
+      'Street': _text(_firstNonEmpty(profile['street'], profile['Street'])),
+      'City': _text(_firstNonEmpty(profile['city'], profile['City'])),
+      'State': _text(_firstNonEmpty(profile['state'], profile['State'])),
+      'PostalCode':
+          _text(_firstNonEmpty(profile['postalCode'], profile['PostalCode'])),
+      'Country': _text(_firstNonEmpty(profile['country'], profile['Country'])),
+      'BankAccountName': _optionalBankText(_firstNonEmpty(
+          profile['bankAccountName'], profile['BankAccountName'])),
+      'BankBSB': _optionalBankText(
+          _firstNonEmpty(profile['bankBSB'], profile['BankBSB'])),
+      'BankAccountNumber': _optionalBankText(_firstNonEmpty(
+          profile['bankAccountNumber'], profile['BankAccountNumber'])),
+      'BankName': _optionalBankText(
+          _firstNonEmpty(profile['bankName'], profile['BankName'])),
+      'ProfilePicture': _text(
+          _firstNonEmpty(profile['profilePicture'], profile['ProfilePicture'])),
+      'EmploymentStatus': _text(_firstNonEmpty(
+                  profile['employmentStatus'], profile['EmploymentStatus']))
               .isEmpty
           ? 'Active'
-          : _text(profile['employmentStatus'] ?? profile['EmploymentStatus']),
-      'JobRole': _text(profile['jobRole'] ?? profile['JobRole']),
+          : _text(_firstNonEmpty(
+              profile['employmentStatus'], profile['EmploymentStatus'])),
+      'JobRole': _text(_firstNonEmpty(profile['jobRole'], profile['JobRole'])),
     };
   }
 
@@ -98,15 +125,25 @@ class ProfileService {
     final url = '$baseUrl/employee/update/$employeeId?code=$updateProfileKey';
 
     final profilePayload = _employeePayload(profile, employeeId);
+    final missingRequiredField = _missingRequiredProfileField(profilePayload);
+    if (missingRequiredField != null) {
+      return '$missingRequiredField is required.';
+    }
+
     final nextOfKinPayload = _nextOfKinPayload(nextOfKins, employeeId);
+    final profileUpdateBody = {
+      ...profilePayload,
+      'employeeId': employeeId,
+      'NextOfKins': nextOfKinPayload,
+      'nextOfKins': nextOfKinPayload,
+      'NextOfKin': nextOfKinPayload,
+      'ApprovedNextOfKin': nextOfKinPayload,
+    };
 
     Future<http.Response> sendJsonRequest() {
       return _apiClient.put(
         url,
-        body: {
-          ...profilePayload,
-          'NextOfKins': nextOfKinPayload,
-        },
+        body: profileUpdateBody,
         useAuth: true,
       );
     }
@@ -116,14 +153,17 @@ class ProfileService {
       final request = http.MultipartRequest(method, uri);
 
       final token = await _apiClient.getAppToken();
-      if (token != null && token.isNotEmpty) {
-        request.headers['Authorization'] = 'Bearer $token';
+      if (token == null || token.isEmpty) {
+        return http.Response('Missing saved login token.', 401);
       }
+      request.headers['Authorization'] = 'Bearer $token';
 
       request.fields['profile'] = jsonEncode(profilePayload);
       request.fields['Profile'] = jsonEncode(profilePayload);
       request.fields['nextOfKins'] = jsonEncode(nextOfKinPayload);
       request.fields['NextOfKins'] = jsonEncode(nextOfKinPayload);
+      request.fields['NextOfKin'] = jsonEncode(nextOfKinPayload);
+      request.fields['ApprovedNextOfKin'] = jsonEncode(nextOfKinPayload);
       request.fields['employeeId'] = employeeId.toString();
       request.fields['EmployeeId'] = employeeId.toString();
       for (final entry in profilePayload.entries) {
@@ -159,8 +199,11 @@ class ProfileService {
         return null; // Success
       }
 
-      // Retry with POST when the backend rejects multipart PUT boundary parsing.
-      if (response.statusCode == 400 && response.body.contains('multipart')) {
+      // Azure Functions sometimes parse multipart PUT poorly; retry as POST
+      // for server/model-binding errors from the first attempts.
+      if (response.statusCode == 400 ||
+          response.statusCode == 415 ||
+          response.statusCode == 500) {
         final retryResponse = await sendMultipartRequest('POST');
         if (retryResponse.statusCode == 200) {
           return null;
@@ -172,6 +215,29 @@ class ProfileService {
     } catch (e) {
       return 'Error: $e';
     }
+  }
+
+  String? _missingRequiredProfileField(Map<String, dynamic> profilePayload) {
+    final requiredFields = <String, String>{
+      'FirstName': 'First Name',
+      'LastName': 'Last Name',
+      'Gender': 'Gender',
+      'Email': 'Email',
+      'MobileNumber': 'Phone Number',
+      'DateOfBirth': 'Date of Birth',
+      'Street': 'Street Address',
+      'City': 'City/Suburb',
+      'Country': 'Country',
+      'JobRole': 'Job Role',
+    };
+
+    for (final entry in requiredFields.entries) {
+      if (_text(profilePayload[entry.key]).isEmpty) {
+        return entry.value;
+      }
+    }
+
+    return null;
   }
 
   // --- UPDATE PASSWORD ---

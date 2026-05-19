@@ -20,12 +20,11 @@ class AuthService {
   String fetchRejectedKey = dotenv.env['FETCH_REJECTED_KEY'] ?? '';
   String resubmitKey = dotenv.env['RESUBMIT_KEY'] ?? '';
   String submitOnboardKey = dotenv.env['SUBMIT_ONBOARD_KEY'] ?? '';
-  
+
   // Forgot Password Keys
   String forgotRequestKey = dotenv.env['FORGOT_PASS_REQUEST_KEY'] ?? '';
   String forgotVerifyKey = dotenv.env['FORGOT_PASS_VERIFY_KEY'] ?? '';
   String forgotResetKey = dotenv.env['FORGOT_PASS_RESET_KEY'] ?? '';
-
 
   /// STEP 1: Login
   Future<Map<String, dynamic>?> login(String email, String password) async {
@@ -86,7 +85,9 @@ class AuthService {
                 'Login failed (${response.statusCode})'
           };
         } catch (e) {
-          return {'Message': 'Login failed (${response.statusCode}): ${response.body}'};
+          return {
+            'Message': 'Login failed (${response.statusCode}): ${response.body}'
+          };
         }
       }
     } on SocketException catch (e) {
@@ -257,16 +258,14 @@ class AuthService {
   }
 
   /// Change Password
-  Future<bool> changePassword(String currentPassword, String newPassword) async {
+  Future<bool> changePassword(
+      String currentPassword, String newPassword) async {
     final url = '$baseUrl/employee/change-password?code=$updatePasswordKey';
 
     try {
       final response = await _apiClient.post(
         url,
-        body: {
-          "currentPassword": currentPassword,
-          "newPassword": newPassword
-        },
+        body: {"currentPassword": currentPassword, "newPassword": newPassword},
         useAuth: true,
       );
 
@@ -279,14 +278,15 @@ class AuthService {
   }
 
   /// Update Employee Profile
-  Future<Map<String, dynamic>?> updateEmployeeProfile(int employeeId, Map<String, dynamic> profileData) async {
+  Future<Map<String, dynamic>?> updateEmployeeProfile(
+      int employeeId, Map<String, dynamic> profileData) async {
     final url = '$baseUrl/employee/update/$employeeId?code=$updateProfileKey';
 
     try {
       final response = await _apiClient.put(
         url,
         body: profileData,
-        useAuth: true,
+        useAuth: false,
       );
 
       if (response.statusCode == 200) {
@@ -310,7 +310,8 @@ class AuthService {
       return null;
     }
 
-    final url = '$baseUrl/employee/forgot-password/request?code=$forgotRequestKey';
+    final url =
+        '$baseUrl/employee/forgot-password/request?code=$forgotRequestKey';
     print(" Requesting OTP for: $email");
 
     try {
@@ -339,7 +340,8 @@ class AuthService {
 
   // 2. Verify OTP (Uses ResetTokenId, not Email)
   Future<bool> verifyResetOtp(String resetTokenId, String otp) async {
-    final url = '$baseUrl/employee/forgot-password/verify?code=$forgotVerifyKey';
+    final url =
+        '$baseUrl/employee/forgot-password/verify?code=$forgotVerifyKey';
     final body = {"ResetTokenId": resetTokenId, "Code": otp};
 
     print(" Verifying OTP...");
@@ -363,7 +365,8 @@ class AuthService {
   }
 
   // 3. Reset Password (Uses ResetTokenId)
-  Future<bool> resetPassword(String resetTokenId, String otp, String newPassword) async {
+  Future<bool> resetPassword(
+      String resetTokenId, String otp, String newPassword) async {
     final url = '$baseUrl/employee/forgot-password/reset?code=$forgotResetKey';
     final body = {
       "ResetTokenId": resetTokenId,
@@ -407,7 +410,8 @@ class AuthService {
     final url = '$baseUrl/me';
 
     try {
-      final response = await _apiClient.get(url, useAuth: true, showDialog: false);
+      final response =
+          await _apiClient.get(url, useAuth: true, showDialog: false);
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);

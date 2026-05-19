@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -36,7 +37,8 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
 
   Future<void> _pickImageFromSource(ImageSource source) async {
     final picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: source, imageQuality: 85);
+    final XFile? image =
+        await picker.pickImage(source: source, imageQuality: 85);
     if (image != null) {
       setState(() {
         _selectedImageFile = File(image.path);
@@ -62,17 +64,20 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
             children: [
               ListTile(
                 leading: const Icon(Icons.camera_alt, color: Colors.white),
-                title: const Text('Take photo', style: TextStyle(color: Colors.white)),
+                title: const Text('Take photo',
+                    style: TextStyle(color: Colors.white)),
                 onTap: () => Navigator.of(ctx).pop(ImageSource.camera),
               ),
               ListTile(
                 leading: const Icon(Icons.photo_library, color: Colors.white),
-                title: const Text('Choose from gallery', style: TextStyle(color: Colors.white)),
+                title: const Text('Choose from gallery',
+                    style: TextStyle(color: Colors.white)),
                 onTap: () => Navigator.of(ctx).pop(ImageSource.gallery),
               ),
               ListTile(
                 leading: const Icon(Icons.close, color: Colors.white),
-                title: const Text('Cancel', style: TextStyle(color: Colors.white)),
+                title:
+                    const Text('Cancel', style: TextStyle(color: Colors.white)),
                 onTap: () => Navigator.of(ctx).pop(),
               ),
             ],
@@ -88,8 +93,10 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = Provider.of<UserProvider>(context, listen: false)
-        .userProfile["profilePicture"];
+    final userProfile = Provider.of<UserProvider>(context).userProfile;
+    final imageValue =
+        userProfile["profilePicture"] ?? userProfile["ProfilePicture"];
+    final imageProvider = _imageProvider(imageValue);
 
     final avatar = Container(
       width: 100,
@@ -103,9 +110,9 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
                 width: 100,
                 height: 100,
               )
-            : (imageUrl != null && imageUrl.isNotEmpty)
-                ? Image.network(
-                    imageUrl,
+            : imageProvider != null
+                ? Image(
+                    image: imageProvider,
                     fit: BoxFit.cover,
                     width: 100,
                     height: 100,
@@ -116,7 +123,8 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
     );
 
     return GestureDetector(
-      onTap: widget.onTap ?? (widget.editable ? () => _showImageSourceOptions(context) : null),
+      onTap: widget.onTap ??
+          (widget.editable ? () => _showImageSourceOptions(context) : null),
       child: Stack(
         children: [
           avatar,
@@ -125,7 +133,8 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
               right: 4,
               bottom: 4,
               child: GestureDetector(
-                onTap: widget.onEditTap ?? () => _showImageSourceOptions(context),
+                onTap:
+                    widget.onEditTap ?? () => _showImageSourceOptions(context),
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
@@ -151,5 +160,20 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
         ],
       ),
     );
+  }
+
+  ImageProvider? _imageProvider(dynamic value) {
+    final image = value?.toString().trim() ?? '';
+    if (image.isEmpty) return null;
+
+    if (image.startsWith('data:image')) {
+      try {
+        return MemoryImage(base64Decode(image.split(',').last));
+      } catch (_) {
+        return null;
+      }
+    }
+
+    return NetworkImage(image);
   }
 }
