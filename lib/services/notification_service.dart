@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -9,6 +10,12 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'api_client.dart';
 
 class NotificationService {
+  static const String _defaultNotificationBaseUrl =
+      'https://shiftsmart-notification-function-mt-dev.azurewebsites.net/api';
+  static const String _defaultRegisterDeviceKey =
+      'pcFPorJaoUJ5NmtNOPb5xj0wkQBzhs_coiqsQ4lThuI-AzFux7Xk9g==';
+  static const String _defaultFirebaseProjectId = 'shift-smart-a34cb';
+
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   final ApiClient _apiClient = ApiClient();
   static bool _listenersConfigured = false;
@@ -16,11 +23,18 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
-  String get baseUrl => dotenv.env['NOTIFICATION_BASE_URL'] ?? '';
+  String get baseUrl =>
+      dotenv.env['NOTIFICATION_BASE_URL'] ?? _defaultNotificationBaseUrl;
 
   String get mainKey => dotenv.env['GET_NOTIFICATIONS_KEY'] ?? '';
-  String get registerKey => dotenv.env['REGISTER_DEVICE_KEY'] ?? '';
+  String get registerKey =>
+      dotenv.env['REGISTER_DEVICE_KEY'] ?? _defaultRegisterDeviceKey;
   String get markReadKey => dotenv.env['MARK_NOTIFICATIONS_READ_KEY'] ?? '';
+  String get listInstallationsKey => dotenv.env['LIST_INSTALLATIONS_KEY'] ?? '';
+  String get approvalKey => dotenv.env['SEND_APPROVAL_NOTIFICATION_KEY'] ?? '';
+  String get geofenceAlertKey => dotenv.env['SEND_GEOFENCE_ALERT_KEY'] ?? '';
+  String get eventRouterKey =>
+      dotenv.env['NOTIFICATION_EVENT_ROUTER_KEY'] ?? '';
   String get leaveApprovalKey =>
       dotenv.env['SEND_LEAVE_APPROVAL_NOTIFICATION_KEY'] ?? '';
   String get leaveRequestKey =>
@@ -29,7 +43,7 @@ class NotificationService {
   String get shiftCompleteKey =>
       dotenv.env['SEND_SHIFT_COMPLETED_NOTIFICATION_KEY'] ?? '';
   String get expectedFirebaseProjectId =>
-      dotenv.env['EXPECTED_FIREBASE_PROJECT_ID'] ?? 'shiftsmart-bccd2';
+      dotenv.env['EXPECTED_FIREBASE_PROJECT_ID'] ?? _defaultFirebaseProjectId;
 
   Future<void> initializeFCM({
     required int employeeId,
@@ -47,19 +61,32 @@ class NotificationService {
 
       debugPrint('User granted permission: ${settings.authorizationStatus}');
 
+      if (settings.authorizationStatus == AuthorizationStatus.denied) {
+        debugPrint(
+          "RegisterDevice not called: notification permission is denied.",
+        );
+        return;
+      }
+
       if (!_isFirebaseProjectAligned()) {
         return;
       }
 
-      final token = await _firebaseMessaging.getToken();
-
-      if (token != null && employeeId != 0) {
+      if (employeeId == 0) {
+        debugPrint("Device registration skipped for guest session.");
+      } else if (await _waitForApnsTokenIfNeeded()) {
+        final token = await _getFcmTokenForRegistration();
+        if (token == null) {
+          return;
+        }
         debugPrint("FCM TOKEN: $token");
         await registerDeviceTokenToBackend(
           token: token,
           employeeId: employeeId,
           tag: userTag,
         );
+      } else {
+        debugPrint("Device registration skipped: APNS token is not ready.");
       }
 
       if (!_listenersConfigured) {
@@ -126,15 +153,19 @@ class NotificationService {
       return;
     }
 
-    String url = '$baseUrl/RegisterDevice?code=$registerKey';
+    final url = _buildUrl('RegisterDevice', registerKey);
     final body = {
       "EmployeeId": employeeId,
       "DeviceToken": token,
-      "Platform": _platformName,
+      "Platform": _registrationPlatform,
       "Tag": tag,
     };
 
     try {
+      debugPrint(
+        "RegisterDevice payload: EmployeeId=$employeeId, "
+        "Platform=$_registrationPlatform, Tag=$tag, DeviceTokenPresent=${token.isNotEmpty}",
+      );
       final response = await _apiClient.post(url, body: body, useAuth: true);
 
       if (response.statusCode == 200) {
@@ -206,7 +237,7 @@ class NotificationService {
   Future<void> markAsRead(List<int> notificationIds) async {
     if (markReadKey.isEmpty) throw Exception("Missing NOTIFI_MARK_READ_KEY");
 
-    final url = '$baseUrl/notifications/mark-read?code=$markReadKey';
+    final url = _buildUrl('notifications/mark-read', markReadKey);
 
     final response = await _apiClient.post(
       url,
@@ -226,7 +257,7 @@ class NotificationService {
       return;
     }
 
-    String url = '$baseUrl/SendShiftNotification?code=$shiftKey';
+    final url = _buildUrl('notifications/shift-assignment', shiftKey);
 
     final payload = {
       "userTag": "user_$employeeId",
@@ -255,7 +286,7 @@ class NotificationService {
       return;
     }
 
-    final url = '$baseUrl/SendLeaveRequestNotification?code=$leaveRequestKey';
+    final url = _buildUrl('notifications/leave-request', leaveRequestKey);
 
     final body = {
       "EmployeeId": employeeId,
@@ -283,8 +314,7 @@ class NotificationService {
       return;
     }
 
-    final url =
-        '$baseUrl/SendLeaveApprovalNotificationFunction?code=$leaveApprovalKey';
+    final url = _buildUrl('notifications/leave-status', leaveApprovalKey);
     final body = {"EmployeeId": id, "Status": newStatus};
 
     try {
@@ -312,8 +342,7 @@ class NotificationService {
       return;
     }
 
-    final url =
-        '$baseUrl/SendShiftCompletedNotification?code=$shiftCompleteKey';
+    final url = _buildUrl('notifications/shift-completed', shiftCompleteKey);
 
     final formattedTime =
         DateFormat('h:mma').format(clockOutTime).toLowerCase();
@@ -338,13 +367,12 @@ class NotificationService {
     String? reason,
     DateTime clockOutTime,
   ) async {
-    if (shiftCompleteKey.isEmpty) {
-      debugPrint("Missing NOTIFI_SHIFT_COMPLETE_KEY");
+    if (geofenceAlertKey.isEmpty) {
+      debugPrint("Missing SEND_GEOFENCE_ALERT_KEY");
       return;
     }
 
-    final url =
-        '$baseUrl/SendShiftCompletedNotification?code=$shiftCompleteKey';
+    final url = _buildUrl('alerts/geofence', geofenceAlertKey);
 
     final formattedTime =
         DateFormat('h:mma').format(clockOutTime).toLowerCase();
@@ -361,6 +389,58 @@ class NotificationService {
       }
     } catch (e) {
       debugPrint("Error sending emergency notification: $e");
+    }
+  }
+
+  Future<dynamic> listInstallations() async {
+    if (listInstallationsKey.isEmpty) {
+      throw Exception("Missing LIST_INSTALLATIONS_KEY");
+    }
+
+    final url = _buildUrl('installations/all', listInstallationsKey);
+    final response = await _apiClient.get(url, useAuth: true);
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    }
+
+    throw Exception('Failed to list installations: ${response.statusCode}');
+  }
+
+  Future<void> sendApprovalNotification({
+    required int employeeId,
+    required String status,
+    String? message,
+  }) async {
+    if (approvalKey.isEmpty) {
+      debugPrint("Missing SEND_APPROVAL_NOTIFICATION_KEY");
+      return;
+    }
+
+    final url = _buildUrl('notifications/approval', approvalKey);
+    final body = {
+      "EmployeeId": employeeId,
+      "Status": status,
+      if (message != null && message.isNotEmpty) "Message": message,
+    };
+
+    final response = await _apiClient.post(url, body: body, useAuth: true);
+    if (response.statusCode != 200) {
+      throw Exception(
+          'Failed to send approval notification: ${response.statusCode}');
+    }
+  }
+
+  Future<void> routeNotificationEvent(Map<String, dynamic> payload) async {
+    if (eventRouterKey.isEmpty) {
+      debugPrint("Missing NOTIFICATION_EVENT_ROUTER_KEY");
+      return;
+    }
+
+    final url = _buildUrl('notifications/route', eventRouterKey);
+    final response = await _apiClient.post(url, body: payload, useAuth: true);
+    if (response.statusCode != 200) {
+      throw Exception('Failed to route notification: ${response.statusCode}');
     }
   }
 
@@ -384,14 +464,50 @@ class NotificationService {
     return false;
   }
 
-  String get _platformName {
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.iOS:
-        return 'ios';
-      case TargetPlatform.macOS:
-        return 'ios';
-      default:
-        return 'android';
+  String get _registrationPlatform => 'fcm';
+
+  Future<String?> _getFcmTokenForRegistration() async {
+    try {
+      final token = await _firebaseMessaging.getToken();
+      if (token == null || token.isEmpty) {
+        debugPrint("RegisterDevice not called: FCM token is null.");
+        return null;
+      }
+      return token;
+    } on FirebaseException catch (e) {
+      debugPrint(
+        "RegisterDevice not called: FCM token error "
+        "${e.plugin}/${e.code} - ${e.message}",
+      );
+      return null;
+    } catch (e) {
+      debugPrint("RegisterDevice not called: FCM token error $e");
+      return null;
     }
+  }
+
+  Future<bool> _waitForApnsTokenIfNeeded() async {
+    if (!Platform.isIOS && !Platform.isMacOS) return true;
+
+    for (var attempt = 1; attempt <= 5; attempt++) {
+      final apnsToken = await _firebaseMessaging.getAPNSToken();
+      if (apnsToken != null && apnsToken.isNotEmpty) {
+        debugPrint("APNS token ready.");
+        return true;
+      }
+
+      debugPrint("Waiting for APNS token... attempt $attempt/5");
+      await Future.delayed(const Duration(seconds: 1));
+    }
+
+    return false;
+  }
+
+  String _buildUrl(String path, String key) {
+    final normalizedBase = baseUrl.endsWith('/')
+        ? baseUrl.substring(0, baseUrl.length - 1)
+        : baseUrl;
+    final normalizedPath = path.startsWith('/') ? path.substring(1) : path;
+    return '$normalizedBase/$normalizedPath?code=$key';
   }
 }
