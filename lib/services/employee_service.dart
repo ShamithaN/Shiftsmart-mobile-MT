@@ -21,11 +21,15 @@ class EmployeeService {
   //  PROD ENDPOINT KEYS (from func-employees)
   final String fetchEmpKey = dotenv.env['FETCH_EMP_KEY'] ?? "";
   final String bankLookupKey = dotenv.env['BANK_LOOKUP_KEY'] ?? '';
-  final String empNameMap = dotenv.env['FETCH_EMP_KEY'] ?? ""; // Map to FETCH_EMP_KEY as fallback
-  final String fetchDocsKey = dotenv.env['EMPLOYEE_DOC_GET_BY_ID_KEY'] ?? ''; // Updated to use specific key
+  final String empNameMap =
+      dotenv.env['FETCH_EMP_KEY'] ?? ""; // Map to FETCH_EMP_KEY as fallback
+  final String fetchDocsKey = dotenv.env['EMPLOYEE_DOC_GET_BY_ID_KEY'] ??
+      ''; // Updated to use specific key
   final String certificateAddKey = dotenv.env['CERTIFICATE_ADD_KEY'] ?? '';
-  final String certificateDeleteKey = dotenv.env['CERTIFICATE_DELETE_KEY'] ?? '';
-  final String certificateUpdateKey = dotenv.env['CERTIFICATE_UPDATE_KEY'] ?? '';
+  final String certificateDeleteKey =
+      dotenv.env['CERTIFICATE_DELETE_KEY'] ?? '';
+  final String certificateUpdateKey =
+      dotenv.env['CERTIFICATE_UPDATE_KEY'] ?? '';
   final String certificateGetKey = dotenv.env['CERTIFICATE_GET_KEY'] ?? '';
 
   EmployeeService() {
@@ -33,13 +37,16 @@ class EmployeeService {
   }
 
   // --- 1. Fetch All Employees ---
-  Future<List<Employee>> fetchAllEmployees({bool includeAdminsAndManagers = false}) async {
+  Future<List<Employee>> fetchAllEmployees(
+      {bool includeAdminsAndManagers = false}) async {
     final url = '$baseUrl/employee/all?code=$fetchEmpKey';
     debugPrint(" EmployeeService: Fetching all employees from $url");
     try {
-      final response = await _apiClient.get(url, useAuth: true, showDialog: false);
+      final response =
+          await _apiClient.get(url, useAuth: true, showDialog: false);
       debugPrint(" EmployeeService Status: ${response.statusCode}");
-      debugPrint(" EmployeeService Body: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}");
+      debugPrint(
+          " EmployeeService Body: ${response.body.length > 500 ? response.body.substring(0, 500) : response.body}");
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = jsonDecode(response.body);
@@ -68,7 +75,8 @@ class EmployeeService {
   Future<Map<int, String>> fetchEmployeeNameMap() async {
     final url = '$baseUrl/employee/all?code=$empNameMap';
     try {
-      final response = await _apiClient.get(url, useAuth: true, showDialog: false);
+      final response =
+          await _apiClient.get(url, useAuth: true, showDialog: false);
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = jsonDecode(response.body);
         return {
@@ -108,7 +116,8 @@ class EmployeeService {
       if (token != null && token.isNotEmpty) {
         headers['Authorization'] = 'Bearer $token';
       } else {
-        debugPrint(" Warning: No Auth Token found locally. Attempting request with API Key only.");
+        debugPrint(
+            " Warning: No Auth Token found locally. Attempting request with API Key only.");
       }
 
       final response = await http.get(Uri.parse(url), headers: headers);
@@ -145,7 +154,8 @@ class EmployeeService {
 
       if (response.statusCode == 200) {
         final dynamic data = jsonDecode(response.body);
-        debugPrint(" Documents Found (Raw Count): ${data is List ? data.length : 'Object'}");
+        debugPrint(
+            " Documents Found (Raw Count): ${data is List ? data.length : 'Object'}");
 
         List<dynamic> rawDocs = [];
 
@@ -154,7 +164,9 @@ class EmployeeService {
           rawDocs = data;
         } else if (data is Map<String, dynamic>) {
           if (data['Documents'] != null) rawDocs.addAll(data['Documents']);
-          if (data['ApprovedDocuments'] != null) rawDocs.addAll(data['ApprovedDocuments']);
+          if (data['ApprovedDocuments'] != null) {
+            rawDocs.addAll(data['ApprovedDocuments']);
+          }
           if (data['Result'] != null) rawDocs.addAll(data['Result']);
         }
 
@@ -162,12 +174,23 @@ class EmployeeService {
           return EmployeeCertificate(
             documentId: doc['DocumentId'] ?? doc['documentId'] ?? 0,
             employeeId: empId,
-            fileName: doc['DocumentType'] ?? doc['documentType'] ?? doc['FileName'] ?? doc['fileName'] ?? 'Document',
-            fileType: doc['DocumentType'] ?? doc['documentType'] ?? doc['FileType'] ?? doc['fileType'] ?? 'General',
+            fileName: doc['DocumentType'] ??
+                doc['documentType'] ??
+                doc['FileName'] ??
+                doc['fileName'] ??
+                'Document',
+            fileType: doc['DocumentType'] ??
+                doc['documentType'] ??
+                doc['FileType'] ??
+                doc['fileType'] ??
+                'General',
             documentUrl: doc['DocumentUrl'] ?? doc['documentUrl'] ?? '',
-            documentType: doc['DocumentType'] ?? doc['documentType'] ?? 'General',
+            documentType:
+                doc['DocumentType'] ?? doc['documentType'] ?? 'General',
             status: doc['Status'] ?? doc['status'] ?? 'Approved',
-            uploadedAt: doc['UploadedAt'] ?? doc['uploadedAt'] ?? formatDateTimeForServer(DateTime.now()),
+            uploadedAt: doc['UploadedAt'] ??
+                doc['uploadedAt'] ??
+                formatDateTimeForServer(DateTime.now()),
             remarks: doc['Remarks'] ?? doc['remarks'],
             updatedAt: doc['UpdatedAt'] ?? doc['updatedAt'],
           );
@@ -189,17 +212,69 @@ class EmployeeService {
     required String certificateType,
     int? documentId, // If provided, it's an update
   }) async {
-    String url;
     if (documentId != null) {
-      url = '$baseUrl/certificates/update/$documentId?code=$certificateUpdateKey';
-    } else {
-      url = '$baseUrl/certificates/add?code=$certificateAddKey';
+      final updateAttempts = [
+        _CertificateUploadAttempt(
+          method: 'POST',
+          url:
+              '$baseUrl/certificates/update/$documentId?code=$certificateUpdateKey',
+        ),
+        _CertificateUploadAttempt(
+          method: 'POST',
+          url:
+              '$baseUrl/certificates/update?code=$certificateUpdateKey&documentId=$documentId',
+        ),
+        _CertificateUploadAttempt(
+          method: 'PUT',
+          url:
+              '$baseUrl/certificates/update/$documentId?code=$certificateUpdateKey',
+        ),
+        _CertificateUploadAttempt(
+          method: 'PUT',
+          url:
+              '$baseUrl/certificates/update?code=$certificateUpdateKey&documentId=$documentId',
+        ),
+      ];
+
+      String? lastError;
+      for (final attempt in updateAttempts) {
+        lastError = await _sendCertificateMultipart(
+          method: attempt.method,
+          url: attempt.url,
+          file: file,
+          employeeId: employeeId,
+          certificateType: certificateType,
+          documentId: documentId,
+        );
+
+        if (lastError == null) return null;
+        if (!lastError.contains('Upload failed: 404')) return lastError;
+      }
+
+      return lastError ?? 'Upload failed: update route not found';
     }
-    
+
+    return _sendCertificateMultipart(
+      method: 'POST',
+      url: '$baseUrl/certificates/add?code=$certificateAddKey',
+      file: file,
+      employeeId: employeeId,
+      certificateType: certificateType,
+    );
+  }
+
+  Future<String?> _sendCertificateMultipart({
+    required String method,
+    required String url,
+    required File file,
+    required int employeeId,
+    required String certificateType,
+    int? documentId,
+  }) async {
     debugPrint(" Uploading Document to: $url");
 
     try {
-      final request = http.MultipartRequest('POST', Uri.parse(url));
+      final request = http.MultipartRequest(method, Uri.parse(url));
 
       final token = await _apiClient.getAppToken();
       if (token != null && token.isNotEmpty) {
@@ -208,9 +283,14 @@ class EmployeeService {
 
       request.fields['employeeId'] = employeeId.toString();
       request.fields['certificateType'] = certificateType;
-      request.fields['dateIssued'] = DateTime.now().toIso8601String().split('T').first;
-      request.fields['expiryDate'] = DateTime.now().add(const Duration(days: 365)).toIso8601String().split('T').first;
-      
+      request.fields['dateIssued'] =
+          DateTime.now().toIso8601String().split('T').first;
+      request.fields['expiryDate'] = DateTime.now()
+          .add(const Duration(days: 365))
+          .toIso8601String()
+          .split('T')
+          .first;
+
       if (documentId != null) {
         request.fields['documentId'] = documentId.toString();
         request.fields['id'] = documentId.toString(); // Some endpoints use 'id'
@@ -237,12 +317,14 @@ class EmployeeService {
   }
 
   // --- 6. Add Certificate (JSON - Kept for compatibility if needed) ---
-  Future<Map<String, dynamic>?> addCertificate(Map<String, dynamic> certData) async {
+  Future<Map<String, dynamic>?> addCertificate(
+      Map<String, dynamic> certData) async {
     final url = '$baseUrl/certificates/add?code=$certificateAddKey';
     debugPrint(" Adding Certificate...");
 
     try {
-      final response = await _apiClient.post(url, body: certData, useAuth: true);
+      final response =
+          await _apiClient.post(url, body: certData, useAuth: true);
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -275,7 +357,8 @@ class EmployeeService {
             documentUrl: cert['certificateUrl'] ?? '',
             documentType: cert['certificateType'] ?? 'General',
             status: cert['status'] ?? 'Active',
-            uploadedAt: cert['issuedDate'] ?? formatDateTimeForServer(DateTime.now()),
+            uploadedAt:
+                cert['issuedDate'] ?? formatDateTimeForServer(DateTime.now()),
             remarks: cert['remarks'],
             updatedAt: cert['updatedAt'],
           );
@@ -291,8 +374,10 @@ class EmployeeService {
   }
 
   // --- 7. Update Certificate ---
-  Future<bool> updateCertificate(int certId, Map<String, dynamic> certData) async {
-    final url = '$baseUrl/certificates/update/$certId?code=$certificateUpdateKey';
+  Future<bool> updateCertificate(
+      int certId, Map<String, dynamic> certData) async {
+    final url =
+        '$baseUrl/certificates/update/$certId?code=$certificateUpdateKey';
     debugPrint(" Updating Certificate ID: $certId");
 
     try {
@@ -306,7 +391,8 @@ class EmployeeService {
 
   // --- 8. Delete Certificate ---
   Future<bool> deleteCertificate(int certId) async {
-    final url = '$baseUrl/certificates/delete/$certId?code=$certificateDeleteKey';
+    final url =
+        '$baseUrl/certificates/delete/$certId?code=$certificateDeleteKey';
     debugPrint(" Deleting Certificate ID: $certId");
 
     try {
@@ -317,4 +403,14 @@ class EmployeeService {
       return false;
     }
   }
+}
+
+class _CertificateUploadAttempt {
+  final String method;
+  final String url;
+
+  const _CertificateUploadAttempt({
+    required this.method,
+    required this.url,
+  });
 }

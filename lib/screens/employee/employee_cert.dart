@@ -12,7 +12,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:path/path.dart' as path;
 import 'package:image_picker/image_picker.dart';
 
-
 class Employeecert extends StatefulWidget {
   const Employeecert({super.key});
 
@@ -39,7 +38,8 @@ class _EmployeecertState extends State<Employeecert> {
       _employeeId = prefs.getInt('employeeId') ?? prefs.getInt('userId');
 
       if (_employeeId != null) {
-        final docs = await EmployeeService().fetchEmployeeDocuments(_employeeId!);
+        final docs =
+            await EmployeeService().fetchEmployeeDocuments(_employeeId!);
         setState(() {
           _certificates = docs;
           _isLoading = false;
@@ -97,8 +97,9 @@ class _EmployeecertState extends State<Employeecert> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1C2230),
-        title: const Text("Delete Document", style: TextStyle(color: Colors.white)),
-        content: Text("Are you sure you want to delete ${doc.fileName}?", 
+        title: const Text("Delete Document",
+            style: TextStyle(color: Colors.white)),
+        content: Text("Are you sure you want to delete ${doc.fileName}?",
             style: const TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
@@ -116,7 +117,8 @@ class _EmployeecertState extends State<Employeecert> {
 
     if (confirm == true && doc.documentId != null) {
       setState(() => _isLoading = true);
-      final bool success = await EmployeeService().deleteCertificate(doc.documentId!);
+      final bool success =
+          await EmployeeService().deleteCertificate(doc.documentId!);
       if (success) {
         _loadDocuments();
       } else {
@@ -131,8 +133,7 @@ class _EmployeecertState extends State<Employeecert> {
   }
 
   Future<void> _showAddUpdateDialog({EmployeeCertificate? existingDoc}) async {
-    File? selectedFile;
-    String? fileName;
+    final List<File> selectedFiles = [];
     String documentType = existingDoc?.documentType ?? 'General';
     final List<String> docTypes = [
       'General',
@@ -174,17 +175,21 @@ class _EmployeecertState extends State<Employeecert> {
             children: [
               Text(
                 existingDoc == null ? "Add Document" : "Update Document",
-                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
               // Document Type Dropdown
-              const Text("Document Type", style: TextStyle(color: Colors.white70, fontSize: 12)),
+              const Text("Document Type",
+                  style: TextStyle(color: Colors.white70, fontSize: 12)),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.white10),
                 ),
@@ -207,58 +212,94 @@ class _EmployeecertState extends State<Employeecert> {
               ),
               const SizedBox(height: 20),
               // File Picker
-              const Text("File", style: TextStyle(color: Colors.white70, fontSize: 12)),
+              const Text("File",
+                  style: TextStyle(color: Colors.white70, fontSize: 12)),
               const SizedBox(height: 8),
               InkWell(
                 onTap: () async {
                   final ImagePicker picker = ImagePicker();
-                  
+
                   await showModalBottomSheet(
                     context: context,
                     backgroundColor: const Color(0xFF1C2230),
                     shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                      borderRadius:
+                          BorderRadius.vertical(top: Radius.circular(20)),
                     ),
-                    builder: (context) => SafeArea(
+                    builder: (methodSheetContext) => SafeArea(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const SizedBox(height: 10),
                           const Text(
                             "Select Attachment Method",
-                            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 10),
                           ListTile(
-                            leading: const Icon(Icons.camera_alt, color: Color(0xFF3498DB)),
-                            title: const Text("Take Photo", style: TextStyle(color: Colors.white)),
+                            leading: const Icon(Icons.camera_alt,
+                                color: Color(0xFF3498DB)),
+                            title: const Text("Take Photo",
+                                style: TextStyle(color: Colors.white)),
                             onTap: () async {
-                              Navigator.pop(context);
+                              Navigator.pop(methodSheetContext);
                               final XFile? image = await picker.pickImage(
                                 source: ImageSource.camera,
                                 imageQuality: 80,
                               );
                               if (image != null) {
                                 setModalState(() {
-                                  selectedFile = File(image.path);
-                                  fileName = path.basename(selectedFile!.path);
+                                  selectedFiles.add(File(image.path));
                                 });
                               }
                             },
                           ),
                           ListTile(
-                            leading: const Icon(Icons.upload_file, color: Color(0xFF3498DB)),
-                            title: const Text("Select File", style: TextStyle(color: Colors.white)),
+                            leading: const Icon(Icons.photo_library,
+                                color: Color(0xFF3498DB)),
+                            title: const Text("Select Gallery Images",
+                                style: TextStyle(color: Colors.white)),
                             onTap: () async {
-                              Navigator.pop(context);
+                              Navigator.pop(methodSheetContext);
+                              final List<XFile> images =
+                                  await picker.pickMultiImage(imageQuality: 80);
+                              if (images.isNotEmpty) {
+                                setModalState(() {
+                                  selectedFiles.addAll(
+                                    images.map((image) => File(image.path)),
+                                  );
+                                });
+                              }
+                            },
+                          ),
+                          ListTile(
+                            leading: const Icon(Icons.upload_file,
+                                color: Color(0xFF3498DB)),
+                            title: const Text("Select File",
+                                style: TextStyle(color: Colors.white)),
+                            onTap: () async {
+                              Navigator.pop(methodSheetContext);
                               final result = await FilePicker.pickFiles(
                                 type: FileType.custom,
-                                allowedExtensions: ['pdf', 'png', 'jpg', 'jpeg'],
+                                allowMultiple: true,
+                                allowedExtensions: [
+                                  'pdf',
+                                  'png',
+                                  'jpg',
+                                  'jpeg'
+                                ],
                               );
-                              if (result != null && result.files.single.path != null) {
+                              final files = result?.files
+                                      .where((file) => file.path != null)
+                                      .map((file) => File(file.path!))
+                                      .toList() ??
+                                  [];
+                              if (files.isNotEmpty) {
                                 setModalState(() {
-                                  selectedFile = File(result.files.single.path!);
-                                  fileName = path.basename(selectedFile!.path);
+                                  selectedFiles.addAll(files);
                                 });
                               }
                             },
@@ -269,13 +310,13 @@ class _EmployeecertState extends State<Employeecert> {
                     ),
                   );
                 },
-
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
+                    color: Colors.white.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white10, style: BorderStyle.solid),
+                    border: Border.all(
+                        color: Colors.white10, style: BorderStyle.solid),
                   ),
                   child: Row(
                     children: [
@@ -283,8 +324,17 @@ class _EmployeecertState extends State<Employeecert> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          fileName ?? (existingDoc != null ? "Change current file..." : "Select file..."),
-                          style: TextStyle(color: fileName != null ? Colors.white : Colors.white38),
+                          selectedFiles.isEmpty
+                              ? (existingDoc != null
+                                  ? "Change current file..."
+                                  : "Select file...")
+                              : selectedFiles.length == 1
+                                  ? path.basename(selectedFiles.first.path)
+                                  : "${selectedFiles.length} attachments selected",
+                          style: TextStyle(
+                              color: selectedFiles.isNotEmpty
+                                  ? Colors.white
+                                  : Colors.white38),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -292,19 +342,49 @@ class _EmployeecertState extends State<Employeecert> {
                   ),
                 ),
               ),
+              if (selectedFiles.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: selectedFiles.map((file) {
+                    return Chip(
+                      backgroundColor: const Color(0xFF2A3240),
+                      deleteIcon:
+                          const Icon(Icons.close, color: Colors.white70),
+                      label: Text(
+                        path.basename(file.path),
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      onDeleted: () {
+                        setModalState(() => selectedFiles.remove(file));
+                      },
+                    );
+                  }).toList(),
+                ),
+              ],
               const SizedBox(height: 30),
               // Action Button
               ElevatedButton(
-                onPressed: isUploading || (_employeeId == null) || (selectedFile == null && existingDoc == null)
+                onPressed: isUploading ||
+                        (_employeeId == null) ||
+                        selectedFiles.isEmpty
                     ? null
                     : () async {
                         setModalState(() => isUploading = true);
-                        final error = await EmployeeService().uploadCertificate(
-                          file: selectedFile!,
-                          employeeId: _employeeId!,
-                          certificateType: documentType,
-                          documentId: existingDoc?.documentId,
-                        );
+                        String? error;
+                        for (var index = 0;
+                            index < selectedFiles.length;
+                            index++) {
+                          error = await EmployeeService().uploadCertificate(
+                            file: selectedFiles[index],
+                            employeeId: _employeeId!,
+                            certificateType: documentType,
+                            documentId:
+                                index == 0 ? existingDoc?.documentId : null,
+                          );
+                          if (error != null) break;
+                        }
                         if (error == null) {
                           Navigator.pop(context);
                           _loadDocuments();
@@ -321,11 +401,20 @@ class _EmployeecertState extends State<Employeecert> {
                   backgroundColor: const Color(0xFF3498DB),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
                 child: isUploading
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text(existingDoc == null ? "ADD DOCUMENT" : "UPDATE DOCUMENT"),
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : Text(selectedFiles.length > 1
+                        ? "UPLOAD ${selectedFiles.length} DOCUMENTS"
+                        : existingDoc == null
+                            ? "ADD DOCUMENT"
+                            : "UPDATE DOCUMENT"),
               ),
               const SizedBox(height: 20),
             ],
@@ -396,7 +485,7 @@ class _EmployeecertState extends State<Employeecert> {
         width: double.infinity,
         padding: const EdgeInsets.all(30),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
+          color: Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.white10),
         ),
@@ -423,10 +512,10 @@ class _EmployeecertState extends State<Employeecert> {
               colors: [Color(0xFF2A3240), Color(0xFF1C2230)],
             ),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.2),
+                color: Colors.black.withValues(alpha: 0.2),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               )
@@ -440,7 +529,7 @@ class _EmployeecertState extends State<Employeecert> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF3498DB).withOpacity(0.15),
+                      color: const Color(0xFF3498DB).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
@@ -469,10 +558,9 @@ class _EmployeecertState extends State<Employeecert> {
                         Text(
                           doc.status,
                           style: TextStyle(
-                            color: _getStatusColor(doc.status),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500
-                          ),
+                              color: _getStatusColor(doc.status),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500),
                         ),
                       ],
                     ),
@@ -486,18 +574,29 @@ class _EmployeecertState extends State<Employeecert> {
                 children: [
                   TextButton(
                     onPressed: () => _viewDocument(doc.documentUrl),
-                    child: const Text("VIEW", style: TextStyle(color: Color(0xFF3498DB), fontSize: 12, fontWeight: FontWeight.bold)),
+                    child: const Text("VIEW",
+                        style: TextStyle(
+                            color: Color(0xFF3498DB),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold)),
                   ),
                   TextButton(
                     onPressed: () => _showAddUpdateDialog(existingDoc: doc),
-                    child: const Text("UPDATE", style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                    child: const Text("UPDATE",
+                        style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold)),
                   ),
                   if (doc.documentType.toLowerCase() == 'general')
                     TextButton(
                       onPressed: () => _deleteDocument(doc),
-                      child: const Text("DELETE", style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                      child: const Text("DELETE",
+                          style: TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold)),
                     ),
-
                 ],
               ),
             ],
