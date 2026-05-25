@@ -144,11 +144,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:shiftsmart/screens/notifications.dart';
-// import 'package:shiftsmart/services/notification_service.dart';
+import 'package:shiftsmart/services/notification_service.dart';
 import 'package:provider/provider.dart';
 import 'package:shiftsmart/providers/user_provider.dart';
 import 'package:shiftsmart/widgets/bottomnavbar.dart';
 import 'package:shiftsmart/widgets/emp_bottomnavbar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Uppernavbar extends StatefulWidget implements PreferredSizeWidget {
   final bool showBackButton;
@@ -170,25 +171,29 @@ class Uppernavbar extends StatefulWidget implements PreferredSizeWidget {
 }
 
 class _UppernavbarState extends State<Uppernavbar> {
-  bool hasUnreadNotifications = false;
-  // final NotificationService _notificationService = NotificationService();
+  int _unreadNotificationCount = 0;
+  final NotificationService _notificationService = NotificationService();
 
   @override
   void initState() {
     super.initState();
-    // checkUnreadNotifications();
+    _loadUnreadNotificationCount();
   }
 
-  // Future<void> checkUnreadNotifications() async {
-  //   try {
-  //     final result = await _notificationService.fetchNotifications('user_33', status: 'unread');
-  //     setState(() {
-  //       hasUnreadNotifications = result.isNotEmpty;
-  //     });
-  //   } catch (e) {
-  //     print("Error checking unread notifications: $e");
-  //   }
-  // }
+  Future<void> _loadUnreadNotificationCount() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final employeeId = prefs.getInt('employeeId') ?? prefs.getInt('userId');
+      if (employeeId == null) return;
+
+      final unread =
+          await _notificationService.fetchNotificationsUnread(employeeId);
+      if (!mounted) return;
+      setState(() => _unreadNotificationCount = unread.length);
+    } catch (e) {
+      debugPrint("Error checking unread notifications: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -242,7 +247,8 @@ class _UppernavbarState extends State<Uppernavbar> {
                       child: CircleAvatar(
                         radius: 18,
                         backgroundColor: Colors.white24,
-                        child: Icon(Icons.person, color: Colors.white, size: 20),
+                        child:
+                            Icon(Icons.person, color: Colors.white, size: 20),
                       ),
                     ),
                   Expanded(
@@ -264,10 +270,12 @@ class _UppernavbarState extends State<Uppernavbar> {
               onTap: () {
                 final userProvider =
                     Provider.of<UserProvider>(context, listen: false);
-                final role = userProvider.userProfile['userRole']?.toString() ?? '';
+                final role =
+                    userProvider.userProfile['userRole']?.toString() ?? '';
                 final normalizedRole = role.trim().toLowerCase();
 
-                if (normalizedRole.contains('manager') || normalizedRole.contains('admin')) {
+                if (normalizedRole.contains('manager') ||
+                    normalizedRole.contains('admin')) {
                   Navigator.pushAndRemoveUntil(
                     context,
                     MaterialPageRoute(
@@ -304,30 +312,43 @@ class _UppernavbarState extends State<Uppernavbar> {
                 await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => Notifications(),
+                    builder: (context) => const Notifications(),
                     settings: const RouteSettings(name: '/notifications'),
                   ),
                 );
-                // checkUnreadNotifications(); // Recheck on return
+                _loadUnreadNotificationCount();
               }
             },
             child: Stack(
+              clipBehavior: Clip.none,
               children: [
                 const Padding(
                   padding: EdgeInsets.all(10),
                   child: Icon(Icons.notifications,
                       color: Colors.blueAccent, size: 30),
                 ),
-                if (hasUnreadNotifications)
+                if (_unreadNotificationCount > 0)
                   Positioned(
-                    right: 6,
-                    top: 6,
+                    right: 0,
+                    top: 2,
                     child: Container(
-                      width: 10,
-                      height: 10,
-                      decoration: const BoxDecoration(
+                      constraints:
+                          const BoxConstraints(minWidth: 18, minHeight: 18),
+                      padding: const EdgeInsets.symmetric(horizontal: 5),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
                         color: Colors.red,
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: Text(
+                        _unreadNotificationCount > 99
+                            ? '99+'
+                            : _unreadNotificationCount.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -358,7 +379,8 @@ class _UppernavbarState extends State<Uppernavbar> {
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color.fromARGB(98, 0, 0, 0).withValues(alpha: 0.3),
+                      color: const Color.fromARGB(98, 0, 0, 0)
+                          .withValues(alpha: 0.3),
                       offset: const Offset(3, 3),
                       blurRadius: 8,
                     ),
