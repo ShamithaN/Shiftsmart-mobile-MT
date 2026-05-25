@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import 'package:shiftsmart/models/notification.dart';
@@ -15,10 +16,13 @@ class NotificationService {
   static const String _defaultRegisterDeviceKey =
       'pcFPorJaoUJ5NmtNOPb5xj0wkQBzhs_coiqsQ4lThuI-AzFux7Xk9g==';
   static const String _defaultFirebaseProjectId = 'shift-smart-a34cb';
+  static const MethodChannel _nativePushChannel =
+      MethodChannel('shiftsmart/native_push');
 
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   final ApiClient _apiClient = ApiClient();
   static bool _listenersConfigured = false;
+  static bool _deferredRegistrationInProgress = false;
 
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
@@ -74,19 +78,12 @@ class NotificationService {
 
       if (employeeId == 0) {
         debugPrint("Device registration skipped for guest session.");
-      } else if (await _waitForApnsTokenIfNeeded()) {
-        final token = await _getFcmTokenForRegistration();
-        if (token == null) {
-          return;
-        }
-        debugPrint("FCM TOKEN: $token");
-        await registerDeviceTokenToBackend(
-          token: token,
+      } else {
+        await _registerCurrentDevice(
           employeeId: employeeId,
           tag: userTag,
+          allowDeferredRetry: true,
         );
-      } else {
-        debugPrint("Device registration skipped: APNS token is not ready.");
       }
 
       if (!_listenersConfigured) {
@@ -464,7 +461,74 @@ class NotificationService {
     return false;
   }
 
-  String get _registrationPlatform => 'fcm';
+  String get _registrationPlatform {
+    if (Platform.isIOS || Platform.isMacOS) return 'ios';
+    return 'android';
+  }
+
+  Future<void> _registerCurrentDevice({
+    required int employeeId,
+    required String tag,
+    required bool allowDeferredRetry,
+  }) async {
+    final token = await _getDeviceTokenForRegistration();
+    if (token == null) {
+      if (allowDeferredRetry) {
+        _scheduleDeferredDeviceRegistration(employeeId: employeeId, tag: tag);
+      }
+      return;
+    }
+
+    debugPrint(
+      "Push token ready for $_registrationPlatform registration.",
+    );
+    await registerDeviceTokenToBackend(
+      token: token,
+      employeeId: employeeId,
+      tag: tag,
+    );
+  }
+
+  void _scheduleDeferredDeviceRegistration({
+    required int employeeId,
+    required String tag,
+  }) {
+    if (_deferredRegistrationInProgress) return;
+
+    _deferredRegistrationInProgress = true;
+    Future<void>(() async {
+      for (var attempt = 1; attempt <= 12; attempt++) {
+        await Future.delayed(const Duration(seconds: 5));
+        debugPrint(
+          "Retrying device registration... attempt $attempt/12",
+        );
+
+        final token = await _getDeviceTokenForRegistration(maxAttempts: 1);
+        if (token == null) continue;
+
+        await registerDeviceTokenToBackend(
+          token: token,
+          employeeId: employeeId,
+          tag: tag,
+        );
+        _deferredRegistrationInProgress = false;
+        return;
+      }
+
+      _deferredRegistrationInProgress = false;
+      debugPrint(
+        "Device registration skipped: push token was not ready after retry window.",
+      );
+    });
+  }
+
+  Future<String?> _getDeviceTokenForRegistration({int maxAttempts = 5}) {
+    if (Platform.isIOS || Platform.isMacOS) {
+      return _getApnsTokenForRegistration(maxAttempts: maxAttempts);
+    }
+
+    return _getFcmTokenForRegistration();
+  }
 
   Future<String?> _getFcmTokenForRegistration() async {
     try {
@@ -486,21 +550,52 @@ class NotificationService {
     }
   }
 
-  Future<bool> _waitForApnsTokenIfNeeded() async {
-    if (!Platform.isIOS && !Platform.isMacOS) return true;
-
-    for (var attempt = 1; attempt <= 5; attempt++) {
-      final apnsToken = await _firebaseMessaging.getAPNSToken();
-      if (apnsToken != null && apnsToken.isNotEmpty) {
-        debugPrint("APNS token ready.");
-        return true;
+  Future<String?> _getApnsTokenForRegistration({int maxAttempts = 5}) async {
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        final apnsToken = await _getApnsToken();
+        if (apnsToken != null && apnsToken.isNotEmpty) {
+          debugPrint("APNS token ready.");
+          return apnsToken;
+        }
+      } on FirebaseException catch (e) {
+        debugPrint(
+          "APNS token error ${e.plugin}/${e.code} - ${e.message}",
+        );
+      } catch (e) {
+        debugPrint("APNS token error $e");
       }
 
-      debugPrint("Waiting for APNS token... attempt $attempt/5");
+      debugPrint("Waiting for APNS token... attempt $attempt/$maxAttempts");
       await Future.delayed(const Duration(seconds: 1));
     }
 
-    return false;
+    debugPrint("RegisterDevice not called: APNS token is not ready.");
+    return null;
+  }
+
+  Future<String?> _getApnsToken() async {
+    final nativeToken = await _getNativeApnsToken();
+    if (nativeToken != null && nativeToken.isNotEmpty) {
+      return nativeToken;
+    }
+
+    return _firebaseMessaging.getAPNSToken();
+  }
+
+  Future<String?> _getNativeApnsToken() async {
+    try {
+      final token = await _nativePushChannel.invokeMethod<String>(
+        'getApnsToken',
+      );
+      if (token == null || token.isEmpty) return null;
+      return token;
+    } on MissingPluginException {
+      return null;
+    } catch (e) {
+      debugPrint("Native APNS token lookup error: $e");
+      return null;
+    }
   }
 
   String _buildUrl(String path, String key) {
