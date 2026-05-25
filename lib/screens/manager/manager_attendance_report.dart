@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:shiftsmart/models/attendance.dart';
 import 'package:shiftsmart/screens/manager/manager_attendace_view.dart';
@@ -243,7 +246,8 @@ class _ManagerattendancereportState extends State<Managerattendancereport> {
                 decoration: BoxDecoration(
                   color: Colors.orange.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
+                  border:
+                      Border.all(color: Colors.orange.withValues(alpha: 0.5)),
                 ),
                 child: const Text(
                   " EARLY CLOCK-OUT",
@@ -262,11 +266,17 @@ class _ManagerattendancereportState extends State<Managerattendancereport> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              if (attendance.clockInPhotoUrl.isNotEmpty)
-                _buildThumbnail(attendance.clockInPhotoUrl),
+              if (attendance.clockInPhotoUrls.isNotEmpty)
+                _buildThumbnail(
+                  attendance.clockInPhotoUrls.first,
+                  count: attendance.clockInPhotoUrls.length,
+                ),
               const SizedBox(width: 4),
-              if (attendance.clockOutPhotoUrl.isNotEmpty)
-                _buildThumbnail(attendance.clockOutPhotoUrl),
+              if (attendance.clockOutPhotoUrls.isNotEmpty)
+                _buildThumbnail(
+                  attendance.clockOutPhotoUrls.first,
+                  count: attendance.clockOutPhotoUrls.length,
+                ),
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.all(8),
@@ -294,24 +304,86 @@ class _ManagerattendancereportState extends State<Managerattendancereport> {
     );
   }
 
-  Widget _buildThumbnail(String url) {
-    return Container(
-      width: 35,
-      height: 35,
-      decoration: BoxDecoration(
-        color: Colors.white10,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(6),
-        child: Image.network(
-          url,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) =>
-              const Icon(Icons.broken_image, size: 15, color: Colors.white24),
+  Widget _buildThumbnail(String url, {int count = 1}) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: 35,
+          height: 35,
+          decoration: BoxDecoration(
+            color: Colors.white10,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: Colors.white12),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: _buildThumbnailImage(url),
+          ),
         ),
-      ),
+        if (count > 1)
+          Positioned(
+            right: -5,
+            top: -5,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4E4AF2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white, width: 0.8),
+              ),
+              child: Text(
+                count.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
+  }
+
+  Widget _buildThumbnailImage(String value) {
+    final bytes = _decodeImageBytes(value);
+    if (bytes != null) {
+      return Image.memory(
+        bytes,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _thumbnailErrorIcon(),
+      );
+    }
+
+    return Image.network(
+      value,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => _thumbnailErrorIcon(),
+    );
+  }
+
+  Widget _thumbnailErrorIcon() {
+    return const Icon(Icons.broken_image, size: 15, color: Colors.white24);
+  }
+
+  Uint8List? _decodeImageBytes(String value) {
+    final trimmed = value.trim();
+    final commaIndex = trimmed.indexOf(',');
+    final base64Value =
+        trimmed.toLowerCase().startsWith('data:image') && commaIndex != -1
+            ? trimmed.substring(commaIndex + 1)
+            : trimmed;
+
+    if (base64Value.startsWith('http://') ||
+        base64Value.startsWith('https://')) {
+      return null;
+    }
+
+    try {
+      return base64Decode(base64Value);
+    } catch (_) {
+      return null;
+    }
   }
 }

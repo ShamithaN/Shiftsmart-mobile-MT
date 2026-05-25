@@ -62,9 +62,17 @@ class AttendanceService {
       return null;
     }
 
+    if (lower.startsWith('data:image')) return url;
+
     final uri = Uri.tryParse(url);
-    if (uri == null || !uri.hasScheme) return null;
-    return url;
+    if (uri != null && uri.hasScheme) return url;
+
+    // Some attendance endpoints return raw base64 image data instead of a URL.
+    if (RegExp(r'^[A-Za-z0-9+/=\r\n]+$').hasMatch(url) && url.length > 100) {
+      return url;
+    }
+
+    return null;
   }
 
   Future<String?> fetchClockPhotoUrl(int attendanceId,
@@ -85,13 +93,25 @@ class AttendanceService {
           return _validPhotoUrl(data['photoUrl'] ??
               data['PhotoUrl'] ??
               data['url'] ??
-              data['Url']);
+              data['Url'] ??
+              data['imageUrl'] ??
+              data['ImageUrl'] ??
+              data['data'] ??
+              data['Data'] ??
+              data['base64'] ??
+              data['Base64']);
         }
 
         return _validPhotoUrl(jsonData['photoUrl'] ??
             jsonData['PhotoUrl'] ??
             jsonData['url'] ??
-            jsonData['Url']);
+            jsonData['Url'] ??
+            jsonData['imageUrl'] ??
+            jsonData['ImageUrl'] ??
+            jsonData['data'] ??
+            jsonData['Data'] ??
+            jsonData['base64'] ??
+            jsonData['Base64']);
       }
 
       return _validPhotoUrl(jsonData);
@@ -119,11 +139,23 @@ class AttendanceService {
           'clockIn': _validPhotoUrl(record['ClockInPhotoUrl'] ??
               record['clockInPhotoUrl'] ??
               record['ClockInPhotoURL'] ??
-              record['clockInPhotoURL']),
+              record['clockInPhotoURL'] ??
+              record['ClockInPhoto'] ??
+              record['clockInPhoto'] ??
+              record['ClockInImageUrl'] ??
+              record['clockInImageUrl'] ??
+              record['ClockInImage'] ??
+              record['clockInImage']),
           'clockOut': _validPhotoUrl(record['ClockOutPhotoUrl'] ??
               record['clockOutPhotoUrl'] ??
               record['ClockOutPhotoURL'] ??
-              record['clockOutPhotoURL']),
+              record['clockOutPhotoURL'] ??
+              record['ClockOutPhoto'] ??
+              record['clockOutPhoto'] ??
+              record['ClockOutImageUrl'] ??
+              record['clockOutImageUrl'] ??
+              record['ClockOutImage'] ??
+              record['clockOutImage']),
         };
       }
     } catch (e) {

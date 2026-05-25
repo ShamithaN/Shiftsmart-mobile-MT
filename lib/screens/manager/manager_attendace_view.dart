@@ -1,17 +1,18 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart'; // Requires 'printing' package
 import 'package:pdf/widgets.dart' as pw; // Requires 'pdf' package
 import 'package:pdf/pdf.dart';
 import 'package:shiftsmart/models/attendance.dart';
+import 'package:shiftsmart/services/attendance_service.dart';
 import 'package:shiftsmart/utils/date_time_parser.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
-import 'dart:io';
-import 'package:shiftsmart/services/image_picker_service.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
-import 'package:shiftsmart/services/attendance_service.dart';
 
 class Managerattendaceview extends StatefulWidget {
   final Attendance attendance;
@@ -27,47 +28,72 @@ class Managerattendaceview extends StatefulWidget {
 
 class _ManagerattendaceviewState extends State<Managerattendaceview> {
   final AttendanceService _attendanceService = AttendanceService();
-  final ImagePickerService _imagePickerService = RealImagePickerService();
-  String? currentApprovalStatus;
-  bool isApproving = false;
-  File? _proofPhoto;
-
-  Future<void> _pickProofPhoto() async {
-    final photo = await _imagePickerService.pickImage();
-    if (photo != null) {
-      setState(() => _proofPhoto = photo);
-    }
-  }
+  late List<String> _clockInPhotoUrls;
+  late List<String> _clockOutPhotoUrls;
+  bool _isLoadingEvidence = false;
 
   @override
   void initState() {
     super.initState();
+    _clockInPhotoUrls = List.from(widget.attendance.clockInPhotoUrls);
+    _clockOutPhotoUrls = List.from(widget.attendance.clockOutPhotoUrls);
+    _loadMissingEvidence();
     enableFullScreen();
-    currentApprovalStatus = widget.attendance.approvalStatus;
   }
 
-  Future<void> _handleApproval(String status) async {
-    setState(() => isApproving = true);
+  Future<void> _loadMissingEvidence() async {
+    if (_clockInPhotoUrls.isNotEmpty && _clockOutPhotoUrls.isNotEmpty) return;
+
+    setState(() => _isLoadingEvidence = true);
+
     try {
-      final success = await _attendanceService.approveAttendance(
-          widget.attendance.attendanceId, status,
-          proofPhoto: _proofPhoto);
-      if (success) {
-        setState(() {
-          currentApprovalStatus = status;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Attendance $status successfully")),
-        );
-      } else {
-        throw Exception("Failed to update status");
+      String? clockInUrl;
+      String? clockOutUrl;
+
+      if (widget.attendance.attendanceId > 0) {
+        if (_clockInPhotoUrls.isEmpty) {
+          clockInUrl = await _attendanceService.fetchClockPhotoUrl(
+            widget.attendance.attendanceId,
+            isClockIn: true,
+          );
+        }
+
+        if (_clockOutPhotoUrls.isEmpty) {
+          clockOutUrl = await _attendanceService.fetchClockPhotoUrl(
+            widget.attendance.attendanceId,
+            isClockIn: false,
+          );
+        }
       }
+
+      if ((clockInUrl == null || clockOutUrl == null) &&
+          widget.attendance.employeeId > 0 &&
+          widget.attendance.shiftId > 0) {
+        final photos = await _attendanceService.fetchAttendancePhotos(
+          widget.attendance.employeeId,
+          widget.attendance.shiftId,
+        );
+
+        clockInUrl ??= photos['clockIn'];
+        clockOutUrl ??= photos['clockOut'];
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        if (_clockInPhotoUrls.isEmpty && _hasImageValue(clockInUrl)) {
+          _clockInPhotoUrls = [clockInUrl!.trim()];
+        }
+        if (_clockOutPhotoUrls.isEmpty && _hasImageValue(clockOutUrl)) {
+          _clockOutPhotoUrls = [clockOutUrl!.trim()];
+        }
+      });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
+      debugPrint('Error loading attendance evidence: $e');
     } finally {
-      setState(() => isApproving = false);
+      if (mounted) {
+        setState(() => _isLoadingEvidence = false);
+      }
     }
   }
 
@@ -476,25 +502,23 @@ class _ManagerattendaceviewState extends State<Managerattendaceview> {
                               fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            if (widget.attendance.clockInPhotoUrl.isNotEmpty)
-                              Expanded(
-                                child: _buildEvidenceBox("Clock In",
-                                    widget.attendance.clockInPhotoUrl),
+                        _buildEvidenceGallery(),
+                        if (_isLoadingEvidence)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8),
+                            child: Center(
+                              child: SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white70,
+                                ),
                               ),
-                            if (widget.attendance.clockInPhotoUrl.isNotEmpty &&
-                                widget.attendance.clockOutPhotoUrl.isNotEmpty)
-                              const SizedBox(width: 12),
-                            if (widget.attendance.clockOutPhotoUrl.isNotEmpty)
-                              Expanded(
-                                child: _buildEvidenceBox("Clock Out",
-                                    widget.attendance.clockOutPhotoUrl),
-                              ),
-                          ],
-                        ),
-                        if (widget.attendance.clockInPhotoUrl.isEmpty &&
-                            widget.attendance.clockOutPhotoUrl.isEmpty)
+                            ),
+                          )
+                        else if (_clockInPhotoUrls.isEmpty &&
+                            _clockOutPhotoUrls.isEmpty)
                           const Text(
                             "No attendance photos recorded for this shift.",
                             style:
@@ -596,51 +620,143 @@ class _ManagerattendaceviewState extends State<Managerattendaceview> {
     );
   }
 
-  Widget _buildEvidenceBox(String label, String url) {
+  Widget _buildEvidenceGallery() {
+    final sections = <Widget>[
+      if (_clockInPhotoUrls.isNotEmpty)
+        _buildEvidenceSection(
+          "Clock In",
+          _clockInPhotoUrls,
+        ),
+      if (_clockOutPhotoUrls.isNotEmpty)
+        _buildEvidenceSection(
+          "Clock Out",
+          _clockOutPhotoUrls,
+        ),
+    ];
+
+    if (sections.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var index = 0; index < sections.length; index++) ...[
+          if (index > 0) const SizedBox(height: 14),
+          sections[index],
+        ],
+      ],
+    );
+  }
+
+  Widget _buildEvidenceSection(String label, List<String> urls) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
+          urls.length == 1 ? label : "$label (${urls.length})",
           style: const TextStyle(
               color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 6),
-        GestureDetector(
-          onTap: () {
-            showDialog(
-              context: context,
-              builder: (_) => Dialog(
-                backgroundColor: Colors.transparent,
-                child: InteractiveViewer(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(url, fit: BoxFit.contain),
-                  ),
-                ),
-              ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final tileWidth = urls.length == 1
+                ? constraints.maxWidth
+                : (constraints.maxWidth - 12) / 2;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: urls
+                  .map((url) => SizedBox(
+                        width: tileWidth,
+                        child: _buildEvidenceBox(url),
+                      ))
+                  .toList(),
             );
           },
-          child: Container(
-            height: 120,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.white10,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white24),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.network(
-                url,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const Center(
-                    child: Icon(Icons.broken_image, color: Colors.white24)),
-              ),
-            ),
-          ),
         ),
       ],
     );
+  }
+
+  Widget _buildEvidenceBox(String url) {
+    return GestureDetector(
+      onTap: () {
+        showDialog(
+          context: context,
+          builder: (_) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: InteractiveViewer(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: _buildAttendanceImage(url, fit: BoxFit.contain),
+              ),
+            ),
+          ),
+        );
+      },
+      child: Container(
+        height: 120,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white10,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white24),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: _buildAttendanceImage(url, fit: BoxFit.cover),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAttendanceImage(String value, {required BoxFit fit}) {
+    final bytes = _decodeImageBytes(value);
+    if (bytes != null) {
+      return Image.memory(
+        bytes,
+        fit: fit,
+        errorBuilder: (context, error, stackTrace) => _imageErrorPlaceholder(),
+      );
+    }
+
+    return Image.network(
+      value,
+      fit: fit,
+      errorBuilder: (context, error, stackTrace) => _imageErrorPlaceholder(),
+    );
+  }
+
+  Widget _imageErrorPlaceholder() {
+    return const Center(
+      child: Icon(Icons.broken_image, color: Colors.white24),
+    );
+  }
+
+  bool _hasImageValue(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) return false;
+    final lower = trimmed.toLowerCase();
+    return lower != 'null' && lower != 'undefined' && lower != 'none';
+  }
+
+  Uint8List? _decodeImageBytes(String value) {
+    final trimmed = value.trim();
+    final commaIndex = trimmed.indexOf(',');
+    final base64Value =
+        trimmed.toLowerCase().startsWith('data:image') && commaIndex != -1
+            ? trimmed.substring(commaIndex + 1)
+            : trimmed;
+
+    if (base64Value.startsWith('http://') ||
+        base64Value.startsWith('https://')) {
+      return null;
+    }
+
+    try {
+      return base64Decode(base64Value);
+    } catch (_) {
+      return null;
+    }
   }
 }
