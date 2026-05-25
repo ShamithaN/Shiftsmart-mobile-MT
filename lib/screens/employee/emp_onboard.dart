@@ -11,6 +11,7 @@ import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/build_profile_avatar.dart';
 import 'package:shiftsmart/widgets/gradient_button.dart';
 import 'package:shiftsmart/screens/login.dart';
+import 'package:shiftsmart/utils/country_dial_codes.dart';
 
 class _DialCountry {
   final String name;
@@ -52,7 +53,7 @@ class _EmponboardState extends State<Emponboard> {
   bool _isResubmission = false;
 
   bool _isLoadingBank = false;
-  bool _isBankNameReadOnly = true;
+  bool _isBankNameReadOnly = false;
   final FocusNode _bsbFocusNode = FocusNode();
 
   Key _avatarKey = UniqueKey();
@@ -80,12 +81,15 @@ class _EmponboardState extends State<Emponboard> {
 
   final _passCtrl = TextEditingController();
   final _confirmPassCtrl = TextEditingController();
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   final _nokNameCtrl = TextEditingController();
   final _nokRelCtrl = TextEditingController();
   final _nokPhoneCtrl = TextEditingController();
   final _nokEmailCtrl = TextEditingController();
   final _nokAddressCtrl = TextEditingController();
+  bool _forceNokFieldValidation = false;
 
   String _jobRole = "";
   String _empType = "";
@@ -95,6 +99,7 @@ class _EmponboardState extends State<Emponboard> {
   List<String> _rejectedKeys = [];
 
   File? _profilePic;
+  bool _profileImageError = false;
   final Map<String, File> _uploadedDocs = {};
   final Map<String, int> _requiredDocIds = {};
   final Set<String> _resubmittedDocs = {};
@@ -112,18 +117,13 @@ class _EmponboardState extends State<Emponboard> {
 
   final List<Map<String, dynamic>> _nokList = [];
 
-  static const List<_DialCountry> _dialCountries = [
-    _DialCountry(name: 'Australia', code: '+61', flag: '🇦🇺'),
-    _DialCountry(name: 'Sri Lanka', code: '+94', flag: '🇱🇰'),
-    _DialCountry(name: 'United States', code: '+1', flag: '🇺🇸'),
-    _DialCountry(name: 'India', code: '+91', flag: '🇮🇳'),
-    _DialCountry(name: 'United Kingdom', code: '+44', flag: '🇬🇧'),
-    _DialCountry(name: 'New Zealand', code: '+64', flag: '🇳🇿'),
-    _DialCountry(name: 'Canada', code: '+1', flag: '🇨🇦'),
-    _DialCountry(name: 'Singapore', code: '+65', flag: '🇸🇬'),
-    _DialCountry(name: 'Malaysia', code: '+60', flag: '🇲🇾'),
-    _DialCountry(name: 'United Arab Emirates', code: '+971', flag: '🇦🇪'),
-  ];
+  static final List<_DialCountry> _dialCountries = countryDialCodes
+      .map((country) => _DialCountry(
+            name: country.name,
+            code: country.dialCode,
+            flag: country.flag,
+          ))
+      .toList(growable: false);
 
   _DialCountry _selectedProfileCountry = _dialCountries.first;
   _DialCountry _selectedNokCountry = _dialCountries.first;
@@ -245,6 +245,35 @@ class _EmponboardState extends State<Emponboard> {
       return 'Enter a valid phone number';
     }
     return null;
+  }
+
+  bool _validateCurrentStep() {
+    final isFormValid = _formKey.currentState?.validate() ?? false;
+    var isStepValid = isFormValid;
+
+    if (_currentStep == 1 && _shouldShow("FullName")) {
+      final needsProfileImage = !_isResubmission;
+      final hasProfileImage = _profilePic != null;
+      setState(
+          () => _profileImageError = needsProfileImage && !hasProfileImage);
+      if (needsProfileImage && !hasProfileImage) {
+        isStepValid = false;
+      }
+    }
+
+    return isStepValid;
+  }
+
+  bool get _hasNokDraft {
+    return _nokNameCtrl.text.trim().isNotEmpty ||
+        _nokRelCtrl.text.trim().isNotEmpty ||
+        _nokPhoneCtrl.text.trim().isNotEmpty ||
+        _nokEmailCtrl.text.trim().isNotEmpty ||
+        _nokAddressCtrl.text.trim().isNotEmpty;
+  }
+
+  bool get _shouldValidateNokFields {
+    return _forceNokFieldValidation || _nokList.isEmpty || _hasNokDraft;
   }
 
   String _readDocumentType(dynamic doc) {
@@ -581,6 +610,7 @@ class _EmponboardState extends State<Emponboard> {
             if (img != null) {
               setState(() {
                 _profilePic = File(img.path);
+                _profileImageError = false;
                 _avatarKey = UniqueKey();
               });
             }
@@ -597,6 +627,7 @@ class _EmponboardState extends State<Emponboard> {
             if (img != null) {
               setState(() {
                 _profilePic = File(img.path);
+                _profileImageError = false;
                 _avatarKey = UniqueKey();
               });
             }
@@ -1139,7 +1170,7 @@ class _EmponboardState extends State<Emponboard> {
                                   : "Next",
                               onPressed: () {
                                 if (nextStep != null) {
-                                  if (_formKey.currentState!.validate()) {
+                                  if (_validateCurrentStep()) {
                                     setState(() => _currentStep = nextStep);
                                   }
                                 } else {
@@ -1194,27 +1225,44 @@ class _EmponboardState extends State<Emponboard> {
           key: _avatarKey,
           editable: true,
           initialImage: _profilePic,
+          useProviderImage: false,
+          placeholderIcon: Icons.person,
+          onTap: _pickProfileImage,
+          onEditTap: _pickProfileImage,
           onImageSelected: (File image) {
             setState(() {
               _profilePic = image;
+              _profileImageError = false;
             });
           },
         ),
       ),
-      const Center(
+      Center(
         child: Padding(
-          padding: EdgeInsets.only(top: 8.0),
+          padding: const EdgeInsets.only(top: 8.0),
           child: Text(
-            "Profile Picture (Optional)",
-            style: TextStyle(color: Colors.white54, fontSize: 12),
+            "Profile Picture",
+            style: TextStyle(
+              color: _profileImageError ? Colors.redAccent : Colors.white54,
+              fontSize: 12,
+            ),
           ),
         ),
       ),
+      if (_profileImageError)
+        const Center(
+          child: Padding(
+            padding: EdgeInsets.only(top: 4.0),
+            child: Text(
+              "Profile picture is required",
+              style: TextStyle(color: Colors.redAccent, fontSize: 12),
+            ),
+          ),
+        ),
       const SizedBox(height: 20),
       if (_shouldShow("FullName")) ...[
         _buildTextField("First Name", _firstNameCtrl),
-        _buildTextField("Middle Name (Optional)", _midNameCtrl,
-            validator: (_) => null),
+        _buildTextField("Middle Name", _midNameCtrl),
         _buildTextField("Last Name", _lastNameCtrl),
       ],
       if (_shouldShow("Gender"))
@@ -1231,12 +1279,11 @@ class _EmponboardState extends State<Emponboard> {
       if (_shouldShow("DateOfBirth"))
         _buildDatePicker("Date of Birth", _dobCtrl, validator: _validateAge),
       if (_shouldShow("Address")) ...[
-        _buildTextField("Street (Optional)", _streetCtrl,
-            validator: (_) => null),
+        _buildTextField("Street", _streetCtrl),
         _buildTextField("City", _cityCtrl),
-        _buildTextField("State (Optional)", _stateCtrl, validator: (_) => null),
-        _buildTextField("Postcode (Optional)", _zipCtrl,
-            keyboardType: TextInputType.number, validator: (_) => null),
+        _buildTextField("State", _stateCtrl),
+        _buildTextField("Postcode", _zipCtrl,
+            keyboardType: TextInputType.number),
         _buildTextField("Country", _countryCtrl),
       ],
       const SizedBox(height: 20),
@@ -1247,10 +1294,8 @@ class _EmponboardState extends State<Emponboard> {
       _buildReadOnlyField("Job Role", _jobRole),
       _buildReadOnlyField("Employment Type", _empType),
       if (_shouldShow("TaxInfo")) ...[
-        if (_empType.contains("Contractor"))
-          _buildTextField("ABN (Optional)", _abnCtrl, validator: (_) => null),
-        if (_empType.contains("Employee"))
-          _buildTextField("TFN (Optional)", _tfnCtrl, validator: (_) => null),
+        if (_empType.contains("Contractor")) _buildTextField("ABN", _abnCtrl),
+        if (_empType.contains("Employee")) _buildTextField("TFN", _tfnCtrl),
       ]
     ]);
   }
@@ -1258,26 +1303,24 @@ class _EmponboardState extends State<Emponboard> {
   Widget _buildStep2BankAndAuth() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if (_shouldShow("Bank")) ...[
-        const Text("Bank Details (Optional - All fields can be left empty)",
+        const Text("Bank Details",
             style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
                 fontSize: 18)),
         const SizedBox(height: 10),
-        _buildTextField("Account Name (Optional)", _accNameCtrl,
-            validator: (_) => null),
-        _buildTextField("BSB (Optional)", _bsbCtrl,
-            validator: (_) => null,
+        _buildTextField("Account Name", _accNameCtrl),
+        _buildTextField("BSB", _bsbCtrl,
             focusNode: _bsbFocusNode,
             onChanged: (val) {
               String clean = val.replaceAll(RegExp(r'[^0-9]'), '');
               if (clean.length == 6) {
                 _handleBsbLookup();
               } else {
-                if (!_isBankNameReadOnly || _bankNameCtrl.text.isNotEmpty) {
+                if (_isBankNameReadOnly) {
                   setState(() {
                     _bankNameCtrl.clear();
-                    _isBankNameReadOnly = true;
+                    _isBankNameReadOnly = false;
                   });
                 }
               }
@@ -1290,10 +1333,9 @@ class _EmponboardState extends State<Emponboard> {
                         strokeWidth: 2, color: Colors.white),
                   )
                 : null),
-        _buildTextField("Account Number (Optional)", _accNumCtrl,
-            validator: (_) => null),
-        _buildTextField("Bank Name (Optional)", _bankNameCtrl,
-            readOnly: _isBankNameReadOnly, validator: (_) => null),
+        _buildTextField("Account Number", _accNumCtrl),
+        _buildTextField("Bank Name", _bankNameCtrl,
+            readOnly: _isBankNameReadOnly && _bankNameCtrl.text.isNotEmpty),
       ],
       if (!_isResubmission) ...[
         const SizedBox(height: 20),
@@ -1304,10 +1346,28 @@ class _EmponboardState extends State<Emponboard> {
                 fontSize: 18)),
         const SizedBox(height: 10),
         _buildTextField("New Password", _passCtrl,
-            obscure: true,
+            obscure: _obscurePassword,
+            suffixIcon: IconButton(
+              icon: Icon(
+                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                color: Colors.white70,
+              ),
+              onPressed: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
+            ),
             validator: (v) => v!.length < 6 ? "Min 6 chars" : null),
         _buildTextField("Confirm Password", _confirmPassCtrl,
-            obscure: true,
+            obscure: _obscureConfirmPassword,
+            suffixIcon: IconButton(
+              icon: Icon(
+                _obscureConfirmPassword
+                    ? Icons.visibility_off
+                    : Icons.visibility,
+                color: Colors.white70,
+              ),
+              onPressed: () => setState(
+                  () => _obscureConfirmPassword = !_obscureConfirmPassword),
+            ),
             validator: (v) =>
                 v != _passCtrl.text ? "Passwords do not match" : null),
       ]
@@ -1324,11 +1384,17 @@ class _EmponboardState extends State<Emponboard> {
                 fontSize: 18)),
         const SizedBox(height: 10),
         _buildTextField("Full Name", _nokNameCtrl, validator: (v) {
-          if (_nokList.isNotEmpty && (v == null || v.isEmpty)) return null;
-          return (v == null || v.isEmpty) ? "Full Name is required" : null;
+          if (!_shouldValidateNokFields) return null;
+          return (v == null || v.trim().isEmpty)
+              ? "Full Name is required"
+              : null;
         }),
-        _buildTextField("Relationship (Optional)", _nokRelCtrl,
-            validator: (_) => null),
+        _buildTextField("Relationship", _nokRelCtrl, validator: (v) {
+          if (!_shouldValidateNokFields) return null;
+          return (v == null || v.trim().isEmpty)
+              ? "Relationship is required"
+              : null;
+        }),
         _buildPhoneNumberField(
           label: "Mobile",
           controller: _nokPhoneCtrl,
@@ -1338,18 +1404,30 @@ class _EmponboardState extends State<Emponboard> {
           validator: (v) => _validatePhoneNumber(
             v,
             label: 'Mobile',
-            optional: _nokList.isNotEmpty,
+            optional: !_shouldValidateNokFields,
           ),
         ),
-        _buildTextField("Email (Optional)", _nokEmailCtrl,
-            keyboardType: TextInputType.emailAddress, validator: (_) => null),
-        _buildTextField("Address (Optional)", _nokAddressCtrl,
-            validator: (_) => null),
+        _buildTextField("Email", _nokEmailCtrl,
+            keyboardType: TextInputType.emailAddress, validator: (v) {
+          if (!_shouldValidateNokFields) return null;
+          if (v == null || v.trim().isEmpty) return "Email is required";
+          final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+          return emailRegex.hasMatch(v.trim())
+              ? null
+              : "Enter a valid email address";
+        }),
+        _buildTextField("Address", _nokAddressCtrl, validator: (v) {
+          if (!_shouldValidateNokFields) return null;
+          return (v == null || v.trim().isEmpty) ? "Address is required" : null;
+        }),
         Align(
           alignment: Alignment.centerRight,
           child: GradientButton(
               text: "Add NoK",
               onPressed: () {
+                setState(() => _forceNokFieldValidation = true);
+                if (!(_formKey.currentState?.validate() ?? false)) return;
+
                 final name = _nokNameCtrl.text.trim();
                 final rel = _nokRelCtrl.text.trim();
                 final mobile =
@@ -1357,10 +1435,13 @@ class _EmponboardState extends State<Emponboard> {
                 final email = _nokEmailCtrl.text.trim();
                 final address = _nokAddressCtrl.text.trim();
 
-                if (name.isEmpty || mobile.isEmpty) {
+                if (name.isEmpty ||
+                    rel.isEmpty ||
+                    mobile.isEmpty ||
+                    email.isEmpty ||
+                    address.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text(
-                          "Please fill in Full Name and Mobile (required fields)."),
+                      content: Text("Please fill in all Next of Kin fields."),
                       backgroundColor: Colors.redAccent));
                   return;
                 }
@@ -1387,10 +1468,10 @@ class _EmponboardState extends State<Emponboard> {
                 setState(() {
                   _nokList.add({
                     "fullName": name,
-                    "relationship": rel.isEmpty ? "N/A" : rel,
+                    "relationship": rel,
                     "mobileNumber": mobile,
-                    "email": email.isEmpty ? "N/A" : email,
-                    "address": address.isEmpty ? "N/A" : address,
+                    "email": email,
+                    "address": address,
                   });
                   _nokNameCtrl.clear();
                   _nokRelCtrl.clear();
@@ -1398,6 +1479,7 @@ class _EmponboardState extends State<Emponboard> {
                   _selectedNokCountry = _dialCountries.first;
                   _nokEmailCtrl.clear();
                   _nokAddressCtrl.clear();
+                  _forceNokFieldValidation = false;
                 });
               }),
         ),
@@ -1641,13 +1723,26 @@ class _EmponboardState extends State<Emponboard> {
                             color: const Color(0xFF5B86FF), width: 1.5),
                       ),
                       alignment: Alignment.center,
-                      child: Text(
-                        selectedCountry.code,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            selectedCountry.flag,
+                            style: const TextStyle(fontSize: 18),
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              selectedCountry.code,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -1896,28 +1991,45 @@ class _EmponboardState extends State<Emponboard> {
 
   Widget _buildDropdown(String label, List<String> items, String? value,
       Function(String?) onChanged) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white38)),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          hint: Text("Select $label",
-              style: const TextStyle(color: Colors.white70)),
-          dropdownColor: Colors.grey[900],
-          isExpanded: true,
-          icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-          onChanged: onChanged,
-          items: items
-              .map((e) => DropdownMenuItem(
-                  value: e,
-                  child: Text(e, style: const TextStyle(color: Colors.white))))
-              .toList(),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 15),
+      child: DropdownButtonFormField<String>(
+        initialValue: value,
+        hint: Text("Select $label",
+            style: const TextStyle(color: Colors.white70)),
+        dropdownColor: Colors.grey[900],
+        isExpanded: true,
+        icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+        onChanged: onChanged,
+        validator: (v) => v == null ? "$label is required" : null,
+        style: const TextStyle(color: Colors.white),
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: 0.1),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Colors.white38),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xFF6A4DE8), width: 2),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Colors.redAccent),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+          ),
         ),
+        items: items
+            .map((e) => DropdownMenuItem(
+                value: e,
+                child: Text(e, style: const TextStyle(color: Colors.white))))
+            .toList(),
       ),
     );
   }

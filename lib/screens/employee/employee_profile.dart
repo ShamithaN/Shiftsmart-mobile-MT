@@ -46,6 +46,13 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
   final TextEditingController _postalController = TextEditingController();
   final TextEditingController _countryController = TextEditingController();
   final TextEditingController _genderController = TextEditingController();
+  static const List<String> _genderOptions = [
+    "Man",
+    "Woman",
+    "Non-binary",
+    "I use a different term",
+    "Prefer not to say",
+  ];
 
   // --- Controllers: Step 2 (Bank & Job) ---
   final TextEditingController _accountNameController = TextEditingController();
@@ -274,7 +281,7 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
       "firstName": _firstNameController.text,
       "middleName": _midNameController.text,
       "lastName": _lastNameController.text,
-      "gender": _genderController.text,
+      "gender": _genderForBackend(),
       "email": _emailController.text,
       "mobileNumber": _phoneController.text,
       "dateOfBirth": _dateController.text,
@@ -308,7 +315,7 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
       "firstName": _firstNameController.text.trim(),
       "middleName": _midNameController.text.trim(),
       "lastName": _lastNameController.text.trim(),
-      "gender": _genderController.text.trim(),
+      "gender": _genderForBackend(),
       "email": _emailController.text.trim(),
       "mobileNumber": _phoneController.text.trim(),
       "dateOfBirth": _dateController.text.trim(),
@@ -439,7 +446,8 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
             errorKey: 'firstName'),
         _buildTextField("Middle Name", _midNameController),
         _buildTextField("Last Name", _lastNameController, errorKey: 'lastName'),
-        _buildTextField("Gender", _genderController, errorKey: 'gender'),
+        _buildDropdownField("Gender", _genderController, _genderOptions,
+            errorKey: 'gender'),
         CountryCodePhoneField(
           label: "Phone Number",
           controller: _phoneController,
@@ -490,6 +498,21 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
     );
   }
 
+  String? _genderDropdownValue() {
+    final gender = _genderController.text.trim();
+    if (_genderOptions.contains(gender)) return gender;
+    if (gender.toLowerCase() == 'male') return 'Man';
+    if (gender.toLowerCase() == 'female') return 'Woman';
+    return null;
+  }
+
+  String _genderForBackend() {
+    final gender = _genderController.text.trim();
+    if (gender == 'Man') return 'Male';
+    if (gender == 'Woman') return 'Female';
+    return gender;
+  }
+
   // --- UI Helper: Main Text Fields ---
   Widget _buildTextField(String label, TextEditingController controller,
       {String? errorKey, bool readOnly = false, VoidCallback? onTap}) {
@@ -529,6 +552,74 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
                     ? const Icon(Icons.calendar_today,
                         color: Colors.white70, size: 20)
                     : null,
+              ),
+            ),
+          ),
+          if (error != null) ...[
+            const SizedBox(height: 4),
+            Row(children: [
+              const Icon(Icons.error_outline,
+                  color: Colors.redAccent, size: 14),
+              const SizedBox(width: 4),
+              Expanded(
+                  child: Text(error,
+                      style: const TextStyle(
+                          color: Colors.redAccent, fontSize: 12))),
+            ]),
+          ],
+          const SizedBox(height: 12),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDropdownField(
+    String label,
+    TextEditingController controller,
+    List<String> items, {
+    String? errorKey,
+  }) {
+    final error = errorKey != null ? _fieldErrors[errorKey] : null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: const TextStyle(color: Colors.white70, fontSize: 16)),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                  color: error != null ? Colors.redAccent : Colors.white),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _genderDropdownValue(),
+                hint: Text(' $label',
+                    style: const TextStyle(color: Colors.white70)),
+                dropdownColor: const Color(0xFF2A3240),
+                icon: const Icon(Icons.keyboard_arrow_down,
+                    color: Colors.white70),
+                isExpanded: true,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                style: const TextStyle(color: Colors.white70, fontSize: 16),
+                items: items
+                    .map((item) => DropdownMenuItem<String>(
+                          value: item,
+                          child: Text(item),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    controller.text = value;
+                    if (errorKey != null) _fieldErrors.remove(errorKey);
+                  });
+                },
               ),
             ),
           ),

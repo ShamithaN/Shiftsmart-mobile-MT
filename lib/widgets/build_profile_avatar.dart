@@ -12,6 +12,8 @@ class ProfileAvatar extends StatefulWidget {
   final Function(File)? onImageSelected;
   final VoidCallback? onTap;
   final VoidCallback? onEditTap;
+  final bool useProviderImage;
+  final IconData placeholderIcon;
 
   const ProfileAvatar({
     super.key,
@@ -20,10 +22,12 @@ class ProfileAvatar extends StatefulWidget {
     this.onImageSelected,
     this.onTap,
     this.onEditTap,
+    this.useProviderImage = true,
+    this.placeholderIcon = Icons.account_circle,
   });
 
   @override
-  _ProfileAvatarState createState() => _ProfileAvatarState();
+  State<ProfileAvatar> createState() => _ProfileAvatarState();
 }
 
 class _ProfileAvatarState extends State<ProfileAvatar> {
@@ -93,7 +97,9 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
 
   @override
   Widget build(BuildContext context) {
-    final userProfile = Provider.of<UserProvider>(context).userProfile;
+    final userProfile = widget.useProviderImage
+        ? Provider.of<UserProvider>(context).userProfile
+        : const <String, dynamic>{};
     final imageValue =
         userProfile["profilePicture"] ?? userProfile["ProfilePicture"];
     final imageProvider = _imageProvider(imageValue);
@@ -117,8 +123,7 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
                     width: 100,
                     height: 100,
                   )
-                : const Icon(Icons.account_circle,
-                    size: 100, color: Colors.white),
+                : Icon(widget.placeholderIcon, size: 100, color: Colors.white),
       ),
     );
 

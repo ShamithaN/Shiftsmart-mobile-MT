@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shiftsmart/utils/country_dial_codes.dart';
 
 class CountryCodePhoneField extends StatefulWidget {
   final String label;
@@ -23,18 +24,16 @@ class CountryCodePhoneField extends StatefulWidget {
 }
 
 class _CountryCodePhoneFieldState extends State<CountryCodePhoneField> {
-  static const _countries = [
-    _CountryCode('Australia', '+61', '🇦🇺'),
-    _CountryCode('Sri Lanka', '+94', '🇱🇰'),
-    _CountryCode('United States', '+1', '🇺🇸'),
-    _CountryCode('India', '+91', '🇮🇳'),
-    _CountryCode('United Kingdom', '+44', '🇬🇧'),
-    _CountryCode('New Zealand', '+64', '🇳🇿'),
-    _CountryCode('Canada', '+1', '🇨🇦'),
-    _CountryCode('Singapore', '+65', '🇸🇬'),
-    _CountryCode('Malaysia', '+60', '🇲🇾'),
-    _CountryCode('UAE', '+971', '🇦🇪'),
-  ];
+  static final List<_CountryCode> _countries = countryDialCodes
+      .map((country) => _CountryCode(
+            country.name,
+            country.dialCode,
+            country.flag,
+          ))
+      .toList(growable: false);
+  static final List<_CountryCode> _countriesByDialCodeLength = [
+    ..._countries,
+  ]..sort((a, b) => b.dialCode.length.compareTo(a.dialCode.length));
 
   final LayerLink _layerLink = LayerLink();
   final TextEditingController _searchController = TextEditingController();
@@ -92,7 +91,7 @@ class _CountryCodePhoneFieldState extends State<CountryCodePhoneField> {
 
   _CountryCode? _detectCountry(String value) {
     if (!value.startsWith('+')) return null;
-    for (final country in _countries) {
+    for (final country in _countriesByDialCodeLength) {
       if (value.startsWith(country.dialCode)) return country;
     }
     return null;
