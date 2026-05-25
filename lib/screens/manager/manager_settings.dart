@@ -243,7 +243,6 @@ class _ManagerSettingsState extends State<ManagerSettings> {
             message: "Your password has been changed successfully.",
             buttonText: "OK",
             onPressed: () {
-              Navigator.pop(context); // Close dialog
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(

@@ -30,30 +30,28 @@ class EmployeeSettings extends StatefulWidget {
 }
 
 class _EmployeeSettingsState extends State<EmployeeSettings> {
-
   // SERVICES & DEPENDENCIES
-  
+
   final ProfileService _profileService = ProfileService();
   final LocalAuthentication _localAuth = LocalAuthentication();
   final _storage = const FlutterSecureStorage();
 
-
   // TEXT EDITING CONTROLLERS
-  
-  final TextEditingController _currentPasswordController = TextEditingController();
-  final TextEditingController _newPasswordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
 
+  final TextEditingController _currentPasswordController =
+      TextEditingController();
+  final TextEditingController _newPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
 
   // STATE VARIABLES - Password Visibility
-  
+
   bool _currentPasswordVisible = false;
   bool _newPasswordVisible = false;
   bool _confirmPasswordVisible = false;
 
-
   // STATE VARIABLES - Loading & Biometrics
-  
+
   bool _isLoading = false;
   bool _isBiometricEnabled = false;
   bool _canCheckBiometrics = false;
@@ -61,19 +59,18 @@ class _EmployeeSettingsState extends State<EmployeeSettings> {
   bool _hasFingerprint = false;
   String _biometricLabel = "Biometrics";
 
-
   // LIFECYCLE METHODS
 
   @override
   void initState() {
     super.initState();
     enableFullScreen();
-    
+
     // Add listener to rebuild UI when password changes for real-time validation
     _newPasswordController.addListener(() {
       setState(() {});
     });
-    
+
     // Check if biometrics are available on this device
     _checkBiometrics();
   }
@@ -87,33 +84,32 @@ class _EmployeeSettingsState extends State<EmployeeSettings> {
   }
 
   // PASSWORD VALIDATION GETTERS
-  
+
   /// Check if password has minimum length requirement
   bool get _hasMinLength => _newPasswordController.text.length >= 6;
-  
+
   /// Check if password contains uppercase letter
-  bool get _hasUpperCase => _newPasswordController.text.contains(RegExp(r'[A-Z]'));
-  
+  bool get _hasUpperCase =>
+      _newPasswordController.text.contains(RegExp(r'[A-Z]'));
+
   /// Check if password contains lowercase letter
-  bool get _hasLowerCase => _newPasswordController.text.contains(RegExp(r'[a-z]'));
-  
+  bool get _hasLowerCase =>
+      _newPasswordController.text.contains(RegExp(r'[a-z]'));
+
   /// Check if password contains digit
   bool get _hasDigit => _newPasswordController.text.contains(RegExp(r'[0-9]'));
-  
+
   /// Check if password contains special character
-  bool get _hasSpecialChar => _newPasswordController.text.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
-  
+  bool get _hasSpecialChar =>
+      _newPasswordController.text.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+
   /// Check if new password is different from current password
-  bool get _isDifferentFromCurrent => 
-      _currentPasswordController.text.isNotEmpty && 
-      _newPasswordController.text.isNotEmpty && 
+  bool get _isDifferentFromCurrent =>
+      _currentPasswordController.text.isNotEmpty &&
+      _newPasswordController.text.isNotEmpty &&
       _currentPasswordController.text != _newPasswordController.text;
 
-
-
-
   // BIOMETRIC AUTHENTICATION METHODS
-
 
   /// Check if device supports biometrics and load user preference
   Future<void> _checkBiometrics() async {
@@ -198,7 +194,7 @@ class _EmployeeSettingsState extends State<EmployeeSettings> {
     }
 
     await prefs.setBool('biometric_enabled', value);
-    
+
     setState(() {
       _isBiometricEnabled = value;
     });
@@ -209,9 +205,7 @@ class _EmployeeSettingsState extends State<EmployeeSettings> {
     );
   }
 
-
   // PASSWORD UPDATE LOGIC
-
 
   /// Validate and update user password
   Future<void> _updatePassword() async {
@@ -220,7 +214,9 @@ class _EmployeeSettingsState extends State<EmployeeSettings> {
     final confirmPassword = _confirmPasswordController.text.trim();
 
     // Validation: Check if all fields are filled
-    if (currentPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty) {
+    if (currentPassword.isEmpty ||
+        newPassword.isEmpty ||
+        confirmPassword.isEmpty) {
       _showSnackBar("Please fill in all fields", isError: true);
       return;
     }
@@ -270,7 +266,7 @@ class _EmployeeSettingsState extends State<EmployeeSettings> {
       if (success != null && success) {
         // SYNC: Update secure storage with new password
         await _storage.write(key: 'login_pass', value: newPassword);
-        
+
         if (mounted) {
           SuccessDialog.show(
             context,
@@ -278,7 +274,6 @@ class _EmployeeSettingsState extends State<EmployeeSettings> {
             message: "Your password has been changed successfully.",
             buttonText: "OK",
             onPressed: () {
-              Navigator.pop(context); // Close dialog
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
@@ -301,9 +296,7 @@ class _EmployeeSettingsState extends State<EmployeeSettings> {
     }
   }
 
-
   // UI HELPER METHODS
-
 
   /// Show snackbar with message
   void _showSnackBar(String message, {bool isError = false}) {
@@ -316,7 +309,6 @@ class _EmployeeSettingsState extends State<EmployeeSettings> {
       );
     }
   }
-
 
   // BUILD METHOD
 
@@ -353,7 +345,8 @@ class _EmployeeSettingsState extends State<EmployeeSettings> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(AppTheme.borderRadiusL),
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.borderRadiusL),
                           gradient: AppTheme.backgroundGradient,
                         ),
                         child: Column(
@@ -369,11 +362,11 @@ class _EmployeeSettingsState extends State<EmployeeSettings> {
                               ),
                             ),
                             const SizedBox(height: 20),
-                            
+
                             // Profile header with avatar
                             _buildProfileHeader(),
                             const SizedBox(height: 30),
-                            
+
                             // Password change fields and biometric toggle
                             _buildPasswordFields(),
                           ],
@@ -396,9 +389,7 @@ class _EmployeeSettingsState extends State<EmployeeSettings> {
     );
   }
 
-
   // UI COMPONENT BUILDERS
-
 
   /// Build profile header section with avatar
   Widget _buildProfileHeader() {
@@ -448,7 +439,7 @@ class _EmployeeSettingsState extends State<EmployeeSettings> {
             });
           },
         ),
-        
+
         // Password Validation Requirements
         // Shows real-time feedback when user starts typing
         if (_newPasswordController.text.isNotEmpty)
@@ -486,7 +477,7 @@ class _EmployeeSettingsState extends State<EmployeeSettings> {
               ],
             ),
           ),
-        
+
         const SizedBox(height: 16),
 
         // Confirm Password Field
@@ -686,15 +677,3 @@ class _EmployeeSettingsState extends State<EmployeeSettings> {
     );
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-

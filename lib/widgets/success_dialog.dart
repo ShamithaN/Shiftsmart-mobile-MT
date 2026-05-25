@@ -33,10 +33,10 @@ class SuccessDialog extends StatelessWidget {
           buttonText: buttonText,
           onPressed: () {
             // Close the dialog using the dialog's own context
-            Navigator.of(dialogContext).pop();
+            Navigator.of(dialogContext, rootNavigator: true).pop();
             // Then execute any additional logic if provided
             if (onPressed != null) {
-              onPressed();
+              WidgetsBinding.instance.addPostFrameCallback((_) => onPressed());
             }
           },
         );
@@ -87,7 +87,8 @@ class SuccessDialog extends StatelessWidget {
             width: double.infinity,
             child: GradientButton(
               text: buttonText,
-              onPressed: onPressed, // Calls the internal wrapper that pops the dialog
+              onPressed:
+                  onPressed, // Calls the internal wrapper that pops the dialog
             ),
           ),
         ],
