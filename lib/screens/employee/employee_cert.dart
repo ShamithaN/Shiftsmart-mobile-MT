@@ -1,5 +1,3 @@
-import 'dart:io';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shiftsmart/models/empcert_model.dart';
@@ -10,7 +8,6 @@ import 'package:shiftsmart/widgets/emp_slidenav.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:path/path.dart' as path;
-import 'package:image_picker/image_picker.dart';
 
 class Employeecert extends StatefulWidget {
   const Employeecert({super.key});
@@ -92,6 +89,199 @@ class _EmployeecertState extends State<Employeecert> {
     }
   }
 
+  String _documentTitle(EmployeeCertificate doc) {
+    final type = doc.documentType.trim();
+    if (type.isNotEmpty) return type;
+
+    final name = doc.fileName.trim();
+    return name.isNotEmpty ? name : 'Document';
+  }
+
+  String _documentGroupKey(EmployeeCertificate doc) {
+    return _documentTitle(doc).trim().toLowerCase();
+  }
+
+  List<List<EmployeeCertificate>> _groupedCertificates() {
+    final groups = <String, List<EmployeeCertificate>>{};
+
+    for (final doc in _certificates) {
+      groups.putIfAbsent(_documentGroupKey(doc), () => []).add(doc);
+    }
+
+    return groups.values.toList();
+  }
+
+  String _groupStatus(List<EmployeeCertificate> docs) {
+    if (docs.any((doc) {
+      final status = doc.status.toLowerCase();
+      return status == 'rejected' || status == 'declined';
+    })) {
+      return 'Rejected';
+    }
+    if (docs.any((doc) => doc.status.toLowerCase() == 'pending')) {
+      return 'Pending';
+    }
+    return docs.first.status;
+  }
+
+  bool _isImageUrl(String url) {
+    final cleanUrl = url.split('?').first.toLowerCase();
+    return cleanUrl.endsWith('.jpg') ||
+        cleanUrl.endsWith('.jpeg') ||
+        cleanUrl.endsWith('.png') ||
+        cleanUrl.endsWith('.webp');
+  }
+
+  Future<void> _viewDocumentGroup(List<EmployeeCertificate> docs) async {
+    final availableDocs =
+        docs.where((doc) => doc.documentUrl.trim().isNotEmpty).toList();
+
+    if (availableDocs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Document URL is missing")),
+      );
+      return;
+    }
+
+    if (availableDocs.length == 1 &&
+        !_isImageUrl(availableDocs.first.documentUrl)) {
+      await _viewDocument(availableDocs.first.documentUrl);
+      return;
+    }
+
+    final controller = PageController();
+    var currentIndex = 0;
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              backgroundColor: const Color(0xFF1C2230),
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 18, vertical: 28),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.72,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _documentTitle(availableDocs.first).toUpperCase(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            icon:
+                                const Icon(Icons.close, color: Colors.white70),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: PageView.builder(
+                        controller: controller,
+                        itemCount: availableDocs.length,
+                        onPageChanged: (index) {
+                          setDialogState(() => currentIndex = index);
+                        },
+                        itemBuilder: (context, index) {
+                          final doc = availableDocs[index];
+                          final url = doc.documentUrl;
+
+                          if (_isImageUrl(url)) {
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              child: InteractiveViewer(
+                                minScale: 0.8,
+                                maxScale: 4,
+                                child: Image.network(
+                                  url,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) => const Center(
+                                    child: Text(
+                                      "Could not load image",
+                                      style: TextStyle(color: Colors.white70),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+
+                          return Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.insert_drive_file,
+                                    color: Color(0xFF3498DB), size: 54),
+                                const SizedBox(height: 12),
+                                Text(
+                                  path.basename(url.split('?').first),
+                                  style: const TextStyle(
+                                      color: Colors.white70, fontSize: 13),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton(
+                                  onPressed: () => _viewDocument(url),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF3498DB),
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  child: const Text("OPEN DOCUMENT"),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(availableDocs.length, (index) {
+                          return Container(
+                            width: index == currentIndex ? 18 : 8,
+                            height: 8,
+                            margin: const EdgeInsets.symmetric(horizontal: 3),
+                            decoration: BoxDecoration(
+                              color: index == currentIndex
+                                  ? const Color(0xFF3498DB)
+                                  : Colors.white24,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    controller.dispose();
+  }
+
   Future<void> _deleteDocument(EmployeeCertificate doc) async {
     final bool? confirm = await showDialog<bool>(
       context: context,
@@ -132,309 +322,12 @@ class _EmployeecertState extends State<Employeecert> {
     }
   }
 
-  Future<void> _showAddUpdateDialog({EmployeeCertificate? existingDoc}) async {
-    final List<File> selectedFiles = [];
-    String documentType = existingDoc?.documentType ?? 'General';
-    final List<String> docTypes = [
-      'General',
-      'National ID',
-      'National Police Check',
-      'Working with Children Check',
-      'Drivers License',
-      'Passport',
-      'CV',
-      'Contract'
-    ];
-
-    // Ensure the current documentType is in the list to avoid DropdownButton assertion error
-    if (!docTypes.contains(documentType)) {
-      docTypes.add(documentType);
-    }
-
-    bool isUploading = false;
-
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20,
-            right: 20,
-            top: 20,
-          ),
-          decoration: const BoxDecoration(
-            color: Color(0xFF1C2230),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                existingDoc == null ? "Add Document" : "Update Document",
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              // Document Type Dropdown
-              const Text("Document Type",
-                  style: TextStyle(color: Colors.white70, fontSize: 12)),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white10),
-                ),
-                child: DropdownButton<String>(
-                  value: documentType,
-                  dropdownColor: const Color(0xFF2A3240),
-                  isExpanded: true,
-                  underline: const SizedBox(),
-                  style: const TextStyle(color: Colors.white),
-                  items: docTypes.map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) setModalState(() => documentType = val);
-                  },
-                ),
-              ),
-              const SizedBox(height: 20),
-              // File Picker
-              const Text("File",
-                  style: TextStyle(color: Colors.white70, fontSize: 12)),
-              const SizedBox(height: 8),
-              InkWell(
-                onTap: () async {
-                  final ImagePicker picker = ImagePicker();
-
-                  await showModalBottomSheet(
-                    context: context,
-                    backgroundColor: const Color(0xFF1C2230),
-                    shape: const RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(20)),
-                    ),
-                    builder: (methodSheetContext) => SafeArea(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(height: 10),
-                          const Text(
-                            "Select Attachment Method",
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 10),
-                          ListTile(
-                            leading: const Icon(Icons.camera_alt,
-                                color: Color(0xFF3498DB)),
-                            title: const Text("Take Photo",
-                                style: TextStyle(color: Colors.white)),
-                            onTap: () async {
-                              Navigator.pop(methodSheetContext);
-                              final XFile? image = await picker.pickImage(
-                                source: ImageSource.camera,
-                                imageQuality: 80,
-                              );
-                              if (image != null) {
-                                setModalState(() {
-                                  selectedFiles.add(File(image.path));
-                                });
-                              }
-                            },
-                          ),
-                          ListTile(
-                            leading: const Icon(Icons.photo_library,
-                                color: Color(0xFF3498DB)),
-                            title: const Text("Select Gallery Images",
-                                style: TextStyle(color: Colors.white)),
-                            onTap: () async {
-                              Navigator.pop(methodSheetContext);
-                              final List<XFile> images =
-                                  await picker.pickMultiImage(imageQuality: 80);
-                              if (images.isNotEmpty) {
-                                setModalState(() {
-                                  selectedFiles.addAll(
-                                    images.map((image) => File(image.path)),
-                                  );
-                                });
-                              }
-                            },
-                          ),
-                          ListTile(
-                            leading: const Icon(Icons.upload_file,
-                                color: Color(0xFF3498DB)),
-                            title: const Text("Select File",
-                                style: TextStyle(color: Colors.white)),
-                            onTap: () async {
-                              Navigator.pop(methodSheetContext);
-                              final result = await FilePicker.pickFiles(
-                                type: FileType.custom,
-                                allowMultiple: true,
-                                allowedExtensions: [
-                                  'pdf',
-                                  'png',
-                                  'jpg',
-                                  'jpeg'
-                                ],
-                              );
-                              final files = result?.files
-                                      .where((file) => file.path != null)
-                                      .map((file) => File(file.path!))
-                                      .toList() ??
-                                  [];
-                              if (files.isNotEmpty) {
-                                setModalState(() {
-                                  selectedFiles.addAll(files);
-                                });
-                              }
-                            },
-                          ),
-                          const SizedBox(height: 10),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: Colors.white10, style: BorderStyle.solid),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.upload_file, color: Color(0xFF3498DB)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          selectedFiles.isEmpty
-                              ? (existingDoc != null
-                                  ? "Change current file..."
-                                  : "Select file...")
-                              : selectedFiles.length == 1
-                                  ? path.basename(selectedFiles.first.path)
-                                  : "${selectedFiles.length} attachments selected",
-                          style: TextStyle(
-                              color: selectedFiles.isNotEmpty
-                                  ? Colors.white
-                                  : Colors.white38),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              if (selectedFiles.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: selectedFiles.map((file) {
-                    return Chip(
-                      backgroundColor: const Color(0xFF2A3240),
-                      deleteIcon:
-                          const Icon(Icons.close, color: Colors.white70),
-                      label: Text(
-                        path.basename(file.path),
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      onDeleted: () {
-                        setModalState(() => selectedFiles.remove(file));
-                      },
-                    );
-                  }).toList(),
-                ),
-              ],
-              const SizedBox(height: 30),
-              // Action Button
-              ElevatedButton(
-                onPressed: isUploading ||
-                        (_employeeId == null) ||
-                        selectedFiles.isEmpty
-                    ? null
-                    : () async {
-                        setModalState(() => isUploading = true);
-                        String? error;
-                        for (var index = 0;
-                            index < selectedFiles.length;
-                            index++) {
-                          error = await EmployeeService().uploadCertificate(
-                            file: selectedFiles[index],
-                            employeeId: _employeeId!,
-                            certificateType: documentType,
-                            documentId:
-                                index == 0 ? existingDoc?.documentId : null,
-                          );
-                          if (error != null) break;
-                        }
-                        if (error == null) {
-                          Navigator.pop(context);
-                          _loadDocuments();
-                        } else {
-                          setModalState(() => isUploading = false);
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(error)),
-                            );
-                          }
-                        }
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF3498DB),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-                child: isUploading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
-                    : Text(selectedFiles.length > 1
-                        ? "UPLOAD ${selectedFiles.length} DOCUMENTS"
-                        : existingDoc == null
-                            ? "ADD DOCUMENT"
-                            : "UPDATE DOCUMENT"),
-              ),
-              const SizedBox(height: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const EmpSidenav(currentScreen: 'EmployeeCert'),
       backgroundColor: const Color(0xFF1C2230),
       appBar: const Uppernavbar(showBackButton: false),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddUpdateDialog(),
-        backgroundColor: const Color(0xFF3498DB),
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
       body: Stack(children: [
         const Background(),
         Column(children: [
@@ -501,7 +394,11 @@ class _EmployeecertState extends State<Employeecert> {
     }
 
     return Column(
-      children: _certificates.map((doc) {
+      children: _groupedCertificates().map((docs) {
+        final doc = docs.first;
+        final title = _documentTitle(doc);
+        final status = _groupStatus(docs);
+
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
@@ -546,7 +443,7 @@ class _EmployeecertState extends State<Employeecert> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          doc.fileName.toUpperCase(),
+                          title.toUpperCase(),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 15,
@@ -556,12 +453,23 @@ class _EmployeecertState extends State<Employeecert> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          doc.status,
+                          status,
                           style: TextStyle(
-                              color: _getStatusColor(doc.status),
+                              color: _getStatusColor(status),
                               fontSize: 11,
                               fontWeight: FontWeight.w500),
                         ),
+                        if (docs.length > 1) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            "${docs.length} files",
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -573,18 +481,10 @@ class _EmployeecertState extends State<Employeecert> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: () => _viewDocument(doc.documentUrl),
+                    onPressed: () => _viewDocumentGroup(docs),
                     child: const Text("VIEW",
                         style: TextStyle(
                             color: Color(0xFF3498DB),
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold)),
-                  ),
-                  TextButton(
-                    onPressed: () => _showAddUpdateDialog(existingDoc: doc),
-                    child: const Text("UPDATE",
-                        style: TextStyle(
-                            color: Colors.white70,
                             fontSize: 12,
                             fontWeight: FontWeight.bold)),
                   ),
