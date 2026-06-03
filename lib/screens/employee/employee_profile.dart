@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shiftsmart/providers/user_provider.dart';
 import 'package:shiftsmart/services/profile_service.dart';
+import 'package:shiftsmart/utils/country_dial_codes.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/utils/profile_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
@@ -26,6 +27,7 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
   int _currentStep = 1;
   bool _isInitialized = false;
   final bool _isLoading = false;
+  final FocusNode _countryFocusNode = FocusNode();
 
   // Per-field inline validation errors
   final Map<String, String> _fieldErrors = {};
@@ -47,12 +49,148 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
   final TextEditingController _countryController = TextEditingController();
   final TextEditingController _genderController = TextEditingController();
   static const List<String> _genderOptions = [
-    "Man",
-    "Woman",
-    "Non-binary",
-    "I use a different term",
-    "Prefer not to say",
+    "Male",
+    "Female",
   ];
+
+  static const Map<String, List<String>> _countryStates = {
+    "Australia": [
+      "ACT",
+      "NSW",
+      "NT",
+      "QLD",
+      "SA",
+      "TAS",
+      "VIC",
+      "WA",
+    ],
+    "Sri Lanka": [
+      "Central",
+      "Eastern",
+      "North Central",
+      "Northern",
+      "North Western",
+      "Sabaragamuwa",
+      "Southern",
+      "Uva",
+      "Western",
+    ],
+    "United States": [
+      "Alabama",
+      "Alaska",
+      "Arizona",
+      "Arkansas",
+      "California",
+      "Colorado",
+      "Connecticut",
+      "Delaware",
+      "Florida",
+      "Georgia",
+      "Hawaii",
+      "Idaho",
+      "Illinois",
+      "Indiana",
+      "Iowa",
+      "Kansas",
+      "Kentucky",
+      "Louisiana",
+      "Maine",
+      "Maryland",
+      "Massachusetts",
+      "Michigan",
+      "Minnesota",
+      "Mississippi",
+      "Missouri",
+      "Montana",
+      "Nebraska",
+      "Nevada",
+      "New Hampshire",
+      "New Jersey",
+      "New Mexico",
+      "New York",
+      "North Carolina",
+      "North Dakota",
+      "Ohio",
+      "Oklahoma",
+      "Oregon",
+      "Pennsylvania",
+      "Rhode Island",
+      "South Carolina",
+      "South Dakota",
+      "Tennessee",
+      "Texas",
+      "Utah",
+      "Vermont",
+      "Virginia",
+      "Washington",
+      "West Virginia",
+      "Wisconsin",
+      "Wyoming",
+    ],
+    "India": [
+      "Andhra Pradesh",
+      "Arunachal Pradesh",
+      "Assam",
+      "Bihar",
+      "Chhattisgarh",
+      "Goa",
+      "Gujarat",
+      "Haryana",
+      "Himachal Pradesh",
+      "Jharkhand",
+      "Karnataka",
+      "Kerala",
+      "Madhya Pradesh",
+      "Maharashtra",
+      "Manipur",
+      "Meghalaya",
+      "Mizoram",
+      "Nagaland",
+      "Odisha",
+      "Punjab",
+      "Rajasthan",
+      "Sikkim",
+      "Tamil Nadu",
+      "Telangana",
+      "Tripura",
+      "Uttar Pradesh",
+      "Uttarakhand",
+      "West Bengal",
+    ],
+    "New Zealand": [
+      "Auckland",
+      "Bay of Plenty",
+      "Canterbury",
+      "Gisborne",
+      "Hawke's Bay",
+      "Manawatu-Wanganui",
+      "Marlborough",
+      "Nelson",
+      "Northland",
+      "Otago",
+      "Southland",
+      "Taranaki",
+      "Tasman",
+      "Waikato",
+      "Wellington",
+      "West Coast",
+    ],
+    "Canada": [
+      "Alberta",
+      "British Columbia",
+      "Manitoba",
+      "New Brunswick",
+      "Newfoundland and Labrador",
+      "Northwest Territories",
+      "Nova Scotia",
+      "Nunavut",
+      "Ontario",
+      "Prince Edward Island",
+      "Quebec",
+      "Saskatchewan",
+      "Yukon",
+    ],
+  };
 
   // --- Controllers: Step 2 (Bank & Job) ---
   final TextEditingController _accountNameController = TextEditingController();
@@ -69,6 +207,29 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadLatestProfile();
     });
+  }
+
+  @override
+  void dispose() {
+    _countryFocusNode.dispose();
+    _firstNameController.dispose();
+    _midNameController.dispose();
+    _lastNameController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    _dateController.dispose();
+    _streetController.dispose();
+    _suburbController.dispose();
+    _stateController.dispose();
+    _postalController.dispose();
+    _countryController.dispose();
+    _genderController.dispose();
+    _accountNameController.dispose();
+    _bsbController.dispose();
+    _accountNumberController.dispose();
+    _bankNameController.dispose();
+    _jobroleController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadLatestProfile() async {
@@ -145,6 +306,42 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
     return text.toUpperCase() == 'N/A' ? '' : text;
   }
 
+  String? get _selectedCountryName {
+    final selectedCountry = _countryController.text.trim().toLowerCase();
+    if (selectedCountry.isEmpty) return null;
+
+    for (final countryName in _countryStates.keys) {
+      if (countryName.toLowerCase() == selectedCountry) return countryName;
+    }
+    return null;
+  }
+
+  List<String> get _selectedCountryStates {
+    final countryName = _selectedCountryName;
+    return countryName == null ? const [] : _countryStates[countryName]!;
+  }
+
+  bool get _hasKnownCountry {
+    final country = _countryController.text.trim().toLowerCase();
+    if (country.isEmpty) return false;
+    return countryDialCodes.any((item) => item.name.toLowerCase() == country);
+  }
+
+  void _handleCountryChanged(String countryName) {
+    final nextStates = _countryStates[countryName] ?? const <String>[];
+    final shouldClearState =
+        nextStates.isNotEmpty && !nextStates.contains(_stateController.text);
+
+    setState(() {
+      _countryController.text = countryName;
+      _fieldErrors.remove('country');
+      if (shouldClearState) {
+        _stateController.clear();
+        _fieldErrors.remove('state');
+      }
+    });
+  }
+
   String _currentProfilePicture() {
     final userProfile =
         Provider.of<UserProvider>(context, listen: false).userProfile;
@@ -180,12 +377,6 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
       } else if (!RegExp(r'^\+?[1-9]\d{6,14}$').hasMatch(phone))
         errors['phone'] = 'Use international format, e.g. +94771234567';
 
-      final email = _emailController.text.trim();
-      if (email.isEmpty) {
-        errors['email'] = 'Email is required.';
-      } else if (!RegExp(r'^[\w._%+\-]+@[\w.\-]+\.[a-zA-Z]{2,}$')
-          .hasMatch(email)) errors['email'] = 'Enter a valid email address.';
-
       final dob = _dateController.text.trim();
       if (dob.isEmpty) {
         errors['dob'] = 'Date of Birth is required.';
@@ -203,14 +394,27 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
         errors['street'] = 'Street Address is required.';
       }
       if (_suburbController.text.trim().isEmpty) {
-        errors['suburb'] = 'City/Suburb is required.';
+        errors['suburb'] = 'City is required.';
       }
+
+      final state = _stateController.text.trim();
+      if (state.isEmpty) {
+        errors['state'] = 'State is required.';
+      } else if (_selectedCountryStates.isNotEmpty &&
+          !_selectedCountryStates.contains(state)) {
+        errors['state'] = 'Select a valid state.';
+      }
+
       if (_countryController.text.trim().isEmpty) {
         errors['country'] = 'Country is required.';
+      } else if (!_hasKnownCountry) {
+        errors['country'] = 'Select a valid country.';
       }
+
       final postal = _postalController.text.trim();
-      if (postal.isNotEmpty &&
-          !RegExp(r'^[A-Za-z0-9\s\-]{2,10}$').hasMatch(postal)) {
+      if (postal.isEmpty) {
+        errors['postal'] = 'Postal Code is required.';
+      } else if (!RegExp(r'^[A-Za-z0-9\s\-]{2,10}$').hasMatch(postal)) {
         errors['postal'] = 'Enter a valid Postal/ZIP code.';
       }
     }
@@ -231,37 +435,6 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
       _fieldErrors.addAll(errors);
     });
     return errors.isEmpty;
-  }
-
-  Future<void> _selectDate() async {
-    DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
-      firstDate: DateTime(1900),
-      lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Colors.blueAccent,
-              onPrimary: Colors.white,
-              surface: Color(0xFF1E1E2E), // Match app background
-              onSurface: Colors.white,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(foregroundColor: Colors.blueAccent),
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) {
-      setState(() {
-        _dateController.text = picked.toString().split(' ')[0];
-        if (_fieldErrors.containsKey('dob')) _fieldErrors.remove('dob');
-      });
-    }
   }
 
   // Sends updated data to the backend
@@ -443,9 +616,10 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
         )),
         const SizedBox(height: 20),
         _buildTextField("First Name", _firstNameController,
-            errorKey: 'firstName'),
-        _buildTextField("Middle Name", _midNameController),
-        _buildTextField("Last Name", _lastNameController, errorKey: 'lastName'),
+            errorKey: 'firstName', readOnly: true),
+        _buildTextField("Middle Name", _midNameController, readOnly: true),
+        _buildTextField("Last Name", _lastNameController,
+            errorKey: 'lastName', readOnly: true),
         _buildDropdownField("Gender", _genderController, _genderOptions,
             errorKey: 'gender'),
         CountryCodePhoneField(
@@ -458,19 +632,25 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
             }
           },
         ),
-        _buildTextField("Email", _emailController, errorKey: 'email'),
         _buildTextField("Date of birth", _dateController,
-            errorKey: 'dob', readOnly: true, onTap: _selectDate),
+            errorKey: 'dob', readOnly: true),
         const Text("Address",
             style: TextStyle(color: Colors.white70, fontSize: 16)),
         const SizedBox(height: 12),
-        _buildSubTextField("Street Address", _streetController,
-            errorKey: 'street'),
-        _buildSubTextField("Suburb", _suburbController, errorKey: 'suburb'),
-        _buildSubTextField("State/Territory", _stateController),
+        _buildCountryAutocomplete(),
+        if (_selectedCountryStates.isNotEmpty)
+          _buildSubDropdownField(
+            "State",
+            _stateController,
+            _selectedCountryStates,
+            errorKey: 'state',
+          )
+        else
+          _buildSubTextField("State", _stateController, errorKey: 'state'),
+        _buildSubTextField("City", _suburbController, errorKey: 'suburb'),
+        _buildSubTextField("Street", _streetController, errorKey: 'street'),
         _buildSubTextField("Postal Code", _postalController,
             errorKey: 'postal', keyboardType: TextInputType.number),
-        _buildSubTextField("Country", _countryController, errorKey: 'country'),
       ],
     );
   }
@@ -493,7 +673,8 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
         _buildSubTextField("Bank Name", _bankNameController,
             errorKey: 'bankName'),
         const SizedBox(height: 20),
-        _buildTextField("Job Role", _jobroleController, errorKey: 'jobRole'),
+        _buildTextField("Job Role", _jobroleController,
+            errorKey: 'jobRole', readOnly: true),
       ],
     );
   }
@@ -501,16 +682,27 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
   String? _genderDropdownValue() {
     final gender = _genderController.text.trim();
     if (_genderOptions.contains(gender)) return gender;
-    if (gender.toLowerCase() == 'male') return 'Man';
-    if (gender.toLowerCase() == 'female') return 'Woman';
+    if (gender.toLowerCase() == 'man') return 'Male';
+    if (gender.toLowerCase() == 'woman') return 'Female';
     return null;
   }
 
   String _genderForBackend() {
-    final gender = _genderController.text.trim();
-    if (gender == 'Man') return 'Male';
-    if (gender == 'Woman') return 'Female';
-    return gender;
+    return _genderDropdownValue() ?? _genderController.text.trim();
+  }
+
+  Widget _buildInlineError(String error) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(children: [
+        const SizedBox(width: 4),
+        const Icon(Icons.error_outline, color: Colors.redAccent, size: 14),
+        const SizedBox(width: 4),
+        Expanded(
+            child: Text(error,
+                style: const TextStyle(color: Colors.redAccent, fontSize: 12))),
+      ]),
+    );
   }
 
   // --- UI Helper: Main Text Fields ---
@@ -635,6 +827,174 @@ class _EmployeeProfileState extends State<EmployeeProfile> {
                           color: Colors.redAccent, fontSize: 12))),
             ]),
           ],
+          const SizedBox(height: 12),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCountryAutocomplete() {
+    final error = _fieldErrors['country'];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          RawAutocomplete<CountryDialCode>(
+            textEditingController: _countryController,
+            focusNode: _countryFocusNode,
+            displayStringForOption: (country) => country.name,
+            optionsBuilder: (textEditingValue) {
+              final query = textEditingValue.text.trim().toLowerCase();
+              if (query.isEmpty) return const Iterable<CountryDialCode>.empty();
+
+              return countryDialCodes
+                  .where((country) =>
+                      country.name.toLowerCase().startsWith(query) ||
+                      country.name.toLowerCase().contains(query))
+                  .take(12);
+            },
+            onSelected: (country) => _handleCountryChanged(country.name),
+            fieldViewBuilder:
+                (context, textEditingController, focusNode, onFieldSubmitted) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: error != null ? Colors.redAccent : Colors.white),
+                ),
+                child: TextField(
+                  controller: textEditingController,
+                  focusNode: focusNode,
+                  onSubmitted: (_) => onFieldSubmitted(),
+                  onChanged: (value) {
+                    final matchedCountry = countryDialCodes.where((country) =>
+                        country.name.toLowerCase() ==
+                        value.trim().toLowerCase());
+                    if (matchedCountry.isEmpty) {
+                      setState(() {
+                        _fieldErrors.remove('country');
+                      });
+                      return;
+                    }
+
+                    _handleCountryChanged(matchedCountry.first.name);
+                  },
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    border: InputBorder.none,
+                    hintText: ' Country',
+                    hintStyle: TextStyle(color: Colors.white70),
+                    suffixIcon: Icon(Icons.arrow_drop_down,
+                        color: Colors.white70, size: 24),
+                  ),
+                ),
+              );
+            },
+            optionsViewBuilder: (context, onSelected, options) {
+              return Align(
+                alignment: Alignment.topLeft,
+                child: Material(
+                  color: const Color(0xFF111D35),
+                  elevation: 8,
+                  borderRadius: BorderRadius.circular(8),
+                  child: ConstrainedBox(
+                    constraints:
+                        const BoxConstraints(maxHeight: 260, maxWidth: 600),
+                    child: ListView.builder(
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      itemCount: options.length,
+                      itemBuilder: (context, index) {
+                        final country = options.elementAt(index);
+                        return InkWell(
+                          onTap: () => onSelected(country),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 12),
+                            child: Row(
+                              children: [
+                                Text(country.flag,
+                                    style: const TextStyle(fontSize: 20)),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    country.name,
+                                    style: const TextStyle(
+                                        color: Colors.white, fontSize: 16),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          if (error != null) _buildInlineError(error),
+          const SizedBox(height: 12),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubDropdownField(
+    String label,
+    TextEditingController controller,
+    List<String> items, {
+    String? errorKey,
+  }) {
+    final error = errorKey != null ? _fieldErrors[errorKey] : null;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                  color: error != null ? Colors.redAccent : Colors.white),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: items.contains(controller.text) ? controller.text : null,
+                hint: Text(' $label',
+                    style: const TextStyle(color: Colors.white70)),
+                dropdownColor: const Color(0xFF2A3240),
+                icon: const Icon(Icons.keyboard_arrow_down,
+                    color: Colors.white70),
+                isExpanded: true,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+                items: items
+                    .map((item) => DropdownMenuItem<String>(
+                          value: item,
+                          child: Text(item),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    controller.text = value;
+                    if (errorKey != null) _fieldErrors.remove(errorKey);
+                  });
+                },
+              ),
+            ),
+          ),
+          if (error != null) _buildInlineError(error),
           const SizedBox(height: 12),
         ],
       ),
