@@ -48,7 +48,7 @@ class OnboardingService {
   // Step B: Submit Form
   Future<http.Response> submitOnboardingForm({
     required File profilePicture,
-    required Map<String, File> uploadedCertificates,
+    required Map<String, List<File>> uploadedCertificates,
     required Map<String, dynamic> profile,
     required List<Map<String, dynamic>> nextOfKins,
     required String password,
@@ -124,17 +124,18 @@ class OnboardingService {
 
       // 5. ADD DOCUMENTS
       for (var entry in uploadedCertificates.entries) {
-        if (entry.value.existsSync()) {
-          final mimeType =
-              lookupMimeType(entry.value.path) ?? 'application/pdf';
+        for (final file in entry.value) {
+          if (file.existsSync()) {
+            final mimeType = lookupMimeType(file.path) ?? 'application/pdf';
 
-          print(" Attaching File: ${entry.key}");
+            print(" Attaching File: ${entry.key}");
 
-          request.files.add(await http.MultipartFile.fromPath(
-            entry.key,
-            entry.value.path,
-            contentType: MediaType.parse(mimeType),
-          ));
+            request.files.add(await http.MultipartFile.fromPath(
+              entry.key,
+              file.path,
+              contentType: MediaType.parse(mimeType),
+            ));
+          }
         }
       }
 

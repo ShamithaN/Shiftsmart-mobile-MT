@@ -55,6 +55,7 @@ class _EmponboardState extends State<Emponboard> {
   bool _isLoadingBank = false;
   bool _isBankNameReadOnly = false;
   final FocusNode _bsbFocusNode = FocusNode();
+  final FocusNode _countryFocusNode = FocusNode();
 
   Key _avatarKey = UniqueKey();
 
@@ -100,7 +101,7 @@ class _EmponboardState extends State<Emponboard> {
 
   File? _profilePic;
   bool _profileImageError = false;
-  final Map<String, File> _uploadedDocs = {};
+  final Map<String, List<File>> _uploadedDocs = {};
   final Map<String, int> _requiredDocIds = {};
   final Set<String> _resubmittedDocs = {};
   String? _updatingDocName;
@@ -108,12 +109,148 @@ class _EmponboardState extends State<Emponboard> {
   String? _gender;
 
   final List<String> _genderOptions = [
-    "Man",
-    "Woman",
-    "Non-binary",
-    "I use a different term",
-    "Prefer not to say",
+    "Male",
+    "Female",
   ];
+
+  final Map<String, List<String>> _countryStates = const {
+    "Australia": [
+      "ACT",
+      "NSW",
+      "NT",
+      "QLD",
+      "SA",
+      "TAS",
+      "VIC",
+      "WA",
+    ],
+    "Sri Lanka": [
+      "Central",
+      "Eastern",
+      "North Central",
+      "Northern",
+      "North Western",
+      "Sabaragamuwa",
+      "Southern",
+      "Uva",
+      "Western",
+    ],
+    "United States": [
+      "Alabama",
+      "Alaska",
+      "Arizona",
+      "Arkansas",
+      "California",
+      "Colorado",
+      "Connecticut",
+      "Delaware",
+      "Florida",
+      "Georgia",
+      "Hawaii",
+      "Idaho",
+      "Illinois",
+      "Indiana",
+      "Iowa",
+      "Kansas",
+      "Kentucky",
+      "Louisiana",
+      "Maine",
+      "Maryland",
+      "Massachusetts",
+      "Michigan",
+      "Minnesota",
+      "Mississippi",
+      "Missouri",
+      "Montana",
+      "Nebraska",
+      "Nevada",
+      "New Hampshire",
+      "New Jersey",
+      "New Mexico",
+      "New York",
+      "North Carolina",
+      "North Dakota",
+      "Ohio",
+      "Oklahoma",
+      "Oregon",
+      "Pennsylvania",
+      "Rhode Island",
+      "South Carolina",
+      "South Dakota",
+      "Tennessee",
+      "Texas",
+      "Utah",
+      "Vermont",
+      "Virginia",
+      "Washington",
+      "West Virginia",
+      "Wisconsin",
+      "Wyoming",
+    ],
+    "India": [
+      "Andhra Pradesh",
+      "Arunachal Pradesh",
+      "Assam",
+      "Bihar",
+      "Chhattisgarh",
+      "Goa",
+      "Gujarat",
+      "Haryana",
+      "Himachal Pradesh",
+      "Jharkhand",
+      "Karnataka",
+      "Kerala",
+      "Madhya Pradesh",
+      "Maharashtra",
+      "Manipur",
+      "Meghalaya",
+      "Mizoram",
+      "Nagaland",
+      "Odisha",
+      "Punjab",
+      "Rajasthan",
+      "Sikkim",
+      "Tamil Nadu",
+      "Telangana",
+      "Tripura",
+      "Uttar Pradesh",
+      "Uttarakhand",
+      "West Bengal",
+    ],
+    "New Zealand": [
+      "Auckland",
+      "Bay of Plenty",
+      "Canterbury",
+      "Gisborne",
+      "Hawke's Bay",
+      "Manawatu-Wanganui",
+      "Marlborough",
+      "Nelson",
+      "Northland",
+      "Otago",
+      "Southland",
+      "Taranaki",
+      "Tasman",
+      "Waikato",
+      "Wellington",
+      "West Coast",
+    ],
+    "Canada": [
+      "Alberta",
+      "British Columbia",
+      "Manitoba",
+      "New Brunswick",
+      "Newfoundland and Labrador",
+      "Northwest Territories",
+      "Nova Scotia",
+      "Nunavut",
+      "Ontario",
+      "Prince Edward Island",
+      "Quebec",
+      "Saskatchewan",
+      "Yukon",
+    ],
+  };
 
   final List<Map<String, dynamic>> _nokList = [];
 
@@ -164,6 +301,7 @@ class _EmponboardState extends State<Emponboard> {
   @override
   void dispose() {
     _bsbFocusNode.dispose();
+    _countryFocusNode.dispose();
     _firstNameCtrl.dispose();
     _midNameCtrl.dispose();
     _lastNameCtrl.dispose();
@@ -241,10 +379,109 @@ class _EmponboardState extends State<Emponboard> {
   }) {
     final digits = (value ?? '').replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.isEmpty) return optional ? null : '$label is required';
-    if (digits.length < 6 || digits.length > 14) {
-      return 'Enter a valid phone number';
+    if (digits.length < 7 || digits.length > 15) {
+      return '$label must be 7-15 digits';
     }
     return null;
+  }
+
+  String? _validateAge(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty) return "Date of Birth is required";
+
+    final date = DateTime.tryParse(dateStr.split('T').first);
+    if (date == null) return "Enter a valid date of birth";
+
+    final today = DateTime.now();
+    var age = today.year - date.year;
+    if (today.month < date.month ||
+        (today.month == date.month && today.day < date.day)) {
+      age--;
+    }
+
+    return age >= 16 ? null : "You must be at least 16 years old";
+  }
+
+  String? _validatePostcode(String? value) {
+    final postcode = (value ?? '').trim();
+    if (postcode.isEmpty) return "Postcode is required";
+    return RegExp(r'^\d{4}$').hasMatch(postcode)
+        ? null
+        : "Postcode must be exactly 4 digits";
+  }
+
+  String? _validateTfn(String? value) {
+    final digits = (value ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return "TFN is required";
+    return RegExp(r'^\d{8,9}$').hasMatch(digits)
+        ? null
+        : "TFN must be 8 or 9 digits";
+  }
+
+  String? _validateBsb(String? value) {
+    final bsb = (value ?? '').trim();
+    if (bsb.isEmpty) return "BSB is required";
+    return RegExp(r'^\d{3}-\d{3}$').hasMatch(bsb)
+        ? null
+        : "BSB must match XXX-XXX";
+  }
+
+  String? _validateAccountNumber(String? value) {
+    final digits = (value ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return "Account Number is required";
+    return RegExp(r'^\d{6,10}$').hasMatch(digits)
+        ? null
+        : "Account number must be 6-10 digits";
+  }
+
+  String? _validatePassword(String? value) {
+    final password = value ?? '';
+    if (password.isEmpty) return "New Password is required";
+    if (password.length < 8) return "Password must be at least 8 characters";
+    if (!RegExp(r'[A-Z]').hasMatch(password)) {
+      return "Password needs one uppercase letter";
+    }
+    if (!RegExp(r'\d').hasMatch(password)) {
+      return "Password needs one number";
+    }
+    return null;
+  }
+
+  String? _validateConfirmPassword(String? value) {
+    if (value == null || value.isEmpty) return "Confirm Password is required";
+    return value == _passCtrl.text ? null : "Passwords do not match";
+  }
+
+  String? _validateEmail(String? value, {bool optional = false}) {
+    final email = (value ?? '').trim();
+    if (email.isEmpty) return optional ? null : "Email is required";
+    final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    return emailRegex.hasMatch(email) ? null : "Enter a valid email address";
+  }
+
+  String? get _selectedCountryName {
+    final selectedCountry = _countryCtrl.text.trim().toLowerCase();
+    if (selectedCountry.isEmpty) return null;
+
+    for (final countryName in _countryStates.keys) {
+      if (countryName.toLowerCase() == selectedCountry) return countryName;
+    }
+    return null;
+  }
+
+  List<String> get _selectedCountryStates {
+    final countryName = _selectedCountryName;
+    return countryName == null ? const [] : _countryStates[countryName]!;
+  }
+
+  void _handleCountryChanged(String countryName) {
+    final nextStates = _countryStates[countryName] ?? const <String>[];
+    final shouldClearState =
+        nextStates.isNotEmpty && !nextStates.contains(_stateCtrl.text);
+
+    setState(() {
+      _countryCtrl.text = countryName;
+      if (shouldClearState) _stateCtrl.clear();
+    });
   }
 
   bool _validateCurrentStep() {
@@ -467,10 +704,12 @@ class _EmponboardState extends State<Emponboard> {
       if (incomingGender != null) {
         if (_genderOptions.contains(incomingGender)) {
           _gender = incomingGender;
-        } else if (incomingGender.toLowerCase() == "male") {
-          _gender = "Man";
-        } else if (incomingGender.toLowerCase() == "female") {
-          _gender = "Woman";
+        } else if (incomingGender.toLowerCase() == "male" ||
+            incomingGender.toLowerCase() == "man") {
+          _gender = "Male";
+        } else if (incomingGender.toLowerCase() == "female" ||
+            incomingGender.toLowerCase() == "woman") {
+          _gender = "Female";
         } else {
           _gender = null;
         }
@@ -589,11 +828,6 @@ class _EmponboardState extends State<Emponboard> {
     }
   }
 
-  String? _validateAge(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return "Date of Birth is required";
-    return null;
-  }
-
   void _pickProfileImage() {
     showModalBottomSheet(
       context: context,
@@ -637,53 +871,63 @@ class _EmponboardState extends State<Emponboard> {
     );
   }
 
-  Future<File?> _selectDocumentFile({bool directCamera = false}) async {
+  Future<List<File>> _selectDocumentFiles({bool directCamera = false}) async {
     if (directCamera) {
-      return _openCamera();
+      final file = await _openCamera();
+      return file == null ? [] : [file];
     }
 
-    return showModalBottomSheet<File?>(
-      context: context,
-      backgroundColor: Colors.grey[900],
-      builder: (ctx) => Wrap(children: [
-        ListTile(
-          leading: const Icon(Icons.camera_alt, color: Colors.white),
-          title:
-              const Text('Take Photo', style: TextStyle(color: Colors.white)),
-          onTap: () async {
-            final file = await _openCamera();
-            if (ctx.mounted) Navigator.pop(ctx, file);
-          },
-        ),
-        ListTile(
-          leading: const Icon(Icons.photo_library, color: Colors.white),
-          title:
-              const Text('From Gallery', style: TextStyle(color: Colors.white)),
-          onTap: () async {
-            final XFile? img = await ImagePicker()
-                .pickImage(source: ImageSource.gallery, imageQuality: 80);
-            if (ctx.mounted) {
-              Navigator.pop(ctx, img == null ? null : File(img.path));
-            }
-          },
-        ),
-        ListTile(
-          leading: const Icon(Icons.attach_file, color: Colors.white),
-          title: const Text('Pick File (PDF)',
-              style: TextStyle(color: Colors.white)),
-          onTap: () async {
-            FilePickerResult? result = await FilePicker.pickFiles(
-              type: FileType.custom,
-              allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'png'],
-            );
-            final path = result?.files.single.path;
-            if (ctx.mounted) {
-              Navigator.pop(ctx, path == null ? null : File(path));
-            }
-          },
-        ),
-      ]),
-    );
+    return await showModalBottomSheet<List<File>>(
+          context: context,
+          backgroundColor: Colors.grey[900],
+          builder: (ctx) => Wrap(children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: Colors.white),
+              title: const Text('Take Photo',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () async {
+                final file = await _openCamera();
+                if (ctx.mounted) Navigator.pop(ctx, file == null ? [] : [file]);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: Colors.white),
+              title: const Text('From Gallery',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () async {
+                final images =
+                    await ImagePicker().pickMultiImage(imageQuality: 80);
+                if (ctx.mounted) {
+                  Navigator.pop(
+                    ctx,
+                    images.map((image) => File(image.path)).toList(),
+                  );
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.attach_file, color: Colors.white),
+              title: const Text('Pick Files',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () async {
+                FilePickerResult? result = await FilePicker.pickFiles(
+                  type: FileType.custom,
+                  allowMultiple: true,
+                  allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'png'],
+                );
+                final files = result?.files
+                        .where((file) => file.path != null)
+                        .map((file) => File(file.path!))
+                        .toList() ??
+                    [];
+                if (ctx.mounted) {
+                  Navigator.pop(ctx, files);
+                }
+              },
+            ),
+          ]),
+        ) ??
+        [];
   }
 
   Future<File?> _openCamera() async {
@@ -699,28 +943,34 @@ class _EmponboardState extends State<Emponboard> {
     String docName, {
     bool directCamera = false,
   }) async {
-    final file = await _selectDocumentFile(directCamera: directCamera);
-    if (file == null) return;
+    final files = await _selectDocumentFiles(directCamera: directCamera);
+    if (files.isEmpty) return;
 
     final documentId = _requiredDocIds[docName];
     if (documentId == null || documentId <= 0) {
-      setState(() => _uploadedDocs[docName] = file);
+      setState(() {
+        _uploadedDocs.putIfAbsent(docName, () => []).addAll(files);
+      });
       return;
     }
 
     setState(() => _updatingDocName = docName);
-    final error = await _service.resubmitDocument(
-      documentId: documentId,
-      file: file,
-      documentType: docName,
-    );
+    String? error;
+    for (final file in files) {
+      error = await _service.resubmitDocument(
+        documentId: documentId,
+        file: file,
+        documentType: docName,
+      );
+      if (error != null) break;
+    }
 
     if (!mounted) return;
 
     setState(() {
       _updatingDocName = null;
       if (error == null) {
-        _uploadedDocs[docName] = file;
+        _uploadedDocs.putIfAbsent(docName, () => []).addAll(files);
         _resubmittedDocs.add(docName);
       }
     });
@@ -887,8 +1137,6 @@ class _EmponboardState extends State<Emponboard> {
     Map<String, dynamic> payload = {};
 
     String finalGender = _gender ?? "";
-    if (finalGender == "Man") finalGender = "Male";
-    if (finalGender == "Woman") finalGender = "Female";
 
     if (_isResubmission) {
       payload["EmployeeId"] = widget.employeeId ?? 0;
@@ -966,12 +1214,14 @@ class _EmponboardState extends State<Emponboard> {
 
       if (_uploadedDocs.isNotEmpty) {
         List<Map<String, dynamic>> documentsList = [];
-        _uploadedDocs.forEach((key, file) {
-          documentsList.add({
-            "DocumentId": _requiredDocIds[key] ?? 0,
-            "DocumentType": key,
-            "DocumentUrl": ""
-          });
+        _uploadedDocs.forEach((key, files) {
+          for (final _ in files) {
+            documentsList.add({
+              "DocumentId": _requiredDocIds[key] ?? 0,
+              "DocumentType": key,
+              "DocumentUrl": ""
+            });
+          }
         });
         payload["Documents"] = documentsList;
       }
@@ -1026,9 +1276,11 @@ class _EmponboardState extends State<Emponboard> {
 
       if (_uploadedDocs.isNotEmpty) {
         List<Map<String, dynamic>> documentsList = [];
-        _uploadedDocs.forEach((key, file) {
-          documentsList
-              .add({"DocumentId": 0, "DocumentType": key, "DocumentUrl": ""});
+        _uploadedDocs.forEach((key, files) {
+          for (final _ in files) {
+            documentsList
+                .add({"DocumentId": 0, "DocumentType": key, "DocumentUrl": ""});
+          }
         });
         payload["Certificates"] = documentsList;
       }
@@ -1058,7 +1310,7 @@ class _EmponboardState extends State<Emponboard> {
         return;
       }
 
-      final docsToSubmit = Map<String, File>.from(_uploadedDocs);
+      final docsToSubmit = Map<String, List<File>>.from(_uploadedDocs);
       if (_isResubmission) {
         for (final docName in _resubmittedDocs) {
           docsToSubmit.remove(docName);
@@ -1183,7 +1435,8 @@ class _EmponboardState extends State<Emponboard> {
                                   } else if (_currentStep == 4) {
                                     isStepValid = _requiredDocs.isEmpty ||
                                         _requiredDocs.every((doc) =>
-                                            _uploadedDocs.containsKey(doc) ||
+                                            (_uploadedDocs[doc]?.isNotEmpty ??
+                                                false) ||
                                             _resubmittedDocs.contains(doc));
                                   }
 
@@ -1279,12 +1532,22 @@ class _EmponboardState extends State<Emponboard> {
       if (_shouldShow("DateOfBirth"))
         _buildDatePicker("Date of Birth", _dobCtrl, validator: _validateAge),
       if (_shouldShow("Address")) ...[
-        _buildTextField("Street", _streetCtrl),
+        _buildCountryAutocomplete(),
+        if (_selectedCountryStates.isNotEmpty)
+          _buildDropdown(
+            "State",
+            _selectedCountryStates,
+            _stateCtrl.text,
+            (v) => setState(() => _stateCtrl.text = v ?? ''),
+          )
+        else
+          _buildTextField("State", _stateCtrl),
         _buildTextField("City", _cityCtrl),
-        _buildTextField("State", _stateCtrl),
+        _buildTextField("Street", _streetCtrl),
         _buildTextField("Postcode", _zipCtrl,
-            keyboardType: TextInputType.number),
-        _buildTextField("Country", _countryCtrl),
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            validator: _validatePostcode),
       ],
       const SizedBox(height: 20),
       const Text("Employment Details",
@@ -1295,7 +1558,11 @@ class _EmponboardState extends State<Emponboard> {
       _buildReadOnlyField("Employment Type", _empType),
       if (_shouldShow("TaxInfo")) ...[
         if (_empType.contains("Contractor")) _buildTextField("ABN", _abnCtrl),
-        if (_empType.contains("Employee")) _buildTextField("TFN", _tfnCtrl),
+        if (_empType.contains("Employee"))
+          _buildTextField("TFN", _tfnCtrl,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              validator: _validateTfn),
       ]
     ]);
   }
@@ -1312,6 +1579,11 @@ class _EmponboardState extends State<Emponboard> {
         _buildTextField("Account Name", _accNameCtrl),
         _buildTextField("BSB", _bsbCtrl,
             focusNode: _bsbFocusNode,
+            keyboardType: TextInputType.text,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9-]'))
+            ],
+            validator: _validateBsb,
             onChanged: (val) {
               String clean = val.replaceAll(RegExp(r'[^0-9]'), '');
               if (clean.length == 6) {
@@ -1333,7 +1605,10 @@ class _EmponboardState extends State<Emponboard> {
                         strokeWidth: 2, color: Colors.white),
                   )
                 : null),
-        _buildTextField("Account Number", _accNumCtrl),
+        _buildTextField("Account Number", _accNumCtrl,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            validator: _validateAccountNumber),
         _buildTextField("Bank Name", _bankNameCtrl,
             readOnly: _isBankNameReadOnly && _bankNameCtrl.text.isNotEmpty),
       ],
@@ -1355,7 +1630,7 @@ class _EmponboardState extends State<Emponboard> {
               onPressed: () =>
                   setState(() => _obscurePassword = !_obscurePassword),
             ),
-            validator: (v) => v!.length < 6 ? "Min 6 chars" : null),
+            validator: _validatePassword),
         _buildTextField("Confirm Password", _confirmPassCtrl,
             obscure: _obscureConfirmPassword,
             suffixIcon: IconButton(
@@ -1368,8 +1643,7 @@ class _EmponboardState extends State<Emponboard> {
               onPressed: () => setState(
                   () => _obscureConfirmPassword = !_obscureConfirmPassword),
             ),
-            validator: (v) =>
-                v != _passCtrl.text ? "Passwords do not match" : null),
+            validator: _validateConfirmPassword),
       ]
     ]);
   }
@@ -1410,11 +1684,7 @@ class _EmponboardState extends State<Emponboard> {
         _buildTextField("Email", _nokEmailCtrl,
             keyboardType: TextInputType.emailAddress, validator: (v) {
           if (!_shouldValidateNokFields) return null;
-          if (v == null || v.trim().isEmpty) return "Email is required";
-          final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-          return emailRegex.hasMatch(v.trim())
-              ? null
-              : "Enter a valid email address";
+          return _validateEmail(v);
         }),
         _buildTextField("Address", _nokAddressCtrl, validator: (v) {
           if (!_shouldValidateNokFields) return null;
@@ -1454,15 +1724,11 @@ class _EmponboardState extends State<Emponboard> {
                   return;
                 }
 
-                if (email.isNotEmpty) {
-                  final emailRegex =
-                      RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                  if (!emailRegex.hasMatch(email)) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text("Please enter a valid email address."),
-                        backgroundColor: Colors.redAccent));
-                    return;
-                  }
+                if (_validateEmail(email) != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text("Please enter a valid email address."),
+                      backgroundColor: Colors.redAccent));
+                  return;
                 }
 
                 setState(() {
@@ -1515,50 +1781,74 @@ class _EmponboardState extends State<Emponboard> {
           ),
         ),
       ..._requiredDocs.map((docName) {
-        bool isUploaded = _uploadedDocs.containsKey(docName) ||
-            _resubmittedDocs.contains(docName);
+        final files = _uploadedDocs[docName] ?? const <File>[];
+        bool isUploaded =
+            files.isNotEmpty || _resubmittedDocs.contains(docName);
         bool isUpdating = _updatingDocName == docName;
         final actionLabel = isUploaded ? "Update" : "Add";
-        File? file = _uploadedDocs[docName];
-        bool isImage = file != null &&
-            (file.path.toLowerCase().endsWith('.jpg') ||
-                file.path.toLowerCase().endsWith('.jpeg') ||
-                file.path.toLowerCase().endsWith('.png'));
 
         return Card(
           color: Colors.white.withValues(alpha: 0.1),
-          child: ListTile(
-            title: Text(docName, style: const TextStyle(color: Colors.white)),
-            subtitle: Text(
-                _resubmittedDocs.contains(docName)
-                    ? "Updated"
-                    : isUploaded
-                        ? "Ready to submit"
-                        : "Required",
-                style: TextStyle(
-                    color: isUploaded ? Colors.greenAccent : Colors.redAccent)),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
               children: [
-                if (isUploaded)
-                  GestureDetector(
-                    onTap: isImage ? () => _showImagePreview(file) : null,
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.white24),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: isImage
-                            ? Image.file(file, fit: BoxFit.cover)
-                            : const Icon(Icons.picture_as_pdf,
-                                color: Colors.redAccent, size: 24),
-                      ),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _updateRequiredDocument(docName),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(docName,
+                            style: const TextStyle(color: Colors.white)),
+                        const SizedBox(height: 4),
+                        Text(
+                          _resubmittedDocs.contains(docName)
+                              ? files.length > 1
+                                  ? "Updated (${files.length} files)"
+                                  : "Updated"
+                              : files.isNotEmpty
+                                  ? files.length > 1
+                                      ? "Ready to submit (${files.length} files)"
+                                      : "Ready to submit"
+                                  : "Required",
+                          style: TextStyle(
+                            color: isUploaded
+                                ? Colors.greenAccent
+                                : Colors.redAccent,
+                          ),
+                        ),
+                        if (files.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            height: 52,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: files.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(width: 8),
+                              itemBuilder: (context, index) {
+                                final file = files[index];
+                                return _buildDocumentPreview(
+                                  file,
+                                  onRemove: () {
+                                    setState(() {
+                                      _uploadedDocs[docName]?.remove(file);
+                                      if (_uploadedDocs[docName]?.isEmpty ??
+                                          false) {
+                                        _uploadedDocs.remove(docName);
+                                      }
+                                    });
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
+                ),
                 const SizedBox(width: 8),
                 TextButton(
                   onPressed: isUpdating
@@ -1589,13 +1879,63 @@ class _EmponboardState extends State<Emponboard> {
                 ),
               ],
             ),
-            onTap: isUploaded && isImage
-                ? () => _showImagePreview(file)
-                : () => _updateRequiredDocument(docName),
           ),
         );
       }),
     ]);
+  }
+
+  Widget _buildDocumentPreview(File file, {required VoidCallback onRemove}) {
+    final isImage = _isImageFile(file);
+
+    return GestureDetector(
+      onTap: isImage ? () => _showImagePreview(file) : null,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: isImage
+                  ? Image.file(file, fit: BoxFit.cover)
+                  : const Icon(Icons.insert_drive_file,
+                      color: Colors.white70, size: 24),
+            ),
+          ),
+          Positioned(
+            right: -7,
+            top: -7,
+            child: InkWell(
+              onTap: onRemove,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: const Icon(Icons.close, color: Colors.white, size: 14),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _isImageFile(File file) {
+    final path = file.path.toLowerCase();
+    return path.endsWith('.jpg') ||
+        path.endsWith('.jpeg') ||
+        path.endsWith('.png');
   }
 
   void _showAddDocModal() {
@@ -1941,6 +2281,7 @@ class _EmponboardState extends State<Emponboard> {
     FocusNode? focusNode,
     Function(String)? onFieldSubmitted,
     Function(String)? onChanged,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),
@@ -1952,6 +2293,7 @@ class _EmponboardState extends State<Emponboard> {
         focusNode: focusNode,
         onFieldSubmitted: onFieldSubmitted,
         onChanged: onChanged,
+        inputFormatters: inputFormatters,
         style: const TextStyle(color: Colors.white),
         validator: validator ??
             (v) => (v == null || v.isEmpty) ? "$label is required" : null,
@@ -1967,6 +2309,107 @@ class _EmponboardState extends State<Emponboard> {
               (readOnly && ctrl.text.isNotEmpty) ? "Verified Bank" : null,
           helperStyle: const TextStyle(color: Colors.greenAccent),
         ),
+      ),
+    );
+  }
+
+  Widget _buildCountryAutocomplete() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 15),
+      child: RawAutocomplete<CountryDialCode>(
+        textEditingController: _countryCtrl,
+        focusNode: _countryFocusNode,
+        displayStringForOption: (country) => country.name,
+        optionsBuilder: (textEditingValue) {
+          final query = textEditingValue.text.trim().toLowerCase();
+          if (query.isEmpty) return const Iterable<CountryDialCode>.empty();
+
+          return countryDialCodes
+              .where((country) =>
+                  country.name.toLowerCase().startsWith(query) ||
+                  country.name.toLowerCase().contains(query))
+              .take(12);
+        },
+        onSelected: (country) => _handleCountryChanged(country.name),
+        fieldViewBuilder:
+            (context, textEditingController, focusNode, onFieldSubmitted) {
+          return TextFormField(
+            controller: textEditingController,
+            focusNode: focusNode,
+            onChanged: (value) {
+              final matchedCountry = countryDialCodes.where((country) =>
+                  country.name.toLowerCase() == value.trim().toLowerCase());
+              if (matchedCountry.isEmpty) {
+                setState(() {});
+                return;
+              }
+
+              _handleCountryChanged(matchedCountry.first.name);
+            },
+            onFieldSubmitted: (_) => onFieldSubmitted(),
+            style: const TextStyle(color: Colors.white),
+            validator: (value) {
+              final country = (value ?? '').trim();
+              if (country.isEmpty) return "Country is required";
+              final isKnownCountry = countryDialCodes.any(
+                  (item) => item.name.toLowerCase() == country.toLowerCase());
+              return isKnownCountry ? null : "Select a valid country";
+            },
+            decoration: InputDecoration(
+              labelText: "Country",
+              labelStyle: const TextStyle(color: Colors.white70),
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.1),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              suffixIcon:
+                  const Icon(Icons.arrow_drop_down, color: Colors.white70),
+            ),
+          );
+        },
+        optionsViewBuilder: (context, onSelected, options) {
+          return Align(
+            alignment: Alignment.topLeft,
+            child: Material(
+              color: const Color(0xFF111D35),
+              elevation: 8,
+              borderRadius: BorderRadius.circular(8),
+              child: ConstrainedBox(
+                constraints:
+                    const BoxConstraints(maxHeight: 260, maxWidth: 600),
+                child: ListView.builder(
+                  padding: EdgeInsets.zero,
+                  shrinkWrap: true,
+                  itemCount: options.length,
+                  itemBuilder: (context, index) {
+                    final country = options.elementAt(index);
+                    return InkWell(
+                      onTap: () => onSelected(country),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        child: Row(
+                          children: [
+                            Text(country.flag,
+                                style: const TextStyle(fontSize: 20)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                country.name,
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 16),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -1994,7 +2437,7 @@ class _EmponboardState extends State<Emponboard> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),
       child: DropdownButtonFormField<String>(
-        initialValue: value,
+        initialValue: items.contains(value) ? value : null,
         hint: Text("Select $label",
             style: const TextStyle(color: Colors.white70)),
         dropdownColor: Colors.grey[900],
