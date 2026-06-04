@@ -45,6 +45,7 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
   // Services & Maps
   final ProjectService _projectService = ProjectService();
   GoogleMapController? mapController;
+  MapType _mapType = MapType.normal;
   static const LatLng _defaultCenter = LatLng(-33.8688, 151.2093);
 
   @override
@@ -519,30 +520,84 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
             child: SizedBox(
               height: 300,
               width: double.infinity,
-              child: GoogleMap(
-                onMapCreated: _onMapCreated,
-                initialCameraPosition: CameraPosition(
-                  target: selected,
-                  zoom: 15,
-                ),
-                onTap: _selectLocation,
-                markers: {
-                  Marker(
-                    markerId: const MarkerId('selected_location'),
-                    position: selected,
-                    infoWindow: const InfoWindow(title: 'Selected location'),
+              child: Stack(
+                children: [
+                  GoogleMap(
+                    onMapCreated: _onMapCreated,
+                    initialCameraPosition: CameraPosition(
+                      target: selected,
+                      zoom: 15,
+                    ),
+                    onTap: _selectLocation,
+                    markers: {
+                      Marker(
+                        markerId: const MarkerId('selected_location'),
+                        position: selected,
+                        infoWindow:
+                            const InfoWindow(title: 'Selected location'),
+                      ),
+                    },
+                    mapType: _mapType,
+                    zoomControlsEnabled: true,
+                    myLocationEnabled: false,
+                    myLocationButtonEnabled: false,
+                    compassEnabled: true,
+                    mapToolbarEnabled: false,
                   ),
-                },
-                mapType: MapType.normal,
-                zoomControlsEnabled: true,
-                myLocationEnabled: false,
-                myLocationButtonEnabled: false,
-                compassEnabled: true,
-                mapToolbarEnabled: false,
+                  _buildMapTypeToggle(),
+                ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMapTypeToggle() {
+    return Positioned(
+      left: 10,
+      top: 10,
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(4),
+        elevation: 3,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _mapTypeButton('Map', MapType.normal),
+            Container(
+              width: 1,
+              height: 34,
+              color: Colors.black.withValues(alpha: 0.08),
+            ),
+            _mapTypeButton('Satellite', MapType.satellite),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _mapTypeButton(String label, MapType mapType) {
+    final selected = _mapType == mapType;
+
+    return TextButton(
+      style: TextButton.styleFrom(
+        foregroundColor: selected ? Colors.black : const Color(0xFF555555),
+        backgroundColor: selected ? Colors.white : const Color(0xFFF5F5F5),
+        minimumSize: const Size(74, 38),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      ),
+      onPressed: () {
+        setState(() => _mapType = mapType);
+      },
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        ),
       ),
     );
   }
