@@ -7,13 +7,46 @@ import GoogleMaps // 1. Ensure this is imported
 @objc class AppDelegate: FlutterAppDelegate {
   private var apnsTokenString: String?
 
+  private func googleMapsApiKey() -> String {
+    if let key = Bundle.main.object(forInfoDictionaryKey: "GOOGLE_MAPS_API_KEY") as? String,
+       !key.isEmpty {
+      return key
+    }
+
+    if let key = ProcessInfo.processInfo.environment["GOOGLE_MAPS_API_KEY"],
+       !key.isEmpty {
+      return key
+    }
+
+    let assetPaths = [
+      Bundle.main.path(forResource: ".env", ofType: nil, inDirectory: "flutter_assets"),
+      Bundle.main.path(forResource: ".env", ofType: nil, inDirectory: "Frameworks/App.framework/flutter_assets")
+    ].compactMap { $0 }
+
+    for path in assetPaths {
+      guard let contents = try? String(contentsOfFile: path, encoding: .utf8) else {
+        continue
+      }
+
+      for line in contents.components(separatedBy: .newlines) {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("GOOGLE_MAPS_API_KEY=") {
+          return String(trimmed.dropFirst("GOOGLE_MAPS_API_KEY=".count))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+      }
+    }
+
+    return "AIzaSyDUmFaCazbVnAWE2mcRtZLMzqeidR16LkQ"
+  }
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     
-    // 2. Initialize Google Maps with your API Key
-    GMSServices.provideAPIKey("AIzaSyAN397HAlCveqhw7idZNJHdhSidLl9rIKA")
+    // 2. Initialize Google Maps with the same key used by Dart/Places.
+    GMSServices.provideAPIKey(googleMapsApiKey())
 
     GeneratedPluginRegistrant.register(with: self)
 
