@@ -31,14 +31,35 @@ class LeaveRequest {
     }
 
     return LeaveRequest(
-      leaveRequestId: parseId(json['LeaveRequestId'] ?? json['leaveRequestId'] ?? json['leave_request_id'] ?? json['id'] ?? json['Id']),
-      employeeId: parseId(json['EmployeeId'] ?? json['employeeId'] ?? json['employee_id'] ?? json['userId'] ?? json['UserId']),
-      leaveType: json['LeaveType'] ?? json['leaveType'] ?? json['leave_type'] ?? '',
-      startDate: parseServerDateTime(json['StartDate']?.toString() ?? json['startDate']?.toString() ?? json['start_date']?.toString() ?? '') ?? DateTime.now(),
-      endDate: parseServerDateTime(json['EndDate']?.toString() ?? json['endDate']?.toString() ?? json['end_date']?.toString() ?? '') ?? DateTime.now(),
+      leaveRequestId: parseId(json['LeaveRequestId'] ??
+          json['leaveRequestId'] ??
+          json['leave_request_id'] ??
+          json['id'] ??
+          json['Id']),
+      employeeId: parseId(json['EmployeeId'] ??
+          json['employeeId'] ??
+          json['employee_id'] ??
+          json['userId'] ??
+          json['UserId']),
+      leaveType:
+          json['LeaveType'] ?? json['leaveType'] ?? json['leave_type'] ?? '',
+      startDate: parseServerDateTime(json['StartDate']?.toString() ??
+              json['startDate']?.toString() ??
+              json['start_date']?.toString() ??
+              '') ??
+          DateTime.now(),
+      endDate: parseServerDateTime(json['EndDate']?.toString() ??
+              json['endDate']?.toString() ??
+              json['end_date']?.toString() ??
+              '') ??
+          DateTime.now(),
       reason: json['Reason'] ?? json['reason'] ?? '',
       status: json['Status'] ?? json['status'] ?? 'Pending',
-      requestedAt: parseServerDateTime(json['RequestedAt']?.toString() ?? json['requestedAt']?.toString() ?? json['requested_at']?.toString() ?? '') ?? DateTime.now(),
+      requestedAt: parseServerDateTime(json['RequestedAt']?.toString() ??
+              json['requestedAt']?.toString() ??
+              json['requested_at']?.toString() ??
+              '') ??
+          DateTime.now(),
     );
   }
   bool get isPending {
@@ -47,6 +68,7 @@ class LeaveRequest {
 
   bool get isAcceptedOrRejected {
     return status.toLowerCase() == 'approved' ||
-        status.toLowerCase() == 'rejected';
+        status.toLowerCase() == 'rejected' ||
+        status.toLowerCase() == 'denied';
   }
 }
