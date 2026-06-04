@@ -29,6 +29,8 @@ class AttendanceService {
       dotenv.env['ATTENDANCE_GET_ACTIVE_KEY'] ?? "";
   final String attendanceGetByEmployeeKey =
       dotenv.env['ATTENDANCE_GET_BY_EMPLOYEE_KEY'] ?? "";
+  final String attendanceGetMyRecordsKey =
+      dotenv.env['ATTENDANCE_GET_MY_RECORDS_KEY'] ?? "";
   final String attendanceClockInKey =
       dotenv.env['ATTENDANCE_CLOCKIN_KEY'] ?? "";
   final String attendanceClockOutKey =
@@ -53,6 +55,41 @@ class AttendanceService {
     }
   }
 
+  dynamic _readField(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      if (data.containsKey(key)) return data[key];
+    }
+    return null;
+  }
+
+  int? _readIntField(Map<String, dynamic> data, List<String> keys) {
+    final value = _readField(data, keys);
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+
+  List<dynamic> _decodeAttendanceList(String body) {
+    final decoded = jsonDecode(body);
+    if (decoded is List) return decoded;
+    if (decoded is Map<String, dynamic>) {
+      final data = decoded['data'] ?? decoded['Data'] ?? decoded['records'];
+      if (data is List) return data;
+    }
+    return const [];
+  }
+
+  Map<String, dynamic>? _findShiftRecord(List<dynamic> records, int shiftId) {
+    for (final record in records) {
+      if (record is Map<String, dynamic> &&
+          _readIntField(record, const ['ShiftId', 'shiftId']) == shiftId) {
+        return record;
+      }
+    }
+    return null;
+  }
+
   String? _validPhotoUrl(dynamic value) {
     final url = value?.toString().trim();
     if (url == null || url.isEmpty) return null;
@@ -73,6 +110,38 @@ class AttendanceService {
     }
 
     return null;
+  }
+
+  Future<List<dynamic>> fetchMyAttendanceRecords({
+    int pageNumber = 1,
+    int pageSize = 100,
+  }) async {
+    if (attendanceGetMyRecordsKey.isEmpty) {
+      debugPrint("AttendanceService: ATTENDANCE_GET_MY_RECORDS_KEY is missing");
+      return const [];
+    }
+
+    final uri = Uri.parse('$baseUrl/attendance/me').replace(
+      queryParameters: {
+        'code': attendanceGetMyRecordsKey,
+        'pageNumber': pageNumber.toString(),
+        'pageSize': pageSize.toString(),
+      },
+    );
+
+    final response = await _apiClient.get(uri.toString(), useAuth: true);
+    if (response.statusCode == 200) {
+      return _decodeAttendanceList(response.body);
+    }
+
+    debugPrint(
+        "Failed to fetch my attendance records: ${response.statusCode} - ${response.body}");
+    return const [];
+  }
+
+  Future<Map<String, dynamic>?> fetchMyAttendanceForShift(int shiftId) async {
+    final records = await fetchMyAttendanceRecords();
+    return _findShiftRecord(records, shiftId);
   }
 
   Future<String?> fetchClockPhotoUrl(int attendanceId,
@@ -123,39 +192,70 @@ class AttendanceService {
 
   Future<Map<String, String?>> fetchAttendancePhotos(
       int employeeId, int shiftId) async {
-    final url =
-        "$baseUrl/attendance/by-employee/$employeeId?code=$attendanceGetByEmployeeKey";
     try {
+      final myRecord = await fetchMyAttendanceForShift(shiftId);
+      if (myRecord != null) {
+        return {
+          'clockIn': _validPhotoUrl(_readField(myRecord, const [
+            'ClockInPhotoUrl',
+            'clockInPhotoUrl',
+            'ClockInPhotoURL',
+            'clockInPhotoURL',
+            'ClockInPhoto',
+            'clockInPhoto',
+            'ClockInImageUrl',
+            'clockInImageUrl',
+            'ClockInImage',
+            'clockInImage',
+          ])),
+          'clockOut': _validPhotoUrl(_readField(myRecord, const [
+            'ClockOutPhotoUrl',
+            'clockOutPhotoUrl',
+            'ClockOutPhotoURL',
+            'clockOutPhotoURL',
+            'ClockOutPhoto',
+            'clockOutPhoto',
+            'ClockOutImageUrl',
+            'clockOutImageUrl',
+            'ClockOutImage',
+            'clockOutImage',
+          ])),
+        };
+      }
+
+      final url =
+          "$baseUrl/attendance/by-employee/$employeeId?code=$attendanceGetByEmployeeKey";
       final response = await _apiClient.get(url, useAuth: true);
 
       if (response.statusCode == 200) {
-        final List<dynamic> jsonData = jsonDecode(response.body);
-        final record = jsonData.firstWhere(
-          (attendance) => attendance['ShiftId'] == shiftId,
-          orElse: () => <String, dynamic>{},
-        );
+        final jsonData = _decodeAttendanceList(response.body);
+        final record = _findShiftRecord(jsonData, shiftId);
         if (record == null) return {};
         return {
-          'clockIn': _validPhotoUrl(record['ClockInPhotoUrl'] ??
-              record['clockInPhotoUrl'] ??
-              record['ClockInPhotoURL'] ??
-              record['clockInPhotoURL'] ??
-              record['ClockInPhoto'] ??
-              record['clockInPhoto'] ??
-              record['ClockInImageUrl'] ??
-              record['clockInImageUrl'] ??
-              record['ClockInImage'] ??
-              record['clockInImage']),
-          'clockOut': _validPhotoUrl(record['ClockOutPhotoUrl'] ??
-              record['clockOutPhotoUrl'] ??
-              record['ClockOutPhotoURL'] ??
-              record['clockOutPhotoURL'] ??
-              record['ClockOutPhoto'] ??
-              record['clockOutPhoto'] ??
-              record['ClockOutImageUrl'] ??
-              record['clockOutImageUrl'] ??
-              record['ClockOutImage'] ??
-              record['clockOutImage']),
+          'clockIn': _validPhotoUrl(_readField(record, const [
+            'ClockInPhotoUrl',
+            'clockInPhotoUrl',
+            'ClockInPhotoURL',
+            'clockInPhotoURL',
+            'ClockInPhoto',
+            'clockInPhoto',
+            'ClockInImageUrl',
+            'clockInImageUrl',
+            'ClockInImage',
+            'clockInImage',
+          ])),
+          'clockOut': _validPhotoUrl(_readField(record, const [
+            'ClockOutPhotoUrl',
+            'clockOutPhotoUrl',
+            'ClockOutPhotoURL',
+            'clockOutPhotoURL',
+            'ClockOutPhoto',
+            'clockOutPhoto',
+            'ClockOutImageUrl',
+            'clockOutImageUrl',
+            'ClockOutImage',
+            'clockOutImage',
+          ])),
         };
       }
     } catch (e) {
@@ -165,19 +265,23 @@ class AttendanceService {
   }
 
   Future<dynamic> getShiftsByShiftId(int employeeId, {int? shiftId}) async {
-    final url =
-        '$baseUrl/attendance/by-employee/$employeeId?code=$attendanceGetByEmployeeKey';
     try {
+      if (shiftId != null) {
+        final myRecord = await fetchMyAttendanceForShift(shiftId);
+        if (myRecord != null) return myRecord;
+      } else {
+        final myRecords = await fetchMyAttendanceRecords();
+        if (myRecords.isNotEmpty) return myRecords;
+      }
+
+      final url =
+          '$baseUrl/attendance/by-employee/$employeeId?code=$attendanceGetByEmployeeKey';
       final response = await _apiClient.get(url, useAuth: true);
 
       if (response.statusCode == 200) {
-        final List<dynamic> shifts = jsonDecode(response.body);
+        final shifts = _decodeAttendanceList(response.body);
         if (shiftId != null) {
-          final shift = shifts.firstWhere(
-            (s) => s['ShiftId'] == shiftId,
-            orElse: () => null,
-          );
-          return shift;
+          return _findShiftRecord(shifts, shiftId);
         }
         return shifts;
       } else {
