@@ -98,10 +98,10 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
 
   String _formatTime(String timeString) {
     try {
-      final time = DateFormat.Hms().parse(timeString); 
-      return DateFormat.Hm().format(time); 
+      final time = DateFormat.Hms().parse(timeString);
+      return DateFormat.Hm().format(time);
     } catch (e) {
-      return timeString; 
+      return timeString;
     }
   }
 
@@ -144,7 +144,9 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
                               ),
                               const SizedBox(height: 30),
                               _buildInfoRow("Status:", shift.status,
-                                  color: shift.status == "Active" ? Colors.greenAccent : Colors.yellowAccent),
+                                  color: shift.status == "Active"
+                                      ? Colors.greenAccent
+                                      : Colors.yellowAccent),
                               _buildInfoRow(
                                 "Date:",
                                 DateFormat.yMMMMd().format(shift.date),
@@ -155,7 +157,6 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
                                   "End Time:", _formatTime(shift.endTime)),
                               _buildInfoRow("Job:",
                                   _getJobTitleByJobId(shift.jobId ?? 0)),
-
                               const Text(
                                 "Assigned Employees",
                                 style: TextStyle(
@@ -166,9 +167,10 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
                               ),
                               const SizedBox(height: 10),
                               ...shift.employeeResponses.map((response) {
-                                  final name = _getEmployeeNameById(response.employeeId);
-                                  return _buildEmployeeCard(name, response);
-                                }),
+                                final name =
+                                    _getEmployeeNameById(response.employeeId);
+                                return _buildEmployeeCard(name, response);
+                              }),
                               const SizedBox(height: 40),
                               Center(
                                 child: Column(
@@ -177,17 +179,22 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
                                       width: double.infinity,
                                       child: ElevatedButton.icon(
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF1BAFFF),
+                                          backgroundColor:
+                                              const Color(0xFF1BAFFF),
                                           foregroundColor: Colors.white,
                                           shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(12)),
-                                          padding: const EdgeInsets.symmetric(vertical: 14),
+                                              borderRadius:
+                                                  BorderRadius.circular(12)),
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 14),
                                         ),
                                         onPressed: () async {
                                           final result = await Navigator.push(
                                             context,
                                             MaterialPageRoute(
-                                              builder: (context) => Managercreateshift(shift: widget.shift),
+                                              builder: (context) =>
+                                                  Managercreateshift(
+                                                      shift: widget.shift),
                                             ),
                                           );
                                           if (result == true && mounted) {
@@ -199,7 +206,8 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
                                         label: const Text(
                                           "EDIT SHIFT",
                                           style: TextStyle(
-                                              fontWeight: FontWeight.bold, fontSize: 16),
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16),
                                         ),
                                       ),
                                     ),
@@ -208,19 +216,25 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
                                       width: double.infinity,
                                       child: ElevatedButton.icon(
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
+                                          backgroundColor: Colors.redAccent
+                                              .withValues(alpha: 0.1),
                                           foregroundColor: Colors.redAccent,
-                                          side: const BorderSide(color: Colors.redAccent),
+                                          side: const BorderSide(
+                                              color: Colors.redAccent),
                                           shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(12)),
-                                          padding: const EdgeInsets.symmetric(vertical: 14),
+                                              borderRadius:
+                                                  BorderRadius.circular(12)),
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 14),
                                         ),
-                                        onPressed: () => _showDeleteConfirmation(context),
+                                        onPressed: () =>
+                                            _showDeleteConfirmation(context),
                                         icon: const Icon(Icons.delete_forever),
                                         label: const Text(
                                           "DELETE SHIFT",
                                           style: TextStyle(
-                                              fontWeight: FontWeight.bold, fontSize: 16),
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16),
                                         ),
                                       ),
                                     ),
@@ -254,7 +268,7 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               )),
-          const SizedBox(width: 8), 
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               value,
@@ -264,8 +278,8 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
                 fontWeight: FontWeight.w600,
               ),
               textAlign: TextAlign.end,
-              maxLines: null, 
-              overflow: TextOverflow.visible, 
+              maxLines: null,
+              overflow: TextOverflow.visible,
             ),
           ),
         ],
@@ -298,7 +312,8 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _getStatusColor(response.status).withValues(alpha: 0.2),
+                  color:
+                      _getStatusColor(response.status).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -314,11 +329,17 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
           ),
           const SizedBox(height: 12),
           if (response.clockInTime != null)
-            _buildDetailRow(Icons.login, "Clock In:",
-                DateFormat('MMM d, hh:mm a').format(response.clockInTime!.toLocal())),
+            _buildDetailRow(
+                Icons.login,
+                "Clock In:",
+                DateFormat('MMM d, hh:mm a')
+                    .format(response.clockInTime!.toLocal())),
           if (response.clockOutTime != null)
-            _buildDetailRow(Icons.logout, "Clock Out:",
-                DateFormat('MMM d, hh:mm a').format(response.clockOutTime!.toLocal())),
+            _buildDetailRow(
+                Icons.logout,
+                "Clock Out:",
+                DateFormat('MMM d, hh:mm a')
+                    .format(response.clockOutTime!.toLocal())),
           if (response.isEarlyExit) ...[
             const SizedBox(height: 8),
             Row(
@@ -343,7 +364,8 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
                 elevation: 3,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               onPressed: () async {
                 final photos = await _attendanceService.fetchAttendancePhotos(
@@ -352,14 +374,15 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
                 if (photos.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                        content: Text('Attendance images not found for this shift')),
+                        content:
+                            Text('Attendance images not found for this shift')),
                   );
                   return;
                 }
 
                 final clockInUrl = photos['clockIn'];
                 final clockOutUrl = photos['clockOut'];
-                
+
                 showDialog(
                   context: context,
                   builder: (_) => AlertDialog(
@@ -375,42 +398,48 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
                         children: [
                           if (clockInUrl != null && clockInUrl.isNotEmpty) ...[
                             const Text("Clock In",
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold)),
                             const SizedBox(height: 8),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: Image.network(clockInUrl),
                             ),
-                          ] else 
-                            const Text("Clock In image not available", style: TextStyle(color: Colors.white70)),
-                          
+                          ] else
+                            const Text("Clock In image not available",
+                                style: TextStyle(color: Colors.white70)),
                           const SizedBox(height: 20),
-                          
-                          if (clockOutUrl != null && clockOutUrl.isNotEmpty) ...[
+                          if (clockOutUrl != null &&
+                              clockOutUrl.isNotEmpty) ...[
                             const Text("Clock Out",
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold)),
                             const SizedBox(height: 8),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: Image.network(clockOutUrl),
                             ),
-                          ] else 
-                            const Text("Clock Out image not available", style: TextStyle(color: Colors.white70)),
+                          ] else
+                            const Text("Clock Out image not available",
+                                style: TextStyle(color: Colors.white70)),
                         ],
                       ),
                     ),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text("Close", style: TextStyle(color: Color(0xFF1BAFFF))),
+                        child: const Text("Close",
+                            style: TextStyle(color: Color(0xFF1BAFFF))),
                       )
                     ],
                   ),
                 );
               },
               icon: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
-              label:
-                  const Text("View Evidence", style: TextStyle(color: Colors.white, fontSize: 13)),
+              label: const Text("View Evidence",
+                  style: TextStyle(color: Colors.white, fontSize: 13)),
             ),
           ),
         ],
@@ -425,9 +454,14 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
         children: [
           Icon(icon, color: Colors.white70, size: 14),
           const SizedBox(width: 8),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          Text(label,
+              style: const TextStyle(color: Colors.white70, fontSize: 13)),
           const SizedBox(width: 8),
-          Text(value, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
+          Text(value,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500)),
         ],
       ),
     );
@@ -443,6 +477,8 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
         return Colors.purple;
       case 'pending':
         return Colors.orange;
+      case 'swap requested':
+        return Colors.blueAccent;
       case 'declined':
       case 'rejected':
         return Colors.red;
@@ -473,20 +509,25 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF2C2F36),
-        title: const Text("Delete Shift", style: TextStyle(color: Colors.white)),
-        content: const Text("Are you sure you want to delete this shift? This action cannot be undone.",
+        title:
+            const Text("Delete Shift", style: TextStyle(color: Colors.white)),
+        content: const Text(
+            "Are you sure you want to delete this shift? This action cannot be undone.",
             style: TextStyle(color: Colors.white70)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("CANCEL", style: TextStyle(color: Colors.white60)),
+            child:
+                const Text("CANCEL", style: TextStyle(color: Colors.white60)),
           ),
           TextButton(
             onPressed: () async {
               Navigator.pop(context); // Close dialog
               _handleDelete();
             },
-            child: const Text("DELETE", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+            child: const Text("DELETE",
+                style: TextStyle(
+                    color: Colors.redAccent, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -498,7 +539,8 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator(color: Colors.redAccent)),
+      builder: (context) => const Center(
+          child: CircularProgressIndicator(color: Colors.redAccent)),
     );
 
     try {
@@ -508,14 +550,18 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
       if (success) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(backgroundColor: Colors.green, content: Text("Shift deleted successfully")),
+            const SnackBar(
+                backgroundColor: Colors.green,
+                content: Text("Shift deleted successfully")),
           );
           Navigator.pop(context, true); // Go back with refresh signal
         }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(backgroundColor: Colors.red, content: Text("Failed to delete shift")),
+            const SnackBar(
+                backgroundColor: Colors.red,
+                content: Text("Failed to delete shift")),
           );
         }
       }
