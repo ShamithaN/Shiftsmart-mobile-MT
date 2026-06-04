@@ -5,8 +5,6 @@ import 'package:shiftsmart/services/notification_service.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/gradient_button.dart';
-import 'package:shiftsmart/widgets/uppernavbar.dart';
-import 'package:shiftsmart/widgets/sidenav.dart';
 import 'package:shiftsmart/widgets/premium_feature_gate.dart';
 import 'package:shiftsmart/widgets/bottomnavbar.dart';
 
@@ -16,12 +14,27 @@ import 'package:shiftsmart/services/leave_service.dart';
 import 'package:shiftsmart/services/employee_service.dart';
 import 'package:provider/provider.dart';
 import 'package:shiftsmart/providers/tenant_provider.dart';
+import 'package:shiftsmart/screens/manager/manager_view_employee.dart';
 
 class Managerleave extends StatefulWidget {
   const Managerleave({super.key});
 
   @override
   State<Managerleave> createState() => _ManagerleaveState();
+}
+
+class _LeaveTabData {
+  final String label;
+  final int count;
+  final IconData icon;
+  final Color color;
+
+  const _LeaveTabData({
+    required this.label,
+    required this.count,
+    required this.icon,
+    required this.color,
+  });
 }
 
 class _ManagerleaveState extends State<Managerleave> {
@@ -31,13 +44,13 @@ class _ManagerleaveState extends State<Managerleave> {
   final LeaveService _leaveService = LeaveService();
   List<Employee> filteredEmployees = [];
   List<LeaveRequest> _leaveRequests = [];
-  List<LeaveRequest> _pendingRequests = [];
-  List<LeaveRequest> _acceptedRejectedRequests = [];
   bool _isLoading = true;
   List<Employee> _allEmployees = [];
   final EmployeeService _employeeService = EmployeeService();
   final NotificationService _notificationService = NotificationService();
   String _lastTenant = '';
+  int _selectedLeaveTab = 0;
+  String _leaveSearchQuery = '';
 
   @override
   void initState() {
@@ -69,13 +82,6 @@ class _ManagerleaveState extends State<Managerleave> {
         _leaveRequests = leaveRequests
             .where((req) => tenantEmployeeIds.contains(req.employeeId))
             .toList();
-
-        _pendingRequests =
-            _leaveRequests.where((req) => req.isPending).toList();
-        _acceptedRejectedRequests = _leaveRequests
-            .where((req) => req.isAcceptedOrRejected)
-            .toList()
-          ..sort((a, b) => b.requestedAt.compareTo(a.requestedAt));
       });
     } catch (e) {
       if (!mounted) return;
@@ -116,13 +122,6 @@ class _ManagerleaveState extends State<Managerleave> {
       // Update state
       setState(() {
         updatedRequest.status = newStatus;
-
-        if (newStatus.toLowerCase() == 'approved' ||
-            newStatus.toLowerCase() == 'rejected') {
-          _acceptedRejectedRequests.add(updatedRequest);
-        } else {
-          _pendingRequests.add(updatedRequest);
-        }
       });
     } catch (e) {
       if (!mounted) return;
@@ -141,7 +140,7 @@ class _ManagerleaveState extends State<Managerleave> {
         _allEmployees = employees;
       });
     } catch (e) {
-      print("Error fetching employees: $e");
+      debugPrint("Error fetching employees: $e");
     }
   }
 
@@ -153,6 +152,15 @@ class _ManagerleaveState extends State<Managerleave> {
           firstName: 'Unknown',
           profilePicture: '',
           nextOfKins: []),
+    );
+  }
+
+  void _openEmployeeProfile(Employee employee) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Managerviewemployee(employee: employee),
+      ),
     );
   }
 
@@ -187,8 +195,6 @@ class _ManagerleaveState extends State<Managerleave> {
               const Positioned.fill(child: Background()),
               Scaffold(
                 backgroundColor: Colors.transparent,
-                // REMOVE: appBar: const Uppernavbar(showBackButton: true),
-                // REMOVE: drawer: const Sidenav(),
                 body: SafeArea(
                   child: Center(
                     child: Padding(
@@ -259,43 +265,54 @@ class _ManagerleaveState extends State<Managerleave> {
                                                     right: 12),
                                                 child: Column(
                                                   children: [
-                                                    CircleAvatar(
-                                                      radius: 30,
-                                                      backgroundColor:
-                                                          Colors.grey[800],
-                                                      backgroundImage: (employee
-                                                                      ?.profilePicture !=
-                                                                  null &&
-                                                              employee!
-                                                                  .profilePicture!
-                                                                  .startsWith(
-                                                                      'data:image'))
-                                                          ? MemoryImage(
-                                                              base64Decode(employee
-                                                                  .profilePicture!
-                                                                  .split(',')
-                                                                  .last),
-                                                            )
-                                                          : (employee?.profilePicture !=
-                                                                      null &&
-                                                                  employee!
-                                                                      .profilePicture!
-                                                                      .isNotEmpty)
-                                                              ? NetworkImage(
-                                                                  employee
-                                                                      .profilePicture!)
-                                                              : null,
-                                                      child: (employee?.profilePicture ==
-                                                                  null ||
-                                                              employee!
-                                                                  .profilePicture!
-                                                                  .isEmpty)
-                                                          ? const Icon(
-                                                              Icons.person,
-                                                              size: 30,
-                                                              color:
-                                                                  Colors.white)
-                                                          : null,
+                                                    GestureDetector(
+                                                      behavior: HitTestBehavior
+                                                          .opaque,
+                                                      onTap: employee == null
+                                                          ? null
+                                                          : () =>
+                                                              _openEmployeeProfile(
+                                                                  employee),
+                                                      child: CircleAvatar(
+                                                        radius: 30,
+                                                        backgroundColor:
+                                                            Colors.grey[800],
+                                                        backgroundImage: (employee
+                                                                        ?.profilePicture !=
+                                                                    null &&
+                                                                employee!
+                                                                    .profilePicture!
+                                                                    .startsWith(
+                                                                        'data:image'))
+                                                            ? MemoryImage(
+                                                                base64Decode(
+                                                                    employee
+                                                                        .profilePicture!
+                                                                        .split(
+                                                                            ',')
+                                                                        .last),
+                                                              )
+                                                            : (employee?.profilePicture !=
+                                                                        null &&
+                                                                    employee!
+                                                                        .profilePicture!
+                                                                        .isNotEmpty)
+                                                                ? NetworkImage(
+                                                                    employee
+                                                                        .profilePicture!)
+                                                                : null,
+                                                        child: (employee?.profilePicture ==
+                                                                    null ||
+                                                                employee!
+                                                                    .profilePicture!
+                                                                    .isEmpty)
+                                                            ? const Icon(
+                                                                Icons.person,
+                                                                size: 30,
+                                                                color: Colors
+                                                                    .white)
+                                                            : null,
+                                                      ),
                                                     ),
                                                     const SizedBox(height: 6),
                                                     SizedBox(
@@ -330,25 +347,11 @@ class _ManagerleaveState extends State<Managerleave> {
                                     ),
                                   ),
                                   const SizedBox(height: 10),
-                                  const Text(
-                                    "Awaiting Approval",
-                                    style: TextStyle(
-                                        fontSize: 20,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _leaveList(isPending: true),
-                                  const SizedBox(height: 20),
-                                  const Text(
-                                    "Approved/Denied Requests",
-                                    style: TextStyle(
-                                        fontSize: 20,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _leaveList(isPending: false),
+                                  _leaveSearchSection(),
+                                  const SizedBox(height: 14),
+                                  _leaveStatusTabs(),
+                                  const SizedBox(height: 16),
+                                  _leaveList(),
                                   const SizedBox(height: 100),
                                 ],
                               ),
@@ -364,102 +367,462 @@ class _ManagerleaveState extends State<Managerleave> {
     );
   }
 
-  Widget _leaveList({required bool isPending}) {
+  Widget _leaveStatusTabs() {
+    final searchableRequests = _searchFilteredLeaveRequests();
+    final tabs = [
+      _LeaveTabData(
+        label: 'Awaiting Approval',
+        count: searchableRequests.where((request) => request.isPending).length,
+        icon: Icons.hourglass_empty,
+        color: const Color(0xFFFFD43B),
+      ),
+      _LeaveTabData(
+        label: 'Approved',
+        count: searchableRequests
+            .where((request) => request.status.toLowerCase() == 'approved')
+            .length,
+        icon: Icons.check_circle,
+        color: const Color(0xFF69DB7C),
+      ),
+      _LeaveTabData(
+        label: 'Rejected',
+        count: searchableRequests
+            .where((request) => _isRejectedLeave(request.status))
+            .length,
+        icon: Icons.cancel,
+        color: const Color(0xFFFF8787),
+      ),
+    ];
+
+    return SizedBox(
+      width: double.infinity,
+      child: FittedBox(
+        alignment: Alignment.centerLeft,
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < tabs.length; i++) ...[
+              _leaveTab(tabs[i], isSelected: _selectedLeaveTab == i, index: i),
+              if (i != tabs.length - 1) const SizedBox(width: 8),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _leaveSearchSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'LEAVE REQUESTS',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            onChanged: (value) {
+              setState(() => _leaveSearchQuery = value.trim());
+            },
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Search leave requests',
+              hintStyle: const TextStyle(color: Colors.white54),
+              prefixIcon: const Icon(Icons.search, color: Colors.white70),
+              filled: true,
+              fillColor: const Color(0xFF1F293B),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Colors.white12),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Color(0xFF4D8DFF)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _leaveTab(_LeaveTabData tab,
+      {required bool isSelected, required int index}) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => setState(() => _selectedLeaveTab = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF20283A) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border(
+            bottom: BorderSide(
+              color: isSelected ? tab.color : Colors.transparent,
+              width: 2,
+            ),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(tab.icon, color: tab.color, size: 18),
+            const SizedBox(width: 7),
+            Text(
+              tab.label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(width: 7),
+            Text(
+              '(${tab.count})',
+              style: const TextStyle(color: Colors.white54, fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<LeaveRequest> _selectedLeaveRequests() {
+    final searchableRequests = _searchFilteredLeaveRequests();
+    switch (_selectedLeaveTab) {
+      case 1:
+        return searchableRequests
+            .where((request) => request.status.toLowerCase() == 'approved')
+            .toList()
+          ..sort((a, b) => b.requestedAt.compareTo(a.requestedAt));
+      case 2:
+        return searchableRequests
+            .where((request) => _isRejectedLeave(request.status))
+            .toList()
+          ..sort((a, b) => b.requestedAt.compareTo(a.requestedAt));
+      case 0:
+      default:
+        return searchableRequests.where((request) => request.isPending).toList()
+          ..sort((a, b) => b.requestedAt.compareTo(a.requestedAt));
+    }
+  }
+
+  List<LeaveRequest> _searchFilteredLeaveRequests() {
+    if (_leaveSearchQuery.isEmpty) {
+      return List<LeaveRequest>.from(_leaveRequests);
+    }
+
+    final query = _leaveSearchQuery.toLowerCase();
+    return _leaveRequests.where((request) {
+      final employee = getEmployeeById(request.employeeId);
+      return _employeeName(employee).toLowerCase().contains(query);
+    }).toList();
+  }
+
+  Widget _leaveList() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final requests = isPending ? _pendingRequests : _acceptedRejectedRequests;
+    final requests = _selectedLeaveRequests();
     if (requests.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Center(
           child: Text(
-            isPending
+            _selectedLeaveTab == 0
                 ? "No pending requests."
-                : "No approved or rejected requests.",
+                : _selectedLeaveTab == 1
+                    ? "No approved requests."
+                    : "No rejected requests.",
             style: const TextStyle(color: Colors.white70),
           ),
         ),
       );
     }
+
     return Column(
       children: requests.map((request) {
         final employee = getEmployeeById(request.employeeId);
-        return Container(
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFF363E51),
-                Color(0xFF191E26),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              // Replace Icon with CircleAvatar for profile picture
-              CircleAvatar(
-                radius: 30,
-                backgroundColor: Colors.grey[800],
-                backgroundImage: (employee?.profilePicture != null &&
-                        employee!.profilePicture!.startsWith('data:image'))
-                    ? MemoryImage(
-                        base64Decode(employee.profilePicture!.split(',').last),
-                      )
-                    : (employee?.profilePicture != null &&
-                            employee!.profilePicture!.isNotEmpty)
-                        ? NetworkImage(employee.profilePicture!)
-                        : null,
-                child: (employee?.profilePicture == null ||
-                        employee!.profilePicture!.isEmpty)
-                    ? const Icon(Icons.person, size: 30, color: Colors.white)
-                    : null,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      employee?.firstName ?? 'Unknown',
-                      style: const TextStyle(color: Colors.white, fontSize: 15),
-                    ),
-                    Text(
-                      request.startDate.toLocal().toString().split(' ')[0],
-                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
-                    ),
-                    Text(
-                      "${request.endDate.difference(request.startDate).inDays + 1} Days",
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                    Text(
-                      request.status,
-                      style: TextStyle(
-                        color: request.status.toLowerCase() == "approved"
-                            ? Colors.green
-                            : request.status.toLowerCase() == "rejected"
-                                ? Colors.red
-                                : Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              GradientButton(
-                text: "View Details",
-                onPressed: () => _showDetailsDialog(request),
-                style: const TextStyle(color: Colors.white),
-              ),
-            ],
-          ),
-        );
+        return _leaveRequestCard(request, employee);
       }).toList(),
     );
+  }
+
+  Widget _leaveRequestCard(LeaveRequest request, Employee? employee) {
+    final statusColor = _leaveStatusColor(request.status);
+    final requestDays = _leaveDays(request);
+    final profileImage = _profileImage(employee?.profilePicture);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => _showDetailsDialog(request),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF121B2E).withValues(alpha: 0.94),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: _selectedLeaveTab == 0
+                ? const Color(0xFF2F5DA8)
+                : Colors.white12,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: employee == null
+                      ? null
+                      : () => _openEmployeeProfile(employee),
+                  child: CircleAvatar(
+                    radius: 28,
+                    backgroundColor: const Color(0xFF172A52),
+                    backgroundImage: profileImage,
+                    child: profileImage == null
+                        ? const Icon(Icons.person,
+                            size: 28, color: Color(0xFF6EA8FE))
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _employeeName(employee),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _displayValue(employee?.jobRole, 'Employee'),
+                        style: const TextStyle(
+                            color: Colors.white54, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _leaveStatusBadge(request.status, statusColor),
+              ],
+            ),
+            const SizedBox(height: 14),
+            const Divider(color: Colors.white12, height: 1),
+            const SizedBox(height: 14),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    children: [
+                      _leaveInfoRow(
+                        icon: Icons.layers,
+                        label: "Type:",
+                        value: _displayValue(request.leaveType, 'Leave'),
+                      ),
+                      const SizedBox(height: 10),
+                      _leaveInfoRow(
+                        icon: Icons.calendar_month,
+                        label: "",
+                        value:
+                            "${_formatLeaveDate(request.startDate)} \u2192 ${_formatLeaveDate(request.endDate)}",
+                      ),
+                      const SizedBox(height: 6),
+                      _leaveInfoRow(
+                        icon: Icons.schedule,
+                        label: "",
+                        value:
+                            "$requestDays ${requestDays == 1 ? 'Day' : 'Days'}",
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                IconButton(
+                  onPressed: () => _showDetailsDialog(request),
+                  icon: const Icon(Icons.chevron_right,
+                      color: Color(0xFF3498DB), size: 28),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints:
+                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _leaveStatusBadge(String status, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.55)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_leaveStatusIcon(status), color: color, size: 14),
+          const SizedBox(width: 5),
+          Text(
+            _leaveStatusLabel(status),
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _leaveInfoRow({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: const Color(0xFF66D9EF), size: 16),
+        const SizedBox(width: 8),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                height: 1.25,
+              ),
+              children: [
+                if (label.isNotEmpty)
+                  TextSpan(
+                    text: "$label ",
+                    style: const TextStyle(color: Colors.white54),
+                  ),
+                TextSpan(
+                  text: value,
+                  style: const TextStyle(
+                    color: Color(0xFFA8C7FF),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  ImageProvider? _profileImage(String? profilePicture) {
+    final value = profilePicture?.trim();
+    if (value == null || value.isEmpty) return null;
+
+    if (value.startsWith('data:image')) {
+      try {
+        return MemoryImage(base64Decode(value.split(',').last));
+      } catch (_) {
+        return null;
+      }
+    }
+
+    return NetworkImage(value);
+  }
+
+  Color _leaveStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return const Color(0xFF69DB7C);
+      case 'rejected':
+      case 'denied':
+        return const Color(0xFFFF8787);
+      case 'pending':
+      default:
+        return const Color(0xFFFFD43B);
+    }
+  }
+
+  IconData _leaveStatusIcon(String status) {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return Icons.check_circle;
+      case 'rejected':
+      case 'denied':
+        return Icons.cancel;
+      case 'pending':
+      default:
+        return Icons.hourglass_empty;
+    }
+  }
+
+  String _leaveStatusLabel(String status) {
+    final normalized = status.trim();
+    if (normalized.isEmpty) return 'Pending';
+    final lower = normalized.toLowerCase();
+    if (lower == 'pending') return 'Awaiting Approval';
+    if (lower == 'denied') return 'Rejected';
+    return normalized;
+  }
+
+  bool _isRejectedLeave(String status) {
+    final lower = status.toLowerCase();
+    return lower == 'rejected' || lower == 'denied';
+  }
+
+  String _employeeName(Employee? employee) {
+    if (employee == null) return 'Unknown';
+    final parts = [
+      employee.firstName,
+      employee.middleName,
+      employee.lastName,
+    ].where((part) => part != null && part.trim().isNotEmpty);
+    final name = parts.join(' ');
+    return name.isEmpty ? 'Unknown' : name;
+  }
+
+  String _displayValue(String? value, String fallback) {
+    final trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? fallback : trimmed;
+  }
+
+  int _leaveDays(LeaveRequest request) {
+    return request.endDate.difference(request.startDate).inDays + 1;
+  }
+
+  String _formatLeaveDate(DateTime date) {
+    return DateFormat('d MMM yyyy').format(date);
   }
 
   Future<void> _showDetailsDialog(LeaveRequest request) async {
@@ -470,7 +833,7 @@ class _ManagerleaveState extends State<Managerleave> {
     try {
       remainingDays = await _fetchLeaveBalance(request.employeeId);
     } catch (e) {
-      print("Error fetching leave balance: $e");
+      debugPrint("Error fetching leave balance: $e");
     }
 
     final requestDays =
@@ -511,8 +874,7 @@ class _ManagerleaveState extends State<Managerleave> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _detailRow(
-                        "Employee Name", employee?.firstName ?? 'Unknown'),
+                    _detailRow("Employee Name", _employeeName(employee)),
                     _detailRow("Leave Type", request.leaveType),
                     _detailRow(
                         "Start Date", dateFormat.format(request.startDate)),
@@ -546,8 +908,7 @@ class _ManagerleaveState extends State<Managerleave> {
                           onPressed: () {
                             Navigator.of(context).pop();
                             _updateLeaveStatus(
-                                    request.leaveRequestId,
-                                    "Rejected")
+                                    request.leaveRequestId, "Rejected")
                                 .then((_) {
                               _fetchLeaveRequests();
                             });
@@ -602,8 +963,7 @@ class _ManagerleaveState extends State<Managerleave> {
                           onPressed: () {
                             Navigator.of(context).pop();
                             _updateLeaveStatus(
-                                    request.leaveRequestId,
-                                    "Approved")
+                                    request.leaveRequestId, "Approved")
                                 .then((_) {
                               _fetchLeaveRequests();
                             });
