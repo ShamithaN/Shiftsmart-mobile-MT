@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
@@ -8,7 +7,6 @@ import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/search.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
-import 'package:flutter/foundation.dart';
 import 'package:shiftsmart/models/site.dart';
 import 'package:shiftsmart/models/site_employee.dart';
 import 'package:shiftsmart/services/site_service.dart';
@@ -30,18 +28,19 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
   bool isLoading = true;
   final Completer<GoogleMapController> _mapController = Completer();
   Set<Marker> _markers = {};
-  LatLng? _mapCenter;
+  LatLng _mapCenter = _defaultMapCenter;
   final double _mapZoom = 15.0;
   List<SiteEmployee> filteredEmployees = [];
   final SiteService _siteService = SiteService();
   Timer? _refreshTimer;
-  String? _darkMapStyle;
+  String? _mapMessage;
+  MapType _mapType = MapType.normal;
+  static const LatLng _defaultMapCenter = LatLng(-33.8688, 151.2093);
 
   @override
   void initState() {
     super.initState();
     enableFullScreen();
-    _loadMapStyle();
     _loadSiteData();
 
     // Auto-refresh locations every 30 seconds
@@ -58,32 +57,26 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
     super.dispose();
   }
 
-  Future<void> _loadMapStyle() async {
-    try {
-      final style = await rootBundle.loadString('assets/mapStyles/dark.json');
-      if (mounted) {
-        setState(() => _darkMapStyle = style);
-      }
-    } catch (e) {
-      debugPrint('Error loading map style: $e');
-    }
-  }
-
   Future<void> _loadSiteData() async {
     try {
       final site = await _fetchSiteDetails(widget.siteId);
+      final sitePosition = _siteLatLng(site);
 
       setState(() {
         currentSite = site;
-        _mapCenter = LatLng(
-          double.tryParse(site.latitude ?? '') ?? 0.0,
-          double.tryParse(site.longitude ?? '') ?? 0.0,
-        );
+        _mapCenter = sitePosition ?? _defaultMapCenter;
+        _mapMessage = sitePosition == null
+            ? 'Site location is missing. Edit this site and select a map location.'
+            : null;
       });
 
       await _refreshEmployeeLocations();
     } catch (e) {
-      setState(() => isLoading = false);
+      setState(() {
+        isLoading = false;
+        _mapCenter = _defaultMapCenter;
+        _mapMessage = 'Could not load site location.';
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading data: $e')),
@@ -115,17 +108,20 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
 
   void _createMarkers(Site site, List<SiteEmployee> employees) {
     final markers = <Marker>{};
-    final lat = double.tryParse(site.latitude ?? '') ?? 0.0;
-    final lng = double.tryParse(site.longitude ?? '') ?? 0.0;
+    final sitePosition = _siteLatLng(site);
 
-    // 1. Site Marker
-    markers.add(Marker(
-      markerId: MarkerId('site_${site.siteId}'),
-      position: LatLng(lat, lng),
-      infoWindow:
-          InfoWindow(title: site.siteName, snippet: "Radius: ${site.radius}m"),
-      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-    ));
+    if (sitePosition != null) {
+      // 1. Site Marker
+      markers.add(Marker(
+        markerId: MarkerId('site_${site.siteId}'),
+        position: sitePosition,
+        infoWindow: InfoWindow(
+          title: site.siteName,
+          snippet: "Radius: ${site.radius}m",
+        ),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+      ));
+    }
 
     // 2. Employee Markers
     for (final employee in employees) {
@@ -133,15 +129,16 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
         final double markerHue = employee.isInside
             ? BitmapDescriptor.hueGreen
             : BitmapDescriptor.hueRed;
+        final distanceText = employee.distance == null
+            ? 'Outside fence'
+            : 'Outside (${(employee.distance! * 1000).toStringAsFixed(0)}m away)';
 
         markers.add(Marker(
           markerId: MarkerId('employee_${employee.employeeId}'),
           position: LatLng(employee.clockInLat!, employee.clockInLng!),
           infoWindow: InfoWindow(
             title: employee.name,
-            snippet: employee.isInside
-                ? 'Inside Fence'
-                : 'Outside (${(employee.distance! * 1000).toStringAsFixed(0)}m away)',
+            snippet: employee.isInside ? 'Inside Fence' : distanceText,
           ),
           icon: BitmapDescriptor.defaultMarkerWithHue(markerHue),
         ));
@@ -161,10 +158,10 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
   }
 
   Future<void> _fitMapToContent() async {
-    if (!_mapController.isCompleted || _mapCenter == null) return;
+    if (!_mapController.isCompleted) return;
 
     final controller = await _mapController.future;
-    final points = <LatLng>[_mapCenter!];
+    final points = <LatLng>[_mapCenter];
 
     for (final employee in employees) {
       if (employee.clockInLat != null && employee.clockInLng != null) {
@@ -175,7 +172,7 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
     if (points.length == 1) {
       await controller.animateCamera(
         CameraUpdate.newCameraPosition(
-          CameraPosition(target: _mapCenter!, zoom: _mapZoom),
+          CameraPosition(target: _mapCenter, zoom: _mapZoom),
         ),
       );
       return;
@@ -203,6 +200,19 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
       southwest: LatLng(minLat, minLng),
       northeast: LatLng(maxLat, maxLng),
     );
+  }
+
+  LatLng? _siteLatLng(Site site) {
+    final lat = double.tryParse(site.latitude ?? '');
+    final lng = double.tryParse(site.longitude ?? '');
+
+    if (lat == null || lng == null) return null;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+
+    // Most bad site records in this app arrive as 0/0 after failed parsing.
+    if (lat == 0 && lng == 0) return null;
+
+    return LatLng(lat, lng);
   }
 
   Future<Site> _fetchSiteDetails(int siteId) async {
@@ -304,43 +314,28 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
       );
     }
 
-    if (_mapCenter == null) {
-      return _buildMapShell(
-        child: const Center(
-          child: Text(
-            "No location data available",
-            style: TextStyle(color: Colors.black54),
-          ),
-        ),
-      );
-    }
-
     return _buildMapShell(
       child: Stack(
         children: [
           GoogleMap(
             onMapCreated: _onMapCreated,
             initialCameraPosition: CameraPosition(
-              target: _mapCenter!,
+              target: _mapCenter,
               zoom: _mapZoom,
             ),
             markers: _markers,
-            mapType: MapType.normal,
-            zoomControlsEnabled: false,
+            mapType: _mapType,
+            zoomControlsEnabled: true,
             myLocationEnabled: false,
             myLocationButtonEnabled: false,
-            compassEnabled: false,
+            compassEnabled: true,
             mapToolbarEnabled: false,
-            style: kIsWeb ? null : _darkMapStyle,
             padding: const EdgeInsets.only(bottom: 58, right: 10),
-            circles: currentSite != null
+            circles: currentSite != null && _siteLatLng(currentSite!) != null
                 ? {
                     Circle(
                       circleId: CircleId('geofence_${currentSite!.siteId}'),
-                      center: LatLng(
-                        double.tryParse(currentSite!.latitude ?? '') ?? 0.0,
-                        double.tryParse(currentSite!.longitude ?? '') ?? 0.0,
-                      ),
+                      center: _siteLatLng(currentSite!)!,
                       radius: currentSite!.radius ?? 0.0,
                       strokeWidth: 2,
                       strokeColor: const Color(0xFF6EA8FF),
@@ -350,6 +345,39 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
                   }
                 : {},
           ),
+          if (_mapMessage != null)
+            Positioned(
+              left: 12,
+              right: 12,
+              top: 58,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Text(
+                    _mapMessage!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFF2F3645),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          _buildMapTypeToggle(),
           Positioned(
             right: 14,
             bottom: 14,
@@ -365,6 +393,54 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMapTypeToggle() {
+    return Positioned(
+      left: 12,
+      top: 12,
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(4),
+        elevation: 3,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _mapTypeButton('Map', MapType.normal),
+            Container(
+              width: 1,
+              height: 34,
+              color: Colors.black.withValues(alpha: 0.08),
+            ),
+            _mapTypeButton('Satellite', MapType.satellite),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _mapTypeButton(String label, MapType mapType) {
+    final selected = _mapType == mapType;
+
+    return TextButton(
+      style: TextButton.styleFrom(
+        foregroundColor: selected ? Colors.black : const Color(0xFF555555),
+        backgroundColor: selected ? Colors.white : const Color(0xFFF5F5F5),
+        minimumSize: const Size(74, 38),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      ),
+      onPressed: () {
+        setState(() => _mapType = mapType);
+      },
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        ),
       ),
     );
   }
