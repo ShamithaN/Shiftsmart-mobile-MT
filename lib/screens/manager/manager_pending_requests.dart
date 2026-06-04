@@ -20,7 +20,7 @@ class _ManagerPendingRequestsState extends State<ManagerPendingRequests> {
   final ShiftService _shiftService = ShiftService();
   final EmployeeService _employeeService = EmployeeService();
   final AttendanceService _attendanceService = AttendanceService();
-  
+
   List<PendingItem> _pendingItems = [];
   Map<int, Employee> _employeeMap = {};
   bool _isLoading = true;
@@ -45,8 +45,16 @@ class _ManagerPendingRequestsState extends State<ManagerPendingRequests> {
       for (var shiftData in rawShifts) {
         final shift = Shift.fromJson(shiftData);
         for (var response in shift.employeeResponses) {
-          if (response.approvalStatus == "Pending" || (response.isEarlyExit && response.approvalStatus == null)) {
-            items.add(PendingItem(shift: shift, response: response));
+          final isPendingAttendance = response.approvalStatus == "Pending" ||
+              (response.isEarlyExit && response.approvalStatus == null);
+          if (isPendingAttendance || response.isSwapRequested) {
+            items.add(PendingItem(
+              shift: shift,
+              response: response,
+              type: response.isSwapRequested
+                  ? PendingRequestType.shiftSwap
+                  : PendingRequestType.attendance,
+            ));
           }
         }
       }
@@ -67,6 +75,16 @@ class _ManagerPendingRequestsState extends State<ManagerPendingRequests> {
   }
 
   Future<void> _handleAction(PendingItem item, String status) async {
+    if (item.isShiftSwap) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              "Shift swap approve/reject needs a backend endpoint. This app can show the pending swap request now."),
+        ),
+      );
+      return;
+    }
+
     // Show loading dialog
     showDialog(
       context: context,
@@ -76,14 +94,16 @@ class _ManagerPendingRequestsState extends State<ManagerPendingRequests> {
 
     try {
       // First, we need the Attendance record to get AttendanceId
-      final attendanceList = await _attendanceService.getShiftsByShiftId(item.response.employeeId);
+      final attendanceList =
+          await _attendanceService.getShiftsByShiftId(item.response.employeeId);
       final record = (attendanceList as List).firstWhere(
         (a) => a['ShiftId'] == item.shift.shiftId,
         orElse: () => null,
       );
 
       if (record != null && record['AttendanceId'] != null) {
-        final success = await _attendanceService.approveAttendance(record['AttendanceId'], status);
+        final success = await _attendanceService.approveAttendance(
+            record['AttendanceId'], status);
         Navigator.pop(context); // Pop loading
 
         if (success) {
@@ -134,7 +154,9 @@ class _ManagerPendingRequestsState extends State<ManagerPendingRequests> {
                   onRefresh: _loadData,
                   color: const Color(0xFF724584),
                   child: _isLoading
-                      ? const Center(child: CircularProgressIndicator(color: Color(0xFF724584)))
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                              color: Color(0xFF724584)))
                       : _pendingItems.isEmpty
                           ? ListView(
                               children: const [
@@ -142,7 +164,8 @@ class _ManagerPendingRequestsState extends State<ManagerPendingRequests> {
                                 Center(
                                   child: Text(
                                     "No pending requests found.",
-                                    style: TextStyle(color: Colors.white70, fontSize: 16),
+                                    style: TextStyle(
+                                        color: Colors.white70, fontSize: 16),
                                   ),
                                 ),
                               ],
@@ -153,8 +176,9 @@ class _ManagerPendingRequestsState extends State<ManagerPendingRequests> {
                               itemCount: _pendingItems.length,
                               itemBuilder: (context, index) {
                                 final item = _pendingItems[index];
-                                final employee = _employeeMap[item.response.employeeId];
-                                
+                                final employee =
+                                    _employeeMap[item.response.employeeId];
+
                                 return _buildRequestCard(item, employee);
                               },
                             ),
@@ -184,12 +208,16 @@ class _ManagerPendingRequestsState extends State<ManagerPendingRequests> {
               CircleAvatar(
                 radius: 20,
                 backgroundColor: Colors.grey[800],
-                backgroundImage: (employee?.profilePicture != null && employee!.profilePicture!.isNotEmpty)
+                backgroundImage: (employee?.profilePicture != null &&
+                        employee!.profilePicture!.isNotEmpty)
                     ? (employee.profilePicture!.startsWith('data:image')
-                        ? MemoryImage(base64Decode(employee.profilePicture!.split(',').last)) as ImageProvider
+                        ? MemoryImage(base64Decode(
+                                employee.profilePicture!.split(',').last))
+                            as ImageProvider
                         : NetworkImage(employee.profilePicture!))
                     : null,
-                child: (employee?.profilePicture == null || employee!.profilePicture!.isEmpty)
+                child: (employee?.profilePicture == null ||
+                        employee!.profilePicture!.isEmpty)
                     ? const Icon(Icons.person, color: Colors.white, size: 20)
                     : null,
               ),
@@ -200,11 +228,15 @@ class _ManagerPendingRequestsState extends State<ManagerPendingRequests> {
                   children: [
                     Text(
                       employee?.firstName ?? 'Unknown Employee',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16),
                     ),
                     Text(
                       item.shift.taskName,
-                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 13),
                     ),
                   ],
                 ),
@@ -212,12 +244,16 @@ class _ManagerPendingRequestsState extends State<ManagerPendingRequests> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.2),
+                  color: item.badgeColor.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Text(
-                  "Early Exit",
-                  style: TextStyle(color: Colors.orangeAccent, fontSize: 11, fontWeight: FontWeight.bold),
+                child: Text(
+                  item.badgeLabel,
+                  style: TextStyle(
+                    color: item.badgeColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -258,11 +294,15 @@ class _ManagerPendingRequestsState extends State<ManagerPendingRequests> {
               children: [
                 const Text(
                   "REASON:",
-                  style: TextStyle(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+                  style: TextStyle(
+                      color: Colors.orangeAccent,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  item.response.earlyExitReason ?? "Emergency/Personal",
+                  item.reasonText,
                   style: const TextStyle(color: Colors.white, fontSize: 14),
                 ),
               ],
@@ -278,7 +318,10 @@ class _ManagerPendingRequestsState extends State<ManagerPendingRequests> {
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   onPressed: () => _handleAction(item, "Rejected"),
-                  child: const Text("REJECT", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                  child: const Text("REJECT",
+                      style: TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -289,7 +332,9 @@ class _ManagerPendingRequestsState extends State<ManagerPendingRequests> {
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   onPressed: () => _handleAction(item, "Approved"),
-                  child: const Text("APPROVE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: const Text("APPROVE",
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -303,6 +348,26 @@ class _ManagerPendingRequestsState extends State<ManagerPendingRequests> {
 class PendingItem {
   final Shift shift;
   final EmployeeResponse response;
+  final PendingRequestType type;
 
-  PendingItem({required this.shift, required this.response});
+  PendingItem({
+    required this.shift,
+    required this.response,
+    required this.type,
+  });
+
+  bool get isShiftSwap => type == PendingRequestType.shiftSwap;
+
+  String get badgeLabel => isShiftSwap ? "Shift Swap" : "Early Exit";
+
+  Color get badgeColor => isShiftSwap ? Colors.blueAccent : Colors.orangeAccent;
+
+  String get reasonText => isShiftSwap
+      ? "Employee requested a shift swap. Status: ${response.status}"
+      : response.earlyExitReason ?? "Emergency/Personal";
+}
+
+enum PendingRequestType {
+  attendance,
+  shiftSwap,
 }
