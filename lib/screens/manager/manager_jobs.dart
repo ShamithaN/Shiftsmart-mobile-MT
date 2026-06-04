@@ -1,12 +1,18 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shiftsmart/providers/tenant_provider.dart';
+import 'package:shiftsmart/models/employee.dart';
 import 'package:shiftsmart/models/job.dart';
 import 'package:shiftsmart/models/shift.dart';
 import 'package:shiftsmart/screens/manager/manager_create_job.dart';
 import 'package:shiftsmart/screens/manager/manager_create_shift.dart';
 import 'package:shiftsmart/screens/manager/manager_job_view.dart';
 import 'package:shiftsmart/screens/manager/manager_shifts_view.dart';
+import 'package:shiftsmart/screens/manager/manager_view_employee.dart';
+import 'package:shiftsmart/services/employee_service.dart';
 import 'package:shiftsmart/services/job_service.dart';
 import 'package:shiftsmart/services/shift_service.dart';
 import 'package:shiftsmart/services/project_service.dart';
@@ -36,6 +42,7 @@ class _ManagerjobsState extends State<Managerjobs>
 
   bool _isLoading = true;
   Map<int, model.Project> projectMap = {};
+  Map<int, Employee> employeeMap = {};
   String _lastTenant = '';
   String _searchQuery = '';
 
@@ -52,11 +59,131 @@ class _ManagerjobsState extends State<Managerjobs>
     });
   }
 
-  String _formatDate(String dateTimeString) {
-    if (dateTimeString.contains('T')) {
-      return dateTimeString.split('T')[0];
+  DateTime? _parseDate(String value) {
+    if (value.trim().isEmpty) return null;
+    return DateTime.tryParse(value);
+  }
+
+  String _formatDisplayDate(String value) {
+    final date = _parseDate(value);
+    if (date == null) return 'No date';
+    return DateFormat('d MMMM yyyy').format(date);
+  }
+
+  String _formatShiftDate(DateTime date) {
+    return DateFormat('d MMMM yyyy').format(date);
+  }
+
+  String _formatShiftTime(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return '--:--';
+
+    try {
+      return DateFormat('HH:mm').format(DateFormat('HH:mm:ss').parse(trimmed));
+    } catch (_) {
+      try {
+        return DateFormat('HH:mm').format(DateFormat('HH:mm').parse(trimmed));
+      } catch (_) {
+        return trimmed;
+      }
     }
-    return dateTimeString;
+  }
+
+  String _jobDescription(Job job) {
+    final description = job.description.trim();
+    return description.isEmpty ? 'No Description' : description;
+  }
+
+  ({String text, Color backgroundColor, Color textColor})? _dueBadge(Job job) {
+    final dueDate = _parseDate(job.jobDueDate);
+    if (dueDate == null) return null;
+
+    final today = DateTime.now();
+    final todayOnly = DateTime(today.year, today.month, today.day);
+    final dueOnly = DateTime(dueDate.year, dueDate.month, dueDate.day);
+    final days = dueOnly.difference(todayOnly).inDays;
+
+    if (days < 0) {
+      return (
+        text: 'Overdue',
+        backgroundColor: const Color(0xFFC0392B),
+        textColor: Colors.white,
+      );
+    }
+
+    return (
+      text: days == 0
+          ? 'Today'
+          : days == 1
+              ? '1 day left'
+              : '$days days left',
+      backgroundColor: const Color(0xFFF1C232),
+      textColor: Colors.black,
+    );
+  }
+
+  Color _statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+      case 'complete':
+        return const Color(0xFF7BD88F);
+      case 'active':
+        return const Color(0xFFF1C232);
+      case 'pending':
+        return Colors.orangeAccent;
+      case 'cancelled':
+      case 'canceled':
+        return Colors.redAccent;
+      default:
+        return Colors.blueAccent;
+    }
+  }
+
+  IconData _statusIcon(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+      case 'complete':
+        return Icons.check_circle;
+      default:
+        return Icons.sync;
+    }
+  }
+
+  ImageProvider? _employeeProfileImage(Employee? employee) {
+    final profilePicture = employee?.profilePicture?.trim();
+    if (profilePicture == null || profilePicture.isEmpty) return null;
+
+    if (profilePicture.startsWith('data:image')) {
+      try {
+        return MemoryImage(base64Decode(profilePicture.split(',').last));
+      } catch (_) {
+        return null;
+      }
+    }
+
+    return NetworkImage(profilePicture);
+  }
+
+  String _employeeInitials(Employee? employee) {
+    if (employee == null) return '';
+
+    final firstName = employee.firstName.trim();
+    final lastName = employee.lastName?.trim() ?? '';
+    final initials = [
+      if (firstName.isNotEmpty) firstName[0],
+      if (lastName.isNotEmpty) lastName[0],
+    ].join();
+
+    return initials.toUpperCase();
+  }
+
+  void _openEmployeeProfile(Employee employee) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Managerviewemployee(employee: employee),
+      ),
+    );
   }
 
   Future<void> _loadData() async {
@@ -65,6 +192,7 @@ class _ManagerjobsState extends State<Managerjobs>
     await Future.wait([
       _fetchProjects(), // We need projects to filter jobs by tenant
       _fetchShifts(), // Load shifts
+      _fetchEmployees(), // Load profiles for assigned shift employees
     ]);
 
     await _fetchJobs(); // Needs projects loaded first to filter
@@ -108,6 +236,19 @@ class _ManagerjobsState extends State<Managerjobs>
       });
     } catch (e) {
       debugPrint(" managerJobs: Error loading shifts: \$e");
+    }
+  }
+
+  Future<void> _fetchEmployees() async {
+    try {
+      final employees = await EmployeeService().fetchAllEmployees();
+      setState(() {
+        employeeMap = {
+          for (final employee in employees) employee.employeeId: employee
+        };
+      });
+    } catch (e) {
+      debugPrint(" managerJobs: Error loading employees: \$e");
     }
   }
 
@@ -541,6 +682,9 @@ class _ManagerjobsState extends State<Managerjobs>
   }
 
   Widget _buildJobListItem(Job job) {
+    final statusColor = _statusColor(job.status);
+    final dueBadge = _dueBadge(job);
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
       padding: const EdgeInsets.all(16),
@@ -549,85 +693,305 @@ class _ManagerjobsState extends State<Managerjobs>
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.white12),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.black12,
-              borderRadius: BorderRadius.circular(30),
-            ),
-            child: Image.asset('assets/cJob.png', height: 30),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(job.title,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(job.title,
                     style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 15)),
-                const SizedBox(height: 6),
-                Text(
-                    "Due Date: ${job.jobDueDate.isNotEmpty ? _formatDate(job.jobDueDate) : 'No date'}",
-                    style:
-                        const TextStyle(color: Colors.white70, fontSize: 13)),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.12),
+                  border: Border.all(color: statusColor.withValues(alpha: 0.7)),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(_statusIcon(job.status), color: statusColor, size: 14),
+                    const SizedBox(width: 5),
+                    Text(
+                      job.status.trim().isEmpty ? 'Unknown' : job.status,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Icon(Icons.arrow_forward_ios,
+                  color: Colors.white70, size: 18),
+            ],
           ),
-          const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
+          const SizedBox(height: 8),
+          Text(
+            _jobDescription(job),
+            softWrap: true,
+            style: const TextStyle(color: Colors.white70, fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                "Start Date : ${_formatDisplayDate(job.startDate)}",
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+              if (dueBadge != null)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: dueBadge.backgroundColor,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Text(
+                    dueBadge.text,
+                    style: TextStyle(
+                      color: dueBadge.textColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              Text(
+                "Due Date : ${_formatDisplayDate(job.jobDueDate)}",
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
+  Widget _buildShiftProfileStack(Shift shift, {required bool isCompact}) {
+    final assignedIds = shift.assignedEmployeeIds;
+    final profiles = assignedIds.isEmpty
+        ? <Employee?>[null]
+        : assignedIds.take(2).map((id) => employeeMap[id]).toList();
+    final avatarSize = isCompact ? 44.0 : 42.0;
+    final overlapOffset = avatarSize - 14;
+    final stackWidth = avatarSize + (profiles.length - 1) * overlapOffset;
+
+    return SizedBox(
+      width: stackWidth,
+      height: avatarSize,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          for (var index = 0; index < profiles.length; index++)
+            Positioned(
+              left: index * overlapOffset,
+              child: _buildShiftProfileAvatar(
+                profiles[index],
+                size: avatarSize,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShiftProfileAvatar(Employee? employee, {required double size}) {
+    final imageProvider = _employeeProfileImage(employee);
+    final initials = _employeeInitials(employee);
+
+    final avatar = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: size,
+          height: size,
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: const Color(0xFF8C9AAF),
+            borderRadius: BorderRadius.circular(size / 2),
+          ),
+          child: CircleAvatar(
+            backgroundColor: const Color(0xFF627083),
+            backgroundImage: imageProvider,
+            child: imageProvider == null
+                ? initials.isNotEmpty
+                    ? Text(
+                        initials,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                        ),
+                      )
+                    : Icon(Icons.person,
+                        color: const Color(0xFF4B8DFF), size: size * 0.62)
+                : null,
+          ),
+        ),
+        Positioned(
+          right: -2,
+          bottom: 1,
+          child: Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1C232),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: const Color(0xFF1E2433), width: 2),
+            ),
+          ),
+        ),
+      ],
+    );
+
+    if (employee == null) return avatar;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _openEmployeeProfile(employee),
+      child: avatar,
+    );
+  }
+
   Widget _buildShiftListItem(Shift shift) {
+    final statusColor = _statusColor(shift.status);
+    final statusText =
+        shift.status.trim().isEmpty ? 'Unknown' : shift.status.trim();
+    final startTime = _formatShiftTime(shift.startTime);
+    final endTime = _formatShiftTime(shift.endTime);
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: const Color(0xFF1E2433),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.white12),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompact = constraints.maxWidth < 430;
+
+          final details = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                shift.taskName.trim().isEmpty
+                    ? 'Untitled shift'
+                    : shift.taskName.trim(),
+                maxLines: isCompact ? 2 : 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 26,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    _formatShiftDate(shift.date),
+                    style: const TextStyle(color: Colors.white54, fontSize: 13),
+                  ),
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        const TextSpan(text: 'Est. Time:  '),
+                        TextSpan(
+                          text: '$startTime - $endTime',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    style: const TextStyle(color: Colors.white54, fontSize: 13),
+                  ),
+                ],
+              ),
+            ],
+          );
+
+          final avatars = _buildShiftProfileStack(shift, isCompact: isCompact);
+
+          final statusBadge = Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: Colors.black12,
-              borderRadius: BorderRadius.circular(30),
+              color: statusColor.withValues(alpha: 0.14),
+              border: Border.all(color: statusColor.withValues(alpha: 0.55)),
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: Image.asset('assets/cShift.png', height: 30),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(shift.taskName,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15)),
-                const SizedBox(height: 6),
-                Text("Date: ${_formatDate(shift.date.toIso8601String())}",
-                    style:
-                        const TextStyle(color: Colors.white70, fontSize: 13)),
-                const SizedBox(height: 4),
+                Icon(_statusIcon(statusText), color: statusColor, size: 14),
+                const SizedBox(width: 6),
                 Text(
-                    "${shift.startTime} - ${shift.endTime}  |  Status: ${shift.status.toUpperCase()}",
-                    style:
-                        const TextStyle(color: Colors.white54, fontSize: 12)),
+                  statusText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
               ],
             ),
-          ),
-          const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
-        ],
+          );
+
+          if (isCompact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                details,
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    avatars,
+                    const SizedBox(width: 12),
+                    statusBadge,
+                    const Spacer(),
+                    const Icon(Icons.arrow_forward_ios,
+                        color: Colors.white70, size: 18),
+                  ],
+                ),
+              ],
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(child: details),
+              const SizedBox(width: 12),
+              avatars,
+              const SizedBox(width: 12),
+              statusBadge,
+              const SizedBox(width: 12),
+              const Icon(Icons.arrow_forward_ios,
+                  color: Colors.white70, size: 18),
+            ],
+          );
+        },
       ),
     );
   }
