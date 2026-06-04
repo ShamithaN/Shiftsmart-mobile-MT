@@ -13,6 +13,7 @@ class Employee {
   final String? country;
   final DateTime? dateOfBirth;
   final String? employmentStatus;
+  final String? employmentType;
   final String? jobRole;
   final String? userRole;
   final String? profilePicture;
@@ -37,6 +38,7 @@ class Employee {
     this.country,
     this.dateOfBirth,
     this.employmentStatus,
+    this.employmentType,
     this.jobRole,
     this.userRole,
     this.profilePicture,
@@ -82,6 +84,7 @@ class Employee {
 
       employmentStatus:
           getValue<String>('employmentStatus', 'EmploymentStatus'),
+      employmentType: getValue<String>('employmentType', 'EmploymentType'),
       jobRole: getValue<String>('jobRole', 'JobRole'),
 
       bankAccountName: getValue<String>('bankAccountName', 'BankAccountName'),
@@ -90,7 +93,11 @@ class Employee {
       bankBSB: getValue<String>('bankBSB', 'BankBSB'),
       bankName: getValue<String>('bankName', 'BankName'),
 
-      nextOfKins: ((json['nextOfKins'] ?? json['NextOfKins'] ?? json['NextOfKin'] ?? json['nextOfKin'] ?? json['ApprovedNextOfKin']) as List<dynamic>?)
+      nextOfKins: ((json['nextOfKins'] ??
+                  json['NextOfKins'] ??
+                  json['NextOfKin'] ??
+                  json['nextOfKin'] ??
+                  json['ApprovedNextOfKin']) as List<dynamic>?)
               ?.map((kinJson) => NextOfKin.fromJson(kinJson))
               .toList() ??
           [],
