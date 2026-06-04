@@ -134,6 +134,13 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
     return null;
   }
 
+  dynamic _fieldValue(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      if (data.containsKey(key)) return data[key];
+    }
+    return null;
+  }
+
   int? _intValue(dynamic value) {
     if (value == null) return null;
     if (value is int) return value;
@@ -161,6 +168,21 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
   bool _isStatus(String status) {
     return myStatus.trim().toLowerCase() == status.toLowerCase();
   }
+
+  String get _normalizedStatus => myStatus.trim().toLowerCase();
+
+  bool get _isSwapPendingStatus =>
+      _normalizedStatus == 'swap requested' ||
+      _normalizedStatus == 'swap pending' ||
+      _normalizedStatus == 'pending swap';
+
+  bool get _isSwapApprovedStatus =>
+      _normalizedStatus == 'swap approved' ||
+      _normalizedStatus == 'swap accepted';
+
+  bool get _isSwapRejectedStatus =>
+      _normalizedStatus == 'swap rejected' ||
+      _normalizedStatus == 'swap declined';
 
   bool _isCompletedStatusValue(String? value) {
     final status = value?.trim().toLowerCase() ?? '';
@@ -301,6 +323,11 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
     clockInPhotoUrl = nextClockInPhotoUrl ?? clockInPhotoUrl;
     clockOutPhotoUrl = nextClockOutPhotoUrl ?? clockOutPhotoUrl;
     earlyExitReason = nextEarlyExitReason ?? earlyExitReason;
+    attendanceId = _intValue(_fieldValue(data, [
+          'AttendanceId',
+          'attendanceId',
+        ])) ??
+        attendanceId;
   }
 
   bool _hasPhotoUrl(String? url) => url != null && url.trim().isNotEmpty;
@@ -400,6 +427,8 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
             _syncAttendanceEvidence(myResponse);
           }
         });
+
+        await _saveShiftProgress();
 
         // If SiteId was missing from Job object, try loading it from Shift details
         if (currentSite == null) {
@@ -505,6 +534,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
       bool success = await _shiftService.requestSwap(widget.shiftId);
       if (success) {
         setState(() => myStatus = "Swap Requested");
+        await _saveShiftProgress();
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("Swap Requested Successfully")));
       }
@@ -575,6 +605,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
           clockOutPhotoUrl = progress['clockOutPhotoUrl'];
           earlyExitReason = progress['earlyExitReason'];
           attendanceId = progress['attendanceId'];
+          myStatus = progress['myStatus'] ?? myStatus;
         });
         if (currentBreakStart != null) {
           _startBreakTicker();
@@ -593,17 +624,29 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
 
       if (shift != null && mounted) {
         // --- Parse Backend Times ---
-        final backendClockInTime = parseServerDateTime(shift['ClockInTime'] ??
-            shift['clockInTime'] ??
-            shift['ClockinTime']);
-        final backendClockOutTime =
-            parseServerDateTime(shift['ClockOutTime'] ?? shift['clockOutTime']);
+        final backendClockInTime = parseServerDateTime(_fieldValue(shift, [
+          'ClockInTime',
+          'clockInTime',
+          'ClockinTime',
+        ]));
+        final backendClockOutTime = parseServerDateTime(_fieldValue(shift, [
+          'ClockOutTime',
+          'clockOutTime',
+        ]));
 
         // --- NEW: Parse Backend Break Times ---
-        final backendBreakStart =
-            parseServerDateTime(shift['BreakStart'] ?? shift['breakStart']);
-        final backendBreakEnd =
-            parseServerDateTime(shift['BreakEnd'] ?? shift['breakEnd']);
+        final backendBreakStart = parseServerDateTime(_fieldValue(shift, [
+          'BreakStart',
+          'breakStart',
+        ]));
+        final backendBreakEnd = parseServerDateTime(_fieldValue(shift, [
+          'BreakEnd',
+          'breakEnd',
+        ]));
+        final backendAttendanceId = _intValue(_fieldValue(shift, [
+          'AttendanceId',
+          'attendanceId',
+        ]));
 
         if (mounted) {
           setState(() {
@@ -613,21 +656,21 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
             if (backendClockInTime != null) {
               if (attendanceId == null || clockInTime == null) {
                 clockInTime = backendClockInTime;
-                attendanceId = shift['AttendanceId'];
+                attendanceId = backendAttendanceId;
               }
             }
 
             // Ensure we keep attendanceId if the backend returns an attendance record
-            if (attendanceId == null && shift['AttendanceId'] != null) {
-              attendanceId = shift['AttendanceId'];
+            if (attendanceId == null && backendAttendanceId != null) {
+              attendanceId = backendAttendanceId;
             }
 
             // Sync Clock Out
             if (backendClockOutTime != null &&
                 backendClockOutTime.year > 1900) {
               clockOutTime = backendClockOutTime;
-              if (attendanceId == null && shift['AttendanceId'] != null) {
-                attendanceId = shift['AttendanceId'];
+              if (attendanceId == null && backendAttendanceId != null) {
+                attendanceId = backendAttendanceId;
               }
             }
 
@@ -690,6 +733,7 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
       'clockOutPhotoUrl': clockOutPhotoUrl,
       'earlyExitReason': earlyExitReason,
       'attendanceId': attendanceId,
+      'myStatus': myStatus,
     };
     await prefs.setString(key, jsonEncode(progressData));
   }
@@ -1351,10 +1395,24 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
       );
     }
 
-    if (_isStatus("Swap Requested")) {
+    if (_isSwapPendingStatus) {
       return _buildStatusMessage(
-        " Swap Requested. Waiting for approval.",
+        "Swap requested. Waiting for manager approval.",
         Colors.orange,
+      );
+    }
+
+    if (_isSwapApprovedStatus) {
+      return _buildStatusMessage(
+        "Your shift swap request was approved.",
+        Colors.green,
+      );
+    }
+
+    if (_isSwapRejectedStatus) {
+      return _buildStatusMessage(
+        "Your shift swap request was rejected.",
+        Colors.red,
       );
     }
 
