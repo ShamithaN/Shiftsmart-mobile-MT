@@ -115,6 +115,26 @@ class _Managerprojectstate extends State<Managerprojects> {
     });
   }
 
+  String _siteAddress(Site site) {
+    final address = site.address?.trim();
+    return address == null || address.isEmpty ? 'No Address' : address;
+  }
+
+  String _projectNameForSite(Site site) {
+    final projectName = site.project?.name.trim();
+    if (projectName != null && projectName.isNotEmpty) {
+      return projectName;
+    }
+
+    for (final project in allProjects) {
+      if (project.projectId == site.projectId) {
+        return project.name;
+      }
+    }
+
+    return 'No Project Name';
+  }
+
   void onQueryChanged(String query) {
     _searchQuery = query;
     _applySearch();
@@ -312,45 +332,6 @@ class _Managerprojectstate extends State<Managerprojects> {
                       _refreshData();
                     }
                   },
-                  onDelete: () async {
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        backgroundColor: const Color(0xFF1E2433),
-                        title: const Text("Delete Company",
-                            style: TextStyle(color: Colors.white)),
-                        content: Text(
-                            "Are you sure you want to delete ${company.name}?",
-                            style: const TextStyle(color: Colors.white70)),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text("Cancel"),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text("Delete",
-                                style: TextStyle(color: Colors.red)),
-                          ),
-                        ],
-                      ),
-                    );
-
-                    if (confirm == true) {
-                      final success =
-                          await _companyService.deleteCompany(company.id);
-                      if (success) {
-                        _refreshData();
-                      } else {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text("Failed to delete company")),
-                          );
-                        }
-                      }
-                    }
-                  },
                 );
               },
             ),
@@ -388,6 +369,7 @@ class _Managerprojectstate extends State<Managerprojects> {
                   },
                   child: _buildProjectListItem(
                     title: project.name,
+                    description: project.description,
                     status: project.status,
                     startDate: DateFormat("yyyy-MM-dd")
                         .format(DateTime.parse(project.startDate)),
@@ -428,9 +410,8 @@ class _Managerprojectstate extends State<Managerprojects> {
                 final site = filteredSites[index];
                 return _buildListItem(
                   title: site.siteName,
-                  subtitle: "Project ID: ${site.projectId ?? 'N/A'}",
-                  bottomInfo:
-                      "Coordinates: ${site.latitude ?? ''}, ${site.longitude ?? ''}",
+                  subtitle: _siteAddress(site),
+                  bottomInfo: _projectNameForSite(site),
                   onEdit: () async {
                     final result = await Navigator.push(
                       context,
@@ -439,45 +420,6 @@ class _Managerprojectstate extends State<Managerprojects> {
                     );
                     if (result == true) {
                       _refreshData();
-                    }
-                  },
-                  onDelete: () async {
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        backgroundColor: const Color(0xFF1E2433),
-                        title: const Text("Delete Site",
-                            style: TextStyle(color: Colors.white)),
-                        content: Text(
-                            "Are you sure you want to delete ${site.siteName}?",
-                            style: const TextStyle(color: Colors.white70)),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text("Cancel"),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text("Delete",
-                                style: TextStyle(color: Colors.red)),
-                          ),
-                        ],
-                      ),
-                    );
-
-                    if (confirm == true) {
-                      final success =
-                          await _siteService.deleteSite(site.siteId);
-                      if (success) {
-                        _refreshData();
-                      } else {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text("Failed to delete site")),
-                          );
-                        }
-                      }
                     }
                   },
                 );
@@ -565,10 +507,9 @@ class _Managerprojectstate extends State<Managerprojects> {
 
   Widget _buildListItem(
       {required String title,
-      required String subtitle,
-      required String bottomInfo,
-      required VoidCallback onEdit,
-      required VoidCallback onDelete}) {
+      String? subtitle,
+      String? bottomInfo,
+      required VoidCallback onEdit}) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
       padding: const EdgeInsets.all(16),
@@ -577,56 +518,42 @@ class _Managerprojectstate extends State<Managerprojects> {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.white12),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(title,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15)),
-          const SizedBox(height: 6),
-          Text(subtitle,
-              style: const TextStyle(color: Colors.white70, fontSize: 13)),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                  child: Text(bottomInfo,
-                      style: const TextStyle(
-                          color: Colors.white54, fontSize: 12))),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: onEdit,
-                    icon: const Icon(Icons.edit, size: 14, color: Colors.blue),
-                    label: const Text("Edit",
-                        style: TextStyle(fontSize: 12, color: Colors.white)),
-                    style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.blue),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6)),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 0)),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    onPressed: onDelete,
-                    icon: const Icon(Icons.delete, size: 14, color: Colors.red),
-                    label: const Text("Delete",
-                        style: TextStyle(fontSize: 12, color: Colors.white)),
-                    style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Colors.red),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6)),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 0)),
-                  ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15)),
+                if (subtitle != null && subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(subtitle,
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 13)),
                 ],
-              ),
-            ],
+                if (bottomInfo != null && bottomInfo.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(bottomInfo,
+                      softWrap: true,
+                      style:
+                          const TextStyle(color: Colors.white54, fontSize: 12)),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          IconButton(
+            onPressed: onEdit,
+            icon: const Icon(Icons.arrow_forward_ios,
+                color: Colors.white54, size: 18),
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
         ],
       ),
@@ -635,6 +562,7 @@ class _Managerprojectstate extends State<Managerprojects> {
 
   Widget _buildProjectListItem(
       {required String title,
+      required String description,
       required String status,
       required String startDate,
       required String dueDate,
@@ -681,8 +609,11 @@ class _Managerprojectstate extends State<Managerprojects> {
             ],
           ),
           const SizedBox(height: 8),
-          const Text("Initial setup and onboarding project for operations",
-              style: TextStyle(color: Colors.white70, fontSize: 13)),
+          Text(
+            description.trim().isEmpty ? 'No Description' : description,
+            softWrap: true,
+            style: const TextStyle(color: Colors.white70, fontSize: 13),
+          ),
           const SizedBox(height: 8),
           Row(
             children: [
