@@ -12,6 +12,8 @@ class EmployeeResponse {
   final String? approvalStatus;
   final DateTime? completedAt;
 
+  bool get isSwapRequested => status.toLowerCase() == 'swap requested';
+
   EmployeeResponse({
     required this.employeeId,
     required this.status,
@@ -34,16 +36,26 @@ class EmployeeResponse {
     }
 
     return EmployeeResponse(
-      employeeId: parseId(json['EmployeeId'] ?? json['employeeId'] ?? json['EmployeId']),
+      employeeId: parseId(
+          json['EmployeeId'] ?? json['employeeId'] ?? json['EmployeId']),
       status: (json['Status'] ?? json['status'])?.toString() ?? 'Pending',
       reason: (json['Reason'] ?? json['reason'])?.toString(),
-      respondedAt: parseServerDateTime(json['RespondedAt'] ?? json['respondedAt']),
-      clockInTime: parseServerDateTime(json['ClockInTime'] ?? json['clockInTime'] ?? json['ClockinTime']),
-      clockOutTime: parseServerDateTime(json['ClockOutTime'] ?? json['clockOutTime']),
-      isEarlyExit: json['IsEarlyExit'] == true || json['IsEarlyExit']?.toString().toLowerCase() == 'true' || json['isEarlyExit'] == true || json['isEarlyExit']?.toString().toLowerCase() == 'true',
-      earlyExitReason: (json['EarlyExitReason'] ?? json['earlyExitReason'])?.toString(),
-      approvalStatus: (json['ApprovalStatus'] ?? json['approvalStatus'])?.toString(),
-      completedAt: DateTime.tryParse((json['CompletedAt'] ?? json['completedAt'])?.toString() ?? ''),
+      respondedAt:
+          parseServerDateTime(json['RespondedAt'] ?? json['respondedAt']),
+      clockInTime: parseServerDateTime(
+          json['ClockInTime'] ?? json['clockInTime'] ?? json['ClockinTime']),
+      clockOutTime:
+          parseServerDateTime(json['ClockOutTime'] ?? json['clockOutTime']),
+      isEarlyExit: json['IsEarlyExit'] == true ||
+          json['IsEarlyExit']?.toString().toLowerCase() == 'true' ||
+          json['isEarlyExit'] == true ||
+          json['isEarlyExit']?.toString().toLowerCase() == 'true',
+      earlyExitReason:
+          (json['EarlyExitReason'] ?? json['earlyExitReason'])?.toString(),
+      approvalStatus:
+          (json['ApprovalStatus'] ?? json['approvalStatus'])?.toString(),
+      completedAt: DateTime.tryParse(
+          (json['CompletedAt'] ?? json['completedAt'])?.toString() ?? ''),
     );
   }
 
@@ -157,24 +169,42 @@ class Shift {
     try {
       return Shift(
         shiftId: parseId(json['ShiftId'] ?? json['shiftId'] ?? json['Shitid']),
-        projectId: parseId(json['ProjectId'] ?? json['projectId'] ?? json['Projectld']),
+        projectId: parseId(
+            json['ProjectId'] ?? json['projectId'] ?? json['Projectld']),
         taskName: (json['TaskName'] ?? json['taskName'])?.toString() ?? '',
-        date: parseServerDateTime(json['Date'] ?? json['date'] ?? json['StartDate'] ?? json['startDate'] ?? json['JobDueDate'] ?? json['jobDueDate']) ?? DateTime.now(),
+        date: parseServerDateTime(json['Date'] ??
+                json['date'] ??
+                json['StartDate'] ??
+                json['startDate'] ??
+                json['JobDueDate'] ??
+                json['jobDueDate']) ??
+            DateTime.now(),
         startTime: (json['StartTime'] ?? json['startTime'])?.toString() ?? '',
         endTime: (json['EndTime'] ?? json['endTime'])?.toString() ?? '',
         location: (json['Location'] ?? json['location'])?.toString() ?? '',
         status: (json['Status'] ?? json['status'])?.toString() ?? '',
-        jobId: (json['JobId'] ?? json['jobId']) != null ? parseId(json['JobId'] ?? json['jobId'] ?? json['Jobld']) : null,
-        assignedEmployeeIds: parseIdList(json['AssignedEmployeeIds'] ?? json['assignedEmployeeIds'] ?? json['AssignedEmployeelds']),
-        employeeResponses: (json['EmployeeResponses'] ?? json['employeeResponses'] ?? json['EmployeResponses']) is List
-            ? (json['EmployeeResponses'] ?? json['employeeResponses'] ?? json['EmployeResponses'] as List)
+        jobId: (json['JobId'] ?? json['jobId']) != null
+            ? parseId(json['JobId'] ?? json['jobId'] ?? json['Jobld'])
+            : null,
+        assignedEmployeeIds: parseIdList(json['AssignedEmployeeIds'] ??
+            json['assignedEmployeeIds'] ??
+            json['AssignedEmployeelds']),
+        employeeResponses: (json['EmployeeResponses'] ??
+                json['employeeResponses'] ??
+                json['EmployeResponses']) is List
+            ? (json['EmployeeResponses'] ??
+                    json['employeeResponses'] ??
+                    json['EmployeResponses'] as List)
                 .map<EmployeeResponse>((e) => EmployeeResponse.fromJson(e))
                 .toList()
             : [],
-        siteId: (json['SiteId'] ?? json['siteId']) != null ? parseId(json['SiteId'] ?? json['siteId']) : null,
+        siteId: (json['SiteId'] ?? json['siteId']) != null
+            ? parseId(json['SiteId'] ?? json['siteId'])
+            : null,
         latitude: (json['Latitude'] ?? json['latitude'])?.toString(),
         longitude: (json['Longitude'] ?? json['longitude'])?.toString(),
-        completedAt: parseServerDateTime(json['CompletedAt'] ?? json['completedAt']),
+        completedAt:
+            parseServerDateTime(json['CompletedAt'] ?? json['completedAt']),
       );
     } catch (e, stack) {
       // debugPrint is not defined in this context, assuming print is intended or debugPrint needs to be imported.
