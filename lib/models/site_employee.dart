@@ -101,23 +101,54 @@ class SiteEmployee {
 
     // 1. Handle Field Names from "Active Locations" Endpoint (Attendance App)
     // The Attendance endpoint usually returns 'FullName', Projects returned 'EmployeeName'
-    final name = json['FullName'] ?? json['EmployeeName'] ?? 'Unknown Employee';
+    final name = (json['FullName'] ??
+            json['fullName'] ??
+            json['EmployeeName'] ??
+            json['employeeName'] ??
+            json['Name'] ??
+            json['name'] ??
+            'Unknown Employee')
+        .toString();
 
     // 2. Handle Profile Picture
     // React code uses 'profilePicture' (camelCase) or from the object.
     // We will check multiple possibilities.
-    final profilePic = json['ProfilePicture'] ?? json['profilePicture'];
+    final profilePic = json['ProfilePicture'] ??
+        json['profilePicture'] ??
+        json['ProfileImage'] ??
+        json['profileImage'];
 
-    final lat = parseDouble(json['Latitude']);
-    final lng = parseDouble(json['Longitude']);
+    final lat = parseDouble(json['Latitude'] ??
+        json['latitude'] ??
+        json['ClockInLat'] ??
+        json['clockInLat'] ??
+        json['CurrentLatitude'] ??
+        json['currentLatitude']);
+    final lng = parseDouble(json['Longitude'] ??
+        json['longitude'] ??
+        json['ClockInLng'] ??
+        json['clockInLng'] ??
+        json['CurrentLongitude'] ??
+        json['currentLongitude']);
 
     // 3. Handle Pre-calculated Distance/Fence from Backend
     // The Attendance endpoint might calculate this for us (React code suggests it does)
-    bool isInside = json['IsInsideFence'] ?? false;
-    double? distance = parseDouble(json['DistanceMetersFromSite']);
+    bool parseBool(dynamic value) {
+      if (value is bool) return value;
+      if (value is num) return value != 0;
+      if (value is String) return value.toLowerCase() == 'true';
+      return false;
+    }
+
+    bool isInside = parseBool(json['IsInsideFence'] ?? json['isInsideFence']);
+    double? distance = parseDouble(json['DistanceMetersFromSite'] ??
+        json['distanceMetersFromSite'] ??
+        json['Distance'] ??
+        json['distance']);
 
     // If backend didn't provide calculation, do it manually
     if (json['IsInsideFence'] == null &&
+        json['isInsideFence'] == null &&
         lat != null &&
         lng != null &&
         site.latitude != null &&
@@ -151,8 +182,7 @@ class SiteEmployee {
       clockInLng: lng,
       distance: distance,
       isInside: isInside,
-      clockInTime:
-          json['ClockInTime'], // Might be null in ActiveLocations endpoint
+      clockInTime: (json['ClockInTime'] ?? json['clockInTime'])?.toString(),
       profilePicture: profilePic,
     );
   }
