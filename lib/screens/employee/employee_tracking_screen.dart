@@ -36,6 +36,7 @@ class _EmployeeTrackingScreenState extends State<EmployeeTrackingScreen> {
   CameraPosition? _initialPosition;
   Position? _currentPosition;
   bool _isLoading = true;
+  MapType _mapType = MapType.normal;
 
   // Dark Map Style (Defined locally so it doesn't affect other files)
   final String _mapStyle = '''
@@ -193,174 +194,263 @@ class _EmployeeTrackingScreenState extends State<EmployeeTrackingScreen> {
       final GoogleMapController controller = await _controller.future;
       controller.animateCamera(CameraUpdate.newCameraPosition(
         CameraPosition(
-            target:
-                LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-            zoom: 17),
+          target: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+          zoom: 17,
+        ),
       ));
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildMapCard() {
     if (_initialPosition == null || _isLoading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF1C2230),
-        body: Center(child: CircularProgressIndicator()),
+      return _buildMapShell(
+        child: const Center(child: CircularProgressIndicator()),
       );
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF1C2230),
-      extendBodyBehindAppBar: true, // Allows map to fill screen behind navbar
-
-      // 1. Hide the standard back button in Uppernavbar so we can add our own
-      appBar: const Uppernavbar(showBackButton: false),
-
-      body: Stack(
+    return _buildMapShell(
+      child: Stack(
         children: [
-          // 2. Map Layer
           GoogleMap(
-            mapType: MapType.normal,
+            mapType: _mapType,
             initialCameraPosition: _initialPosition!,
             markers: _markers,
             circles: _circles,
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
+            compassEnabled: true,
             onMapCreated: (GoogleMapController controller) {
-              _controller.complete(controller);
-              controller.setMapStyle(_mapStyle); // Apply dark style locally
+              if (!_controller.isCompleted) {
+                _controller.complete(controller);
+              }
+              controller.setMapStyle(_mapStyle);
             },
-            // Add padding so Google logo isn't hidden by bottom card
-            padding: const EdgeInsets.only(bottom: 100, top: 80),
+            padding: const EdgeInsets.only(bottom: 90, top: 56),
           ),
-
-          // 3. CUSTOM BACK BUTTON (The Fix)
-          // We manually place this over the map so it's always visible
           Positioned(
-            top: 50, // Adjusts to align with AppBar height
-            left: 15,
-            child: SafeArea(
-              child: GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  width: 45,
-                  height: 45,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1C2230)
-                        .withValues(alpha: 0.85), // Dark bubble background
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white24, width: 1),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.4),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.arrow_back_ios_new,
-                    color: Colors.white, // High contrast white arrow
-                    size: 20,
-                  ),
-                ),
-              ),
-            ),
+            left: 12,
+            top: 12,
+            child: _buildMapTypeToggle(),
           ),
-
-          // 4. Recenter Button
           Positioned(
-            bottom: 140,
-            right: 20,
-            child: FloatingActionButton(
-              backgroundColor: Colors.blueAccent,
-              onPressed: _recenterMap,
-              child: const Icon(Icons.my_location, color: Colors.white),
-            ),
-          ),
-
-          // 5. Stylish Status Card at the Bottom
-          Positioned(
-            bottom: 30,
-            left: 20,
-            right: 20,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                // Dynamic gradient background based on status
-                gradient: LinearGradient(
-                  colors: _isInside
-                      ? [
-                          Colors.green.shade900.withValues(alpha: 0.95),
-                          Colors.green.shade800.withValues(alpha: 0.9)
-                        ]
-                      : [
-                          const Color(0xFF2C1F1F).withValues(alpha: 0.95),
-                          Colors.red.shade900.withValues(alpha: 0.9)
-                        ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5))
-                ],
-                border: Border.all(
-                  color: _isInside
-                      ? Colors.greenAccent.withValues(alpha: 0.5)
-                      : Colors.redAccent.withValues(alpha: 0.5),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _isInside
-                          ? Icons.verified_user
-                          : Icons.warning_amber_rounded,
-                      color: Colors.white,
-                      size: 30,
-                    ),
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _isInside ? "You are On Site" : "You are Off Site",
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _isInside
-                              ? "Ready to clock in/out"
-                              : "Please move inside the site zone",
-                          style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.8),
-                              fontSize: 13),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+            right: 12,
+            bottom: 12,
+            child: Material(
+              color: Colors.white,
+              shape: const CircleBorder(),
+              elevation: 6,
+              child: IconButton(
+                tooltip: 'Recenter',
+                icon: const Icon(Icons.my_location, color: Color(0xFF1F2937)),
+                onPressed: _recenterMap,
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildStatusCard() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Tracking',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              Text(
+                _isInside ? 'On site' : 'Off site',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: _isInside ? Colors.green : Colors.red,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _isInside
+                ? 'Ready to clock in and out from this site.'
+                : 'Move inside the geofence to resume tracking.',
+            style: const TextStyle(
+              fontSize: 14,
+              color: Color(0xFF4B5563),
+            ),
+          ),
+          if (_currentPosition != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                'Current location: ${_currentPosition!.latitude.toStringAsFixed(5)}, ${_currentPosition!.longitude.toStringAsFixed(5)}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF6B7280),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMapTypeToggle() {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(8),
+      elevation: 4,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _mapTypeButton('Map', MapType.normal),
+          Container(width: 1, height: 34, color: const Color(0xFFE5E7EB)),
+          _mapTypeButton('Satellite', MapType.satellite),
+        ],
+      ),
+    );
+  }
+
+  Widget _mapTypeButton(String label, MapType type) {
+    final selected = _mapType == type;
+    return TextButton(
+      style: TextButton.styleFrom(
+        minimumSize: const Size(84, 36),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        foregroundColor: selected ? Colors.black : const Color(0xFF6B7280),
+        backgroundColor: selected ? const Color(0xFFF9FAFB) : Colors.white,
+      ),
+      onPressed: () {
+        setState(() => _mapType = type);
+      },
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMapShell({required Widget child}) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 22,
+            offset: const Offset(0, 16),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: child,
+      ),
+    );
+  }
+
+  Widget _buildSiteHeader() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Site',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  widget.currentSite.siteName,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.keyboard_arrow_down,
+              color: Color(0xFF6B7280),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F172A),
+      extendBodyBehindAppBar: true,
+      appBar: const Uppernavbar(showBackButton: false),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 16),
+            _buildSiteHeader(),
+            const SizedBox(height: 16),
+            Expanded(flex: 7, child: _buildMapCard()),
+            const SizedBox(height: 18),
+            _buildStatusCard(),
+            const SizedBox(height: 18),
+          ],
+        ),
       ),
     );
   }
