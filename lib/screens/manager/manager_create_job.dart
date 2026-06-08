@@ -12,8 +12,7 @@ import 'package:shiftsmart/models/project.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/bottomnavbar.dart';
-import 'package:shiftsmart/widgets/gradient_button.dart';
-import 'package:shiftsmart/widgets/gradienthorizontal.dart';
+import 'package:shiftsmart/widgets/manager_screen_style.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
 import 'package:shiftsmart/models/site.dart';
@@ -438,33 +437,16 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
           backgroundColor: Colors.transparent,
           body: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Gradienthorizontal(
-                width: double.infinity,
-                height: double.infinity,
+              padding: const EdgeInsets.all(16.0),
+              child: ManagerFormShell(
+                title: widget.existingJob != null ? "UPDATE JOB" : "CREATE JOB",
                 child: Column(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          widget.existingJob != null
-                              ? "UPDATE JOB"
-                              : "CREATE JOB",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
                     Expanded(
                       child: _isInitializing
                           ? const Center(
                               child: CircularProgressIndicator(
-                                  color: Colors.white))
+                                  color: ManagerScreenStyle.cyan))
                           : PageView(
                               controller: _pageController,
                               physics: const NeverScrollableScrollPhysics(),
@@ -475,34 +457,31 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
                               ],
                             ),
                     ),
-                    // ---  FIX APPLIED HERE ---
                     Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 10),
+                          horizontal: 20, vertical: 16),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Expanded(
-                            child: _currentStep > 0
-                                ? GradientButton(
-                                    text: "Back",
-                                    isCancel: true,
-                                    onPressed: _previousStep,
-                                  )
-                                : GradientButton(
-                                    text: "Cancel",
-                                    isCancel: true,
-                                    onPressed: () => Navigator.pop(context),
-                                  ),
+                          ManagerActionButton(
+                            text: _currentStep > 0 ? "Back" : "Cancel",
+                            icon: Icons.arrow_back_rounded,
+                            secondary: true,
+                            onPressed: _currentStep > 0
+                                ? _previousStep
+                                : () => Navigator.pop(context),
                           ),
                           const SizedBox(width: 15),
                           Expanded(
-                            child: GradientButton(
+                            child: ManagerActionButton(
                               text: _currentStep == 2
                                   ? (widget.existingJob != null
-                                      ? "Update"
-                                      : "Create")
+                                      ? "Update Job"
+                                      : "Save Job")
                                   : "Next",
+                              icon: _currentStep == 2
+                                  ? Icons.check_circle_rounded
+                                  : Icons.arrow_forward_rounded,
                               onPressed: _nextStep,
                             ),
                           ),
@@ -523,19 +502,28 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
   Widget _buildStep1() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildInputField("Name", _jobNameController),
-          const SizedBox(height: 16),
-          _buildInputField("Description", _descriptionController, maxLines: 3),
-          const SizedBox(height: 16),
-          _buildDateField("Start Date", _startDateController),
-          const SizedBox(height: 16),
-          _buildDateField("Due Date", _endDateController),
-          const SizedBox(height: 16),
-          _buildProjectDropdown(),
-        ],
+      child: ManagerSectionPanel(
+        title: 'Job Details',
+        subtitle: 'Add the job name, description, schedule, and project.',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildInputField("Name", _jobNameController, required: true),
+            const SizedBox(height: 18),
+            _buildInputField(
+              "Description",
+              _descriptionController,
+              maxLines: 3,
+              required: true,
+            ),
+            const SizedBox(height: 18),
+            _buildDateField("Start Date", _startDateController),
+            const SizedBox(height: 18),
+            _buildDateField("Due Date", _endDateController),
+            const SizedBox(height: 18),
+            _buildProjectDropdown(),
+          ],
+        ),
       ),
     );
   }
@@ -544,57 +532,58 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
   Widget _buildStep2() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSiteDropdown(),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "Select Resources",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              GestureDetector(
-                onTap: () {
-                  if (_jobRoleTypes.isEmpty) return;
-                  final defaultRole = _jobRoleTypes.first;
-                  _addJobRole(defaultRole);
-                },
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
+      child: ManagerSectionPanel(
+        title: 'Site and Resources',
+        subtitle: 'Choose the worksite and assign the required role types.',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSiteDropdown(),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "Select Resources",
+                  style: TextStyle(
+                    color: ManagerScreenStyle.cyan,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
                   ),
-                  child: const Icon(Icons.add, color: Colors.white, size: 20),
+                ),
+                IconButton.filled(
+                  onPressed: () {
+                    if (_jobRoleTypes.isEmpty) return;
+                    final defaultRole = _jobRoleTypes.first;
+                    _addJobRole(defaultRole);
+                  },
+                  style: IconButton.styleFrom(
+                    backgroundColor: ManagerScreenStyle.fieldBg,
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: const Icon(Icons.add_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (_selectedJobRoles.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Center(
+                  child: Text("No roles added yet.",
+                      style: TextStyle(color: Colors.white54)),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (_selectedJobRoles.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: Center(
-                  child: Text("No roles added yet.",
-                      style: TextStyle(color: Colors.white54))),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _selectedJobRoles.length,
+              itemBuilder: (context, index) {
+                return _buildRoleCard(index, _selectedJobRoles[index]);
+              },
             ),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _selectedJobRoles.length,
-            itemBuilder: (context, index) {
-              return _buildRoleCard(index, _selectedJobRoles[index]);
-            },
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -603,70 +592,42 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
   Widget _buildStep3() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
+      child: ManagerSectionPanel(
+        title: 'Job Media',
+        subtitle: 'Attach an optional image for this job.',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GestureDetector(
+              onTap: _showImageSourceSelection,
+              child: Container(
+                width: double.infinity,
+                height: 250,
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
+                  color: ManagerScreenStyle.fieldBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.2), width: 1.5),
                 ),
-                child: const Icon(
-                  Icons.cloud_upload_outlined,
-                  color: Colors.black,
-                  size: 20,
-                ),
+                child: _selectedImage == null
+                    ? const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.cloud_upload_outlined,
+                              color: Colors.white70, size: 48),
+                          SizedBox(height: 16),
+                          Text("Tap to upload an image",
+                              style: TextStyle(color: Colors.white70))
+                        ],
+                      )
+                    : ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(_selectedImage!, fit: BoxFit.cover),
+                      ),
               ),
-              const SizedBox(width: 12),
-              const Text(
-                "Upload files",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            "Select and upload the files of your choice",
-            style: TextStyle(color: Colors.white60, fontSize: 14),
-          ),
-          const SizedBox(height: 24),
-          GestureDetector(
-            onTap: _showImageSourceSelection,
-            child: Container(
-              width: double.infinity,
-              height: 250,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.2), width: 1.5),
-              ),
-              child: _selectedImage == null
-                  ? Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.cloud_upload_outlined,
-                            color: Colors.white70, size: 48),
-                        SizedBox(height: 16),
-                        Text("Tap to upload an image",
-                            style: TextStyle(color: Colors.white70))
-                      ],
-                    )
-                  : ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.file(_selectedImage!, fit: BoxFit.cover),
-                    ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -747,8 +708,9 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF2E3545),
+        color: ManagerScreenStyle.tileBg,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
       child: Column(
         children: [
@@ -758,7 +720,7 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF4A5568),
+                    color: ManagerScreenStyle.fieldBg,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: DropdownButton<JobRoleType>(
@@ -771,7 +733,7 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
                         });
                       }
                     },
-                    dropdownColor: const Color(0xFF2E3545),
+                    dropdownColor: ManagerScreenStyle.fieldBg,
                     style: const TextStyle(color: Colors.white, fontSize: 16),
                     iconEnabledColor: Colors.white70,
                     isExpanded: true,
@@ -792,7 +754,7 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: Colors.white.withValues(alpha: 0.10),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.close,
@@ -847,7 +809,7 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFF4A5568),
+              color: ManagerScreenStyle.fieldBg,
               borderRadius: BorderRadius.circular(6),
             ),
             child: TextFormField(
@@ -874,32 +836,22 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
   }
 
   // --- Generic UI Helpers ---
-  Widget _buildInputField(String label, TextEditingController controller,
-      {int maxLines = 1}) {
+  Widget _buildInputField(
+    String label,
+    TextEditingController controller, {
+    int maxLines = 1,
+    bool required = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500)),
+        ManagerFieldLabel(label, required: required),
         const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: TextField(
-            controller: controller,
-            maxLines: maxLines,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              border: InputBorder.none,
-            ),
-          ),
+        TextField(
+          controller: controller,
+          maxLines: maxLines,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+          decoration: managerFieldDecoration(),
         ),
       ],
     );
@@ -909,31 +861,20 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500)),
+        ManagerFieldLabel(label, required: true),
         const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: TextField(
-            controller: controller,
-            readOnly: true,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              border: InputBorder.none,
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.calendar_today, color: Colors.white70),
-                onPressed: () => _selectDate(context, controller),
-              ),
+        TextField(
+          controller: controller,
+          readOnly: true,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+          decoration: managerFieldDecoration(
+            hintText: 'yyyy-mm-dd',
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.calendar_today, color: Colors.white70),
+              onPressed: () => _selectDate(context, controller),
             ),
           ),
+          onTap: () => _selectDate(context, controller),
         ),
       ],
     );
@@ -943,47 +884,24 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Select Project",
-            style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500)),
+        const ManagerFieldLabel("Project", required: true),
         const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: DropdownButton<int>(
-            // 1. Change type to int
-            value: _selectedProject?.projectId, // 2. Track ID instead of object
-            hint: const Text("Select the project",
-                style: TextStyle(color: Colors.white70)),
-            dropdownColor: const Color(0xFF2E3545),
-            iconEnabledColor: Colors.white70,
-            isExpanded: true,
-            underline: const SizedBox(),
-            items: _projects.map((project) {
-              return DropdownMenuItem<int>(
-                // 3. Change type to int
-                value: project.projectId, // 4. Value is the integer ID
-                child: Text(project.name,
-                    style: const TextStyle(color: Colors.white)),
-              );
-            }).toList(),
-            onChanged: (value) {
-              setState(() {
-                // 5. Find the matching object based on ID
-                _selectedProject =
-                    _projects.firstWhere((p) => p.projectId == value);
+        ManagerSelectBox<int>(
+          value: _selectedProject?.projectId,
+          hint: 'Select the project',
+          items: _projects.map((project) => project.projectId).toList(),
+          labelFor: (id) =>
+              _projects.firstWhere((project) => project.projectId == id).name,
+          onChanged: (value) {
+            if (value == null) return;
+            setState(() {
+              _selectedProject =
+                  _projects.firstWhere((p) => p.projectId == value);
 
-                final sites = sitesForSelectedProject;
-                // Auto-select first site if available, else null
-                _selectedSite = sites.isNotEmpty ? sites.first : null;
-              });
-            },
-          ),
+              final sites = sitesForSelectedProject;
+              _selectedSite = sites.isNotEmpty ? sites.first : null;
+            });
+          },
         ),
       ],
     );
@@ -993,46 +911,25 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Select Site",
-            style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold)),
+        const ManagerFieldLabel("Site", required: true),
         const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: DropdownButton<int>(
-            // 1. Change type to int
-            value: sitesForSelectedProject
-                    .any((s) => s.siteId == _selectedSite?.siteId)
-                ? _selectedSite?.siteId
-                : null,
-            hint: const Text("Select a site",
-                style: TextStyle(color: Colors.white70)),
-            dropdownColor: const Color(0xFF2E3545),
-            iconEnabledColor: Colors.white70,
-            isExpanded: true,
-            underline: const SizedBox(),
-            items: sitesForSelectedProject.map((site) {
-              return DropdownMenuItem<int>(
-                // 3. Change type to int
-                value: site.siteId, // 4. Value is integer ID
-                child: Text(site.siteName,
-                    style: const TextStyle(color: Colors.white)),
-              );
-            }).toList(),
-            onChanged: (value) {
-              setState(() {
-                // 5. Update object from ID
-                _selectedSite = sitesForSelectedProject
-                    .firstWhere((s) => s.siteId == value);
-              });
-            },
-          ),
+        ManagerSelectBox<int>(
+          value: sitesForSelectedProject
+                  .any((s) => s.siteId == _selectedSite?.siteId)
+              ? _selectedSite?.siteId
+              : null,
+          hint: 'Select a site',
+          items: sitesForSelectedProject.map((site) => site.siteId).toList(),
+          labelFor: (id) => sitesForSelectedProject
+              .firstWhere((s) => s.siteId == id)
+              .siteName,
+          onChanged: (value) {
+            if (value == null) return;
+            setState(() {
+              _selectedSite =
+                  sitesForSelectedProject.firstWhere((s) => s.siteId == value);
+            });
+          },
         ),
       ],
     );
