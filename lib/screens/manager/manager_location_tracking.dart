@@ -1,16 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:intl/intl.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
-import 'package:shiftsmart/widgets/search.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
 import 'package:shiftsmart/models/site.dart';
 import 'package:shiftsmart/models/site_employee.dart';
 import 'package:shiftsmart/services/site_service.dart';
-import 'package:shiftsmart/utils/date_time_parser.dart';
 
 class ManagerLocationTracking extends StatefulWidget {
   final int siteId;
@@ -24,6 +21,7 @@ class ManagerLocationTracking extends StatefulWidget {
 
 class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
   Site? currentSite;
+  List<Site> availableSites = [];
   List<SiteEmployee> employees = [];
   bool isLoading = true;
   final Completer<GoogleMapController> _mapController = Completer();
@@ -33,7 +31,6 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
   List<SiteEmployee> filteredEmployees = [];
   final SiteService _siteService = SiteService();
   Timer? _refreshTimer;
-  String? _mapMessage;
   MapType _mapType = MapType.normal;
   static const LatLng _defaultMapCenter = LatLng(-33.8688, 151.2093);
 
@@ -65,9 +62,6 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
       setState(() {
         currentSite = site;
         _mapCenter = sitePosition ?? _defaultMapCenter;
-        _mapMessage = sitePosition == null
-            ? 'Site location is missing. Edit this site and select a map location.'
-            : null;
       });
 
       await _refreshEmployeeLocations();
@@ -75,7 +69,6 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
       setState(() {
         isLoading = false;
         _mapCenter = _defaultMapCenter;
-        _mapMessage = 'Could not load site location.';
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -83,6 +76,15 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
         );
       }
     }
+  }
+
+  void _onSiteSelected(Site site) {
+    setState(() {
+      currentSite = site;
+      final sitePosition = _siteLatLng(site);
+      _mapCenter = sitePosition ?? _defaultMapCenter;
+    });
+    _refreshEmployeeLocations();
   }
 
   Future<void> _refreshEmployeeLocations() async {
@@ -239,157 +241,279 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
   @override
   Widget build(BuildContext context) {
     return Stack(
-      // 1. Add an outer Stack
       children: [
-        const Positioned.fill(
-            child: Background()), // 2. Put Background at the very bottom
+        const Positioned.fill(child: Background()),
         Scaffold(
-          backgroundColor:
-              Colors.transparent, // 3. Make the Scaffold transparent
-
+          backgroundColor: Colors.transparent,
           drawer: const Sidenav(currentScreen: 'LocationTracking'),
           extendBodyBehindAppBar: true,
           appBar: const Uppernavbar(showBackButton: false),
-          body: Stack(
-            children: [
-              // NOTE: Remove the Background() widget from here
-
-              SafeArea(
-                child: Column(
-                  children: [
-                    const SizedBox(height: 70),
-                    Search(onQueryChanged: onQueryChanged),
-                    Expanded(
-                      flex: 2,
-                      child: _buildMapSection(),
-                    ),
-                    Expanded(
-                      flex: 1,
-                      child: _buildEmployeeListSection(),
-                    ),
-                  ],
+          body: SafeArea(
+            child: Stack(
+              children: [
+                // Full-screen map
+                Positioned.fill(
+                  child: _buildMapContent(),
                 ),
-              ),
-
-              // 4. THE CUSTOM BACK BUTTON (Bubble Style)
-              Positioned(
-                top: 50, // Aligns with the AppBar area
-                left: 15,
-                child: GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    width: 45,
-                    height: 45,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1C2230).withValues(alpha: 0.85),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white24, width: 1),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.4),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.arrow_back_ios_new,
-                      color: Colors.white,
-                      size: 20,
+                // Site Selector at top center
+                Positioned(
+                  top: 24,
+                  left: 50,
+                  right: 50,
+                  child: _buildSiteSelector(),
+                ),
+                // Map type toggle - below site selector on left
+                Positioned(
+                  left: 24,
+                  top: 150,
+                  child: _buildMapTypeToggle(),
+                ),
+                // Refresh button - top right of selector
+                Positioned(
+                  right: 40,
+                  top: 32,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: IconButton(
+                      icon: const Icon(Icons.refresh,
+                          color: Color(0xFF6B7280), size: 20),
+                      onPressed: () => _refreshEmployeeLocations(),
+                      tooltip: 'Refresh',
                     ),
                   ),
                 ),
-              ),
-            ],
+                // Recenter button - bottom right
+                Positioned(
+                  right: 24,
+                  bottom: 140,
+                  child: Material(
+                    color: Colors.white,
+                    shape: const CircleBorder(),
+                    elevation: 6,
+                    child: IconButton(
+                      tooltip: 'Recenter',
+                      icon: const Icon(Icons.my_location,
+                          color: Color(0xFF1F2937)),
+                      onPressed: _fitMapToContent,
+                    ),
+                  ),
+                ),
+                // Zoom controls - right side
+                Positioned(
+                  right: 24,
+                  bottom: 200,
+                  child: _buildZoomControls(),
+                ),
+                // Bottom Tracking Status Panel
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: _buildTrackingPanel(),
+                ),
+              ],
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildMapSection() {
+  Widget _buildMapContent() {
     if (isLoading) {
-      return _buildMapShell(
-        child: const Center(child: CircularProgressIndicator()),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
-    return _buildMapShell(
-      child: Stack(
-        children: [
-          GoogleMap(
-            onMapCreated: _onMapCreated,
-            initialCameraPosition: CameraPosition(
-              target: _mapCenter,
-              zoom: _mapZoom,
-            ),
-            markers: _markers,
-            mapType: _mapType,
-            zoomControlsEnabled: true,
-            myLocationEnabled: false,
-            myLocationButtonEnabled: false,
-            compassEnabled: true,
-            mapToolbarEnabled: false,
-            padding: const EdgeInsets.only(bottom: 58, right: 10),
-            circles: currentSite != null && _siteLatLng(currentSite!) != null
-                ? {
-                    Circle(
-                      circleId: CircleId('geofence_${currentSite!.siteId}'),
-                      center: _siteLatLng(currentSite!)!,
-                      radius: currentSite!.radius ?? 0.0,
-                      strokeWidth: 2,
-                      strokeColor: const Color(0xFF6EA8FF),
-                      fillColor:
-                          const Color(0xFF6EA8FF).withValues(alpha: 0.18),
-                    )
-                  }
-                : {},
+    return GoogleMap(
+      onMapCreated: _onMapCreated,
+      initialCameraPosition: CameraPosition(
+        target: _mapCenter,
+        zoom: _mapZoom,
+      ),
+      markers: _markers,
+      mapType: _mapType,
+      zoomControlsEnabled: false,
+      myLocationEnabled: false,
+      myLocationButtonEnabled: false,
+      compassEnabled: true,
+      mapToolbarEnabled: false,
+      circles: currentSite != null && _siteLatLng(currentSite!) != null
+          ? {
+              Circle(
+                circleId: CircleId('geofence_${currentSite!.siteId}'),
+                center: _siteLatLng(currentSite!)!,
+                radius: currentSite!.radius ?? 0.0,
+                strokeWidth: 2,
+                strokeColor: const Color(0xFF6EA8FF),
+                fillColor: const Color(0xFF6EA8FF).withValues(alpha: 0.18),
+              )
+            }
+          : {},
+    );
+  }
+
+  Widget _buildSiteSelector() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1F2937),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-          if (_mapMessage != null)
-            Positioned(
-              left: 12,
-              right: 12,
-              top: 58,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.92),
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'Site',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
-                child: Padding(
+              ),
+              const Spacer(),
+              PopupMenuButton<Site>(
+                initialValue: currentSite,
+                onSelected: _onSiteSelected,
+                itemBuilder: (context) => [
+                  const PopupMenuItem<Site>(
+                    enabled: false,
+                    child: Text('Choose a site'),
+                  ),
+                  const PopupMenuDivider(),
+                  ...availableSites.map((site) => PopupMenuItem(
+                        value: site,
+                        child: Text(site.siteName),
+                      )),
+                ],
+                child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: Text(
-                    _mapMessage!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFF2F3645),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF374151),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        currentSite?.siteName ?? 'Choose a site',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.keyboard_arrow_down,
+                        color: Colors.white70,
+                        size: 18,
+                      ),
+                    ],
                   ),
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Select a site to start tracking',
+            style: TextStyle(
+              color: Color(0xFF9CA3AF),
+              fontSize: 12,
             ),
-          _buildMapTypeToggle(),
-          Positioned(
-            right: 14,
-            bottom: 14,
-            child: Material(
-              color: Colors.white,
-              shape: const CircleBorder(),
-              elevation: 5,
-              child: IconButton(
-                tooltip: 'Fit map',
-                icon: const Icon(Icons.my_location, color: Color(0xFF5C6575)),
-                onPressed: _fitMapToContent,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildZoomControls() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Material(
+          color: Colors.white,
+          shape: const CircleBorder(),
+          elevation: 4,
+          child: IconButton(
+            icon: const Icon(Icons.add, color: Color(0xFF6B7280)),
+            onPressed: () async {
+              final controller = await _mapController.future;
+              controller.animateCamera(CameraUpdate.zoomIn());
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        Material(
+          color: Colors.white,
+          shape: const CircleBorder(),
+          elevation: 4,
+          child: IconButton(
+            icon: const Icon(Icons.remove, color: Color(0xFF6B7280)),
+            onPressed: () async {
+              final controller = await _mapController.future;
+              controller.animateCamera(CameraUpdate.zoomOut());
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTrackingPanel() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1F2937),
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Tracking',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
+              Text(
+                currentSite == null ? 'No site selected' : '${employees.length} active',
+                style: const TextStyle(
+                  color: Color(0xFF9CA3AF),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            currentSite == null
+                ? 'No clocked-in employees for this site.'
+                : employees.isEmpty
+                    ? 'No employees currently active'
+                    : '${employees.length} employee${employees.length != 1 ? 's' : ''} checked in',
+            style: const TextStyle(
+              color: Color(0xFF9CA3AF),
+              fontSize: 13,
             ),
           ),
         ],
@@ -398,39 +522,34 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
   }
 
   Widget _buildMapTypeToggle() {
-    return Positioned(
-      left: 12,
-      top: 12,
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
-        elevation: 3,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _mapTypeButton('Map', MapType.normal),
-            Container(
-              width: 1,
-              height: 34,
-              color: Colors.black.withValues(alpha: 0.08),
-            ),
-            _mapTypeButton('Satellite', MapType.satellite),
-          ],
-        ),
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(8),
+      elevation: 3,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _mapTypeButton('Map', MapType.normal),
+          Container(
+            width: 1,
+            height: 36,
+            color: Colors.black.withValues(alpha: 0.08),
+          ),
+          _mapTypeButton('Satellite', MapType.satellite),
+        ],
       ),
     );
   }
 
   Widget _mapTypeButton(String label, MapType mapType) {
     final selected = _mapType == mapType;
-
     return TextButton(
       style: TextButton.styleFrom(
-        foregroundColor: selected ? Colors.black : const Color(0xFF555555),
-        backgroundColor: selected ? Colors.white : const Color(0xFFF5F5F5),
-        minimumSize: const Size(74, 38),
+        foregroundColor: selected ? Colors.black : const Color(0xFF666666),
+        backgroundColor: selected ? Colors.white : const Color(0xFFF9FAFB),
+        minimumSize: const Size(78, 36),
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
       ),
       onPressed: () {
         setState(() => _mapType = mapType);
@@ -438,213 +557,10 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
         ),
       ),
     );
-  }
-
-  Widget _buildMapShell({required Widget child}) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.28),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: child,
-      ),
-    );
-  }
-
-  Widget _buildEmployeeListSection() {
-    return Container(
-      margin: const EdgeInsets.only(top: 16),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
-      decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 255, 255, 255).withValues(alpha: 0.95),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(25),
-          topRight: Radius.circular(25),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          )
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 10, bottom: 15),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Live Tracking',
-                    style: TextStyle(
-                        color: Colors.black87,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold)),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: Colors.blueAccent.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text('${employees.length} Active',
-                      style: const TextStyle(
-                          color: Colors.blueAccent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold)),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: _buildEmployeeList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmployeeList() {
-    filteredEmployees.sort((a, b) {
-      if (a.isInside == b.isInside) return 0;
-      return a.isInside ? 1 : -1; // Outside First
-    });
-
-    if (filteredEmployees.isEmpty) {
-      return const Center(
-        child: Text("No employees currently active",
-            style: TextStyle(color: Colors.black54)),
-      );
-    }
-
-    return ListView.builder(
-      itemCount: filteredEmployees.length,
-      padding: EdgeInsets.zero,
-      itemBuilder: (context, index) {
-        final employee = filteredEmployees[index];
-        return _buildEmployeeCard(employee);
-      },
-    );
-  }
-
-  Widget _buildEmployeeCard(SiteEmployee employee) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A3243),
-        borderRadius: BorderRadius.circular(15),
-        border: employee.isInside
-            ? null
-            : Border.all(
-                color: Colors.redAccent.withValues(alpha: 0.6), width: 1),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 45,
-            height: 45,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.grey.shade700,
-              border: Border.all(color: Colors.white24),
-              image: employee.profilePicture != null
-                  ? DecorationImage(
-                      image: NetworkImage(employee.profilePicture!),
-                      fit: BoxFit.cover,
-                    )
-                  : null,
-            ),
-            child: employee.profilePicture == null
-                ? const Icon(Icons.person, color: Colors.white70)
-                : null,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(employee.name,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(
-                      employee.isInside ? Icons.verified_user : Icons.warning,
-                      color: employee.isInside
-                          ? Colors.greenAccent
-                          : Colors.redAccent,
-                      size: 14,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      employee.isInside ? "Inside Fence" : "Outside Fence",
-                      style: TextStyle(
-                          color: employee.isInside
-                              ? Colors.greenAccent
-                              : Colors.redAccent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              if (employee.distance != null)
-                Text(
-                  '${(employee.distance! * 1000).toStringAsFixed(0)}m',
-                  style: TextStyle(
-                      color:
-                          employee.isInside ? Colors.white70 : Colors.redAccent,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold),
-                ),
-              if (employee.clockInTime != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    _formatClockInTime(employee.clockInTime!),
-                    style: const TextStyle(color: Colors.white38, fontSize: 10),
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatClockInTime(String clockInTime) {
-    try {
-      final dateTime = parseServerDateTime(clockInTime);
-      if (dateTime == null) return clockInTime;
-      return DateFormat('HH:mm').format(dateTime.toLocal());
-    } catch (e) {
-      return clockInTime;
-    }
   }
 }
