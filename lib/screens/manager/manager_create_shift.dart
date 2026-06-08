@@ -14,8 +14,7 @@ import 'package:shiftsmart/models/shift.dart';
 import 'package:shiftsmart/models/site.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
-import 'package:shiftsmart/widgets/gradient_button.dart';
-import 'package:shiftsmart/widgets/gradienthorizontal.dart';
+import 'package:shiftsmart/widgets/manager_screen_style.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
 import 'package:shiftsmart/services/notification_service.dart';
@@ -515,69 +514,69 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
             drawer: const Sidenav(),
             backgroundColor: Colors.transparent,
             appBar: const Uppernavbar(showBackButton: true),
-            body: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Gradienthorizontal(
-                width: double.infinity,
-                height: double.infinity,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
+            body: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: ManagerFormShell(
+                  title: widget.shift != null ? "UPDATE SHIFT" : "CREATE SHIFT",
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
                     children: [
-                      Align(
-                        alignment: Alignment.topLeft,
-                        child: Text(
-                          widget.shift != null ? "EDIT SHIFT" : "CREATE SHIFT",
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.1),
+                      ManagerSectionPanel(
+                        title: 'Shift Details',
+                        subtitle:
+                            'Select the job, schedule dates, time, and employees.',
+                        child: Column(
+                          children: [
+                            _buildDropdownJob(),
+                            const SizedBox(height: 18),
+                            _buildTextField("Shift Name", _titleController),
+                            const SizedBox(height: 18),
+                            _buildMultiDateSelector(),
+                            const SizedBox(height: 18),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildTime(
+                                      "Start Time", _starttimecontroller),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildTime(
+                                      "End Time", _endtimecontroller),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 18),
+                            _buildMultiEmployeeSelector(),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      _buildDropdownJob(),
-                      const SizedBox(height: 16),
-                      _buildTextField("Shift Name", _titleController),
-                      const SizedBox(height: 16),
-                      _buildMultiDateSelector(),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 18),
                       Row(
                         children: [
-                          Expanded(
-                              child: _buildTime(
-                                  "Start Time", _starttimecontroller)),
-                          const SizedBox(width: 16),
-                          Expanded(
-                              child:
-                                  _buildTime("End Time", _endtimecontroller)),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      _buildMultiEmployeeSelector(),
-                      const SizedBox(height: 32),
-
-                      // --- Action Buttons ---
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: GradientButton(
-                              text: "Cancel",
-                              onPressed: () => Navigator.pop(context),
-                              isCancel: true,
-                            ),
+                          ManagerActionButton(
+                            text: "Cancel",
+                            icon: Icons.arrow_back_rounded,
+                            onPressed: () => Navigator.pop(context),
+                            secondary: true,
                           ),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: 14),
                           Expanded(
-                            child: GradientButton(
-                              text: widget.shift != null ? "Update" : "Create",
+                            child: ManagerActionButton(
+                              text: _isSubmitting
+                                  ? (widget.shift != null
+                                      ? "Updating..."
+                                      : "Creating...")
+                                  : (widget.shift != null
+                                      ? "Update Shift"
+                                      : "Save Shift"),
+                              icon: Icons.check_circle_rounded,
                               onPressed: _isSubmitting ? () {} : _submitShift,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
                     ],
                   ),
                 ),
@@ -595,35 +594,13 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RichText(
-          text: TextSpan(
-            text: label,
-            style: const TextStyle(
-                color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-            children: const [
-              TextSpan(text: " *", style: TextStyle(color: Colors.redAccent)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          decoration: BoxDecoration(
-            color: isReadOnly
-                ? Colors.white.withValues(alpha: 0.05)
-                : Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: Colors.white.withValues(alpha: 0.1), width: 1),
-          ),
-          child: TextField(
-            controller: controller,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
-            enabled: !isReadOnly,
-            decoration: const InputDecoration(
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                border: InputBorder.none),
-          ),
+        ManagerFieldLabel(label, required: true),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+          enabled: !isReadOnly,
+          decoration: managerFieldDecoration(),
         ),
       ],
     );
@@ -634,25 +611,16 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RichText(
-          text: const TextSpan(
-            text: "Select Dates",
-            style: TextStyle(
-                color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-            children: [
-              TextSpan(text: " *", style: TextStyle(color: Colors.redAccent)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
+        const ManagerFieldLabel("Select Dates", required: true),
+        const SizedBox(height: 8),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(12),
+            color: ManagerScreenStyle.fieldBg,
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(
-                color: Colors.white.withValues(alpha: 0.1), width: 1),
+                color: Colors.white.withValues(alpha: 0.20), width: 1),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -843,26 +811,17 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RichText(
-          text: TextSpan(
-            text: label,
-            style: const TextStyle(
-                color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-            children: const [
-              TextSpan(text: " *", style: TextStyle(color: Colors.redAccent)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
+        ManagerFieldLabel(label, required: true),
+        const SizedBox(height: 8),
         GestureDetector(
           onTap: () => _selectTime(context, timeController),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+              color: ManagerScreenStyle.fieldBg,
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.1), width: 1),
+                  color: Colors.white.withValues(alpha: 0.20), width: 1),
             ),
             child: Row(
               children: [
@@ -893,49 +852,19 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RichText(
-          text: const TextSpan(
-            text: "Select a Job",
-            style: TextStyle(
-                color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-            children: [
-              TextSpan(text: " *", style: TextStyle(color: Colors.redAccent)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: Colors.white.withValues(alpha: 0.1), width: 1),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<int>(
-              dropdownColor: const Color(0xFF2A3243),
-              value: allJobs.any((job) => job.jobId == _selectedJobId)
-                  ? _selectedJobId
-                  : null,
-              isExpanded: true,
-              icon:
-                  const Icon(Icons.keyboard_arrow_down, color: Colors.white70),
-              items: allJobs
-                  .map((job) => DropdownMenuItem<int>(
-                      value: job.jobId,
-                      child: Text(job.title,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 14))))
-                  .toList(),
-              onChanged: (value) {
-                setState(() => _selectedJobId = value);
-                _updateAutoShiftName();
-              },
-              hint: const Text("Choose a Job",
-                  style: TextStyle(color: Colors.white54, fontSize: 14)),
-            ),
-          ),
+        const ManagerFieldLabel("Job", required: true),
+        const SizedBox(height: 8),
+        ManagerSelectBox<int>(
+          value: allJobs.any((job) => job.jobId == _selectedJobId)
+              ? _selectedJobId
+              : null,
+          hint: 'Choose a Job',
+          items: allJobs.map((job) => job.jobId).toList(),
+          labelFor: (id) => allJobs.firstWhere((job) => job.jobId == id).title,
+          onChanged: (value) {
+            setState(() => _selectedJobId = value);
+            _updateAutoShiftName();
+          },
         ),
       ],
     );
@@ -946,17 +875,8 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RichText(
-          text: const TextSpan(
-            text: "Select Employees",
-            style: TextStyle(
-                color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-            children: [
-              TextSpan(text: " *", style: TextStyle(color: Colors.redAccent)),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
+        const ManagerFieldLabel("Select Employees", required: true),
+        const SizedBox(height: 8),
         GestureDetector(
           onTap: () async {
             if (allShifts.isEmpty) await fetchAllShifts();
@@ -1133,10 +1053,10 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+              color: ManagerScreenStyle.fieldBg,
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.1), width: 1),
+                  color: Colors.white.withValues(alpha: 0.20), width: 1),
             ),
             child: Row(
               children: [
