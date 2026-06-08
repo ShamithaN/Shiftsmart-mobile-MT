@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shiftsmart/providers/tenant_provider.dart';
+import 'package:shiftsmart/screens/manager/manager_company_view.dart';
 import 'package:shiftsmart/screens/manager/manager_create_com.dart';
 import 'package:shiftsmart/screens/manager/manager_create_project1.dart';
 import 'package:shiftsmart/screens/manager/manager_projectview.dart';
 import 'package:shiftsmart/screens/manager/manager_create_site.dart';
+import 'package:shiftsmart/screens/manager/manager_site_view.dart';
 import 'package:shiftsmart/services/project_service.dart';
 import 'package:shiftsmart/services/company_service.dart';
 import 'package:shiftsmart/services/site_service.dart';
@@ -18,7 +20,9 @@ import 'package:shiftsmart/models/company.dart';
 import 'package:shiftsmart/models/site.dart';
 
 class Managerprojects extends StatefulWidget {
-  const Managerprojects({super.key});
+  final int initialTabIndex;
+
+  const Managerprojects({super.key, this.initialTabIndex = 1});
 
   @override
   State<Managerprojects> createState() => _Managerprojectstate();
@@ -140,6 +144,134 @@ class _Managerprojectstate extends State<Managerprojects> {
     _applySearch();
   }
 
+  Future<void> _openSiteForm({Site? site}) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Managercreatesite(site: site),
+      ),
+    );
+
+    if (result == true) {
+      _refreshData();
+    }
+  }
+
+  Future<void> _openSiteDetails(Site site) async {
+    final result = await _showDetailsPopup(
+      child: Managersiteview(
+        site: site,
+        projectName: _projectNameForSite(site),
+        embedded: true,
+      ),
+    );
+
+    if (result == true) {
+      _refreshData();
+    }
+  }
+
+  Future<void> _openCompanyDetails(Company company) async {
+    final result = await _showDetailsPopup(
+      child: Managercompanyview(
+        company: company,
+        embedded: true,
+      ),
+    );
+
+    if (result == true) {
+      _refreshData();
+    }
+  }
+
+  Future<void> _openProjectDetails(Project project) async {
+    final result = await _showDetailsPopup(
+      child: Managerprojectview(
+        project: project,
+        embedded: true,
+      ),
+    );
+
+    if (result == true) {
+      _refreshData();
+    }
+  }
+
+  Future<bool?> _showDetailsPopup({required Widget child}) {
+    return showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.68),
+      builder: (dialogContext) {
+        final size = MediaQuery.of(dialogContext).size;
+        final dialogWidth = size.width - 16;
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 18),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: dialogWidth,
+              maxHeight: size.height * 0.88,
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Scrollbar(
+                    child: SingleChildScrollView(
+                      child: SizedBox(
+                        width: dialogWidth,
+                        child: child,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: _buildPopupCloseButton(dialogContext),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPopupCloseButton(BuildContext dialogContext) {
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: () => Navigator.of(dialogContext).pop(false),
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: const Color(0xFF20283A).withValues(alpha: 0.72),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.24),
+                blurRadius: 14,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.close_rounded,
+            color: Colors.white,
+            size: 26,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<TenantProvider>(
@@ -191,6 +323,7 @@ class _Managerprojectstate extends State<Managerprojects> {
               SafeArea(
                 child: DefaultTabController(
                   length: 3,
+                  initialIndex: widget.initialTabIndex,
                   child: Column(
                     children: [
                       TabBar(
@@ -316,22 +449,15 @@ class _Managerprojectstate extends State<Managerprojects> {
               itemCount: filteredCompanies.length,
               itemBuilder: (context, index) {
                 final company = filteredCompanies[index];
-                return _buildListItem(
-                  title: company.name,
-                  subtitle: company.address,
-                  bottomInfo:
-                      "☎ ${company.phoneNumber} - ${company.ContactPerson}",
-                  onEdit: () async {
-                    final result = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) =>
-                              Managercreatecom(company: company)),
-                    );
-                    if (result == true) {
-                      _refreshData();
-                    }
-                  },
+                return InkWell(
+                  onTap: () => _openCompanyDetails(company),
+                  child: _buildListItem(
+                    title: company.name,
+                    subtitle: company.address,
+                    bottomInfo:
+                        "☎ ${company.phoneNumber} - ${company.ContactPerson}",
+                    onEdit: () => _openCompanyDetails(company),
+                  ),
                 );
               },
             ),
@@ -360,13 +486,7 @@ class _Managerprojectstate extends State<Managerprojects> {
               itemBuilder: (context, index) {
                 final project = filteredProjects[index];
                 return InkWell(
-                  onTap: () {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) =>
-                                Managerprojectview(project: project)));
-                  },
+                  onTap: () => _openProjectDetails(project),
                   child: _buildProjectListItem(
                     title: project.name,
                     description: project.description,
@@ -389,17 +509,8 @@ class _Managerprojectstate extends State<Managerprojects> {
   Widget _buildSiteView() {
     return Column(
       children: [
-        _buildListHeader(
-            "SITE LIST", "Total: ${filteredSites.length} Sites", "Add Site",
-            () async {
-          final result = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const Managercreatesite()));
-          if (result == true) {
-            _refreshData();
-          }
-        }),
+        _buildListHeader("SITE LIST", "Total: ${filteredSites.length} Sites",
+            "Add Site", () => _openSiteForm()),
         Expanded(
           child: RefreshIndicator(
             onRefresh: _refreshData,
@@ -408,20 +519,14 @@ class _Managerprojectstate extends State<Managerprojects> {
               itemCount: filteredSites.length,
               itemBuilder: (context, index) {
                 final site = filteredSites[index];
-                return _buildListItem(
-                  title: site.siteName,
-                  subtitle: _siteAddress(site),
-                  bottomInfo: _projectNameForSite(site),
-                  onEdit: () async {
-                    final result = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => Managercreatesite(site: site)),
-                    );
-                    if (result == true) {
-                      _refreshData();
-                    }
-                  },
+                return InkWell(
+                  onTap: () => _openSiteDetails(site),
+                  child: _buildListItem(
+                    title: site.siteName,
+                    subtitle: _siteAddress(site),
+                    bottomInfo: _projectNameForSite(site),
+                    onEdit: () => _openSiteDetails(site),
+                  ),
                 );
               },
             ),
