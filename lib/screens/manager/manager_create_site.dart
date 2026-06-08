@@ -8,8 +8,7 @@ import 'package:shiftsmart/services/project_service.dart';
 import 'package:shiftsmart/services/site_service.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
-import 'package:shiftsmart/widgets/gradient_button.dart';
-import 'package:shiftsmart/widgets/gradienthorizontal.dart';
+import 'package:shiftsmart/widgets/manager_screen_style.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -19,7 +18,9 @@ import 'package:shiftsmart/widgets/success_dialog.dart';
 
 class Managercreatesite extends StatefulWidget {
   final Site? site;
-  const Managercreatesite({super.key, this.site});
+  final bool embedded;
+
+  const Managercreatesite({super.key, this.site, this.embedded = false});
 
   @override
   State<Managercreatesite> createState() => _ManagercreatesiteState();
@@ -51,7 +52,9 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
   @override
   void initState() {
     super.initState();
-    enableFullScreen();
+    if (!widget.embedded) {
+      enableFullScreen();
+    }
     fetchProjects();
 
     // Populate fields if editing
@@ -65,6 +68,15 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
     }
 
     _selectedLocation = _currentLatLng();
+  }
+
+  @override
+  void dispose() {
+    _siteNameController.dispose();
+    _addressController.dispose();
+    _latitudeController.dispose();
+    _longitudeController.dispose();
+    super.dispose();
   }
 
   // --- Fetch Projects ---
@@ -270,98 +282,97 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
 
   @override
   Widget build(BuildContext context) {
+    final form = ManagerFormShell(
+      title: widget.site != null ? "UPDATE SITE" : "CREATE SITE",
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(0, 20, 0, 20),
+        children: [
+          ManagerSectionPanel(
+            title: 'Site Details',
+            subtitle:
+                'Select the project, enter site information, and place the map pin.',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildDropdownProject(),
+                const SizedBox(height: 18),
+                const ManagerFieldLabel('Site Name', required: true),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _siteNameController,
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  decoration: managerFieldDecoration(
+                    hintText: "e.g. Head Office",
+                  ),
+                ),
+                const SizedBox(height: 18),
+                _buildSiteAddressField(),
+                const SizedBox(height: 18),
+                _buildMapPinSection(),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: ManagerActionButton(
+                  text: "Cancel",
+                  icon: Icons.arrow_back_rounded,
+                  onPressed: () => Navigator.pop(context),
+                  secondary: true,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: ManagerActionButton(
+                  text: _isSaving
+                      ? (widget.site != null ? "Updating..." : "Creating...")
+                      : (widget.site != null ? "Update Site" : "Save Site"),
+                  icon: Icons.check_circle_rounded,
+                  onPressed: _isSaving ? () {} : _submitSite,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    if (widget.embedded) {
+      return Material(
+        color: Colors.transparent,
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF363E51), Color(0xFF191E26)],
+            ),
+            borderRadius: BorderRadius.all(Radius.circular(18)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: form,
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
         drawer: const Sidenav(),
-        backgroundColor: const Color(0xFF1C2230),
+        backgroundColor: ManagerScreenStyle.pageBg,
         appBar: const Uppernavbar(
           showBackButton: true,
         ),
         body: Stack(
           children: [
-            const Background(),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Gradienthorizontal(
-                width: double.infinity,
-                height: double.maxFinite,
+            const Positioned.fill(child: Background()),
+            SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Align(
-                          alignment: Alignment.topLeft,
-                          child: Text(
-                            widget.site != null ? "UPDATE SITE" : "CREATE SITE",
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Form Fields
-                        _buildDropdownProject(),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _siteNameController,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            labelText: "Site Name (e.g. Head Office)",
-                            labelStyle: const TextStyle(color: Colors.white70),
-                            filled: true,
-                            fillColor: Colors.white.withValues(alpha: 0.2),
-                            border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Address Field with Autocomplete
-                        _buildSiteAddressField(),
-
-                        const SizedBox(height: 16),
-
-                        // Map Widget
-                        _buildMapPinSection(),
-
-                        const SizedBox(height: 20),
-
-                        // Action Buttons (Fixed Overflow)
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: GradientButton(
-                                text: "Cancel",
-                                onPressed: () => Navigator.pop(context),
-                                isCancel: true,
-                              ),
-                            ),
-                            const SizedBox(width: 15),
-                            Expanded(
-                              child: GradientButton(
-                                text: _isSaving
-                                    ? (widget.site != null
-                                        ? "Updating..."
-                                        : "Creating...")
-                                    : (widget.site != null
-                                        ? "Update"
-                                        : "Create"),
-                                onPressed: _submitSite,
-                              ),
-                            ),
-                          ],
-                        )
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            )
+              padding: const EdgeInsets.all(16.0),
+              child: form,
+            ))
           ],
         ));
   }
@@ -371,9 +382,11 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const ManagerFieldLabel("Site Address", required: true),
+        const SizedBox(height: 8),
         TextField(
           controller: _addressController,
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: Colors.white, fontSize: 16),
           onChanged: (value) async {
             if (value.isNotEmpty) {
               final results = await makeSuggestion(value);
@@ -387,12 +400,7 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
               });
             }
           },
-          decoration: InputDecoration(
-            labelText: "Site Address",
-            labelStyle: const TextStyle(color: Colors.white70),
-            filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.2),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          decoration: managerFieldDecoration(
             suffixIcon: IconButton(
               icon: const Icon(Icons.search, color: Colors.white70),
               onPressed: _moveMapToAddress,
@@ -438,35 +446,15 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "Select Project",
-          style: TextStyle(
-              color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
-        ),
+        const ManagerFieldLabel("Project", required: true),
         const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<int>(
-              dropdownColor: const Color(0xFF2A3243),
-              value: _selectedProjectId,
-              isExpanded: true,
-              style: const TextStyle(color: Colors.white),
-              items: allProjects.map((project) {
-                return DropdownMenuItem<int>(
-                  value: project.projectId,
-                  child: Text(project.name),
-                );
-              }).toList(),
-              onChanged: (value) => setState(() => _selectedProjectId = value),
-              hint: const Text("Choose a project",
-                  style: TextStyle(color: Colors.white54)),
-            ),
-          ),
+        ManagerSelectBox<int>(
+          value: _selectedProjectId,
+          hint: 'Choose a project',
+          items: allProjects.map((project) => project.projectId).toList(),
+          labelFor: (id) =>
+              allProjects.firstWhere((project) => project.projectId == id).name,
+          onChanged: (value) => setState(() => _selectedProjectId = value),
         ),
       ],
     );
@@ -481,7 +469,7 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
       child: Column(
@@ -490,9 +478,9 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
           const Text(
             "Map Pin",
             style: TextStyle(
-              color: Color(0xFF85E8FF),
+              color: ManagerScreenStyle.cyan,
               fontSize: 18,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 10),
