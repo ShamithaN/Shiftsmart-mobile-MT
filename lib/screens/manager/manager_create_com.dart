@@ -5,8 +5,7 @@ import 'package:shiftsmart/models/company.dart';
 import 'package:shiftsmart/services/company_service.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
-import 'package:shiftsmart/widgets/gradient_button.dart';
-import 'package:shiftsmart/widgets/gradienthorizontal.dart';
+import 'package:shiftsmart/widgets/manager_screen_style.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
 import 'package:shiftsmart/widgets/success_dialog.dart'; //  Import Success Dialog
@@ -44,6 +43,15 @@ class _ManagercreatecomState extends State<Managercreatecom> {
       _addController.text = widget.company!.address;
       _personController.text = widget.company!.ContactPerson;
     }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _addController.dispose();
+    _personController.dispose();
+    super.dispose();
   }
 
   // --- 1. Address Suggestion Logic ---
@@ -144,69 +152,66 @@ class _ManagercreatecomState extends State<Managercreatecom> {
 
     return Scaffold(
       drawer: const Sidenav(),
-      backgroundColor: const Color(0xFF1C2230),
+      backgroundColor: ManagerScreenStyle.pageBg,
       appBar: const Uppernavbar(
         showBackButton: true,
       ),
       body: Stack(children: [
-        const Background(),
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Gradienthorizontal(
-            width: double.infinity,
-            height: double.infinity,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        const Positioned.fill(child: Background()),
+        SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ManagerFormShell(
+              title: isEditMode ? "UPDATE COMPANY" : "CREATE COMPANY",
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(0, 20, 0, 20),
                 children: [
-                  Align(
-                    alignment: Alignment.topLeft,
-                    child: Text(
-                      isEditMode ? "UPDATE COMPANY" : "CREATE COMPANY",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  ManagerSectionPanel(
+                    title: 'Company Details',
+                    subtitle:
+                        'Add contact information and the company address.',
+                    child: Column(
+                      children: [
+                        _buildTextField("Name", _nameController,
+                            required: true),
+                        const SizedBox(height: 18),
+                        _buildTextField("Contact Person", _personController),
+                        const SizedBox(height: 18),
+                        _buildTextField(
+                          "Contact Number",
+                          _phoneController,
+                          keyboardType: TextInputType.phone,
+                        ),
+                        const SizedBox(height: 18),
+                        _buildAddressField(),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 20),
-
-                  // Form Fields
-                  _buildTextField("Name", _nameController),
-                  const SizedBox(height: 10),
-                  _buildTextField("Contact Person", _personController),
-                  const SizedBox(height: 10),
-                  _buildTextField("Contact Number", _phoneController,
-                      keyboardType: TextInputType.phone),
-                  const SizedBox(height: 10),
-
-                  // Address Field with Search
-                  _buildAddressField(),
-
-                  const SizedBox(height: 30),
-
-                  // Action Buttons
+                  const SizedBox(height: 18),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Expanded(
-                        child: GradientButton(
+                        child: ManagerActionButton(
                           text: "Cancel",
+                          icon: Icons.arrow_back_rounded,
                           onPressed: () => Navigator.pop(context),
-                          isCancel: true,
+                          secondary: true,
                         ),
                       ),
-                      const SizedBox(width: 15),
+                      const SizedBox(width: 14),
                       Expanded(
-                        child: GradientButton(
-                          text: isEditMode ? "Update" : "Create",
-                          onPressed: _saveCompany,
+                        child: ManagerActionButton(
+                          text: _isSaving
+                              ? (isEditMode ? "Updating..." : "Creating...")
+                              : (isEditMode
+                                  ? "Update Company"
+                                  : "Save Company"),
+                          icon: Icons.check_circle_rounded,
+                          onPressed: _isSaving ? () {} : _saveCompany,
                         ),
                       ),
                     ],
-                  )
+                  ),
                 ],
               ),
             ),
@@ -217,35 +222,22 @@ class _ManagercreatecomState extends State<Managercreatecom> {
   }
 
   // Generic Text Field
-  Widget _buildTextField(String label, TextEditingController controller,
-      {TextInputType? keyboardType}) {
+  Widget _buildTextField(
+    String label,
+    TextEditingController controller, {
+    TextInputType? keyboardType,
+    bool required = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+        ManagerFieldLabel(label, required: required),
         const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: TextField(
-            controller: controller,
-            keyboardType: keyboardType,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              border: InputBorder.none,
-            ),
-          ),
+        TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+          decoration: managerFieldDecoration(),
         ),
       ],
     );
@@ -256,47 +248,31 @@ class _ManagercreatecomState extends State<Managercreatecom> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "Address",
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+        const ManagerFieldLabel("Address", required: true),
         const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: TextField(
-            controller: _addController,
-            style: const TextStyle(color: Colors.white),
-            onChanged: (value) async {
-              if (value.isNotEmpty) {
-                final results = await makeSuggestion(value);
-                setState(() {
-                  _suggestions =
-                      results.map((e) => e['description'] ?? '').toList();
-                });
-              } else {
-                setState(() {
-                  _suggestions = [];
-                });
-              }
-            },
-            decoration: InputDecoration(
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              border: InputBorder.none,
-              suffixIcon: _suggestions.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, color: Colors.white70),
-                      onPressed: () => setState(() => _suggestions = []),
-                    )
-                  : const Icon(Icons.search, color: Colors.white54),
-            ),
+        TextField(
+          controller: _addController,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+          onChanged: (value) async {
+            if (value.isNotEmpty) {
+              final results = await makeSuggestion(value);
+              setState(() {
+                _suggestions =
+                    results.map((e) => e['description'] ?? '').toList();
+              });
+            } else {
+              setState(() {
+                _suggestions = [];
+              });
+            }
+          },
+          decoration: managerFieldDecoration(
+            suffixIcon: _suggestions.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, color: Colors.white70),
+                    onPressed: () => setState(() => _suggestions = []),
+                  )
+                : const Icon(Icons.search, color: Colors.white54),
           ),
         ),
 
