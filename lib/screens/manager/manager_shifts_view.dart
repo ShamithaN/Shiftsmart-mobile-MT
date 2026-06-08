@@ -6,17 +6,21 @@ import 'package:shiftsmart/services/employee_service.dart';
 import 'package:shiftsmart/services/job_service.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
-import 'package:shiftsmart/widgets/gradienthorizontal.dart';
+import 'package:shiftsmart/widgets/manager_screen_style.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
 import 'package:shiftsmart/services/attendance_service.dart';
-import 'package:shiftsmart/services/shift_service.dart';
 import 'package:shiftsmart/screens/manager/manager_create_shift.dart';
 
 class ManagerShiftsView extends StatefulWidget {
   final Shift shift;
+  final bool embedded;
 
-  const ManagerShiftsView({super.key, required this.shift});
+  const ManagerShiftsView({
+    super.key,
+    required this.shift,
+    this.embedded = false,
+  });
 
   @override
   State<ManagerShiftsView> createState() => _ManagerShiftsViewState();
@@ -76,26 +80,6 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
     return job.title;
   }
 
-  String _getJobImageByJobId(int jobId) {
-    final job = allJobs.firstWhere(
-      (j) => j.jobId == jobId,
-      orElse: () => Job(
-        jobId: 0,
-        title: 'Unknown',
-        description: '',
-        status: '',
-        projectId: 0,
-        totalEstimatedTime: 0,
-        siteId: 0,
-        startDate: '',
-        jobDueDate: '',
-        jobImageUrl: '',
-        jobRoles: [],
-      ),
-    );
-    return job.jobImageUrl;
-  }
-
   String _formatTime(String timeString) {
     try {
       final time = DateFormat.Hms().parse(timeString);
@@ -108,6 +92,10 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
   @override
   Widget build(BuildContext context) {
     final shift = widget.shift;
+    if (widget.embedded) {
+      return _buildDetailsPanel(shift);
+    }
+
     return Scaffold(
       drawer: const Sidenav(),
       backgroundColor: const Color(0xFF1C2230),
@@ -116,173 +104,234 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
       ),
       body: Stack(
         children: [
-          const Background(),
-          Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Gradienthorizontal(
-                width: double.infinity,
-                height: double.infinity,
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: LayoutBuilder(builder: (context, constraints) {
-                      return SingleChildScrollView(
-                          child: ConstrainedBox(
-                        constraints:
-                            BoxConstraints(minHeight: constraints.maxHeight),
-                        child: IntrinsicHeight(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                shift.taskName,
-                                style: const TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 30),
-                              _buildInfoRow("Status:", shift.status,
-                                  color: shift.status == "Active"
-                                      ? Colors.greenAccent
-                                      : Colors.yellowAccent),
-                              _buildInfoRow(
-                                "Date:",
-                                DateFormat.yMMMMd().format(shift.date),
-                              ),
-                              _buildInfoRow(
-                                  "Start Time:", _formatTime(shift.startTime)),
-                              _buildInfoRow(
-                                  "End Time:", _formatTime(shift.endTime)),
-                              _buildInfoRow("Job:",
-                                  _getJobTitleByJobId(shift.jobId ?? 0)),
-                              const Text(
-                                "Assigned Employees",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              ...shift.employeeResponses.map((response) {
-                                final name =
-                                    _getEmployeeNameById(response.employeeId);
-                                return _buildEmployeeCard(name, response);
-                              }),
-                              const SizedBox(height: 40),
-                              Center(
-                                child: Column(
-                                  children: [
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: ElevatedButton.icon(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              const Color(0xFF1BAFFF),
-                                          foregroundColor: Colors.white,
-                                          shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12)),
-                                          padding: const EdgeInsets.symmetric(
-                                              vertical: 14),
-                                        ),
-                                        onPressed: () async {
-                                          final result = await Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  Managercreateshift(
-                                                      shift: widget.shift),
-                                            ),
-                                          );
-                                          if (result == true && mounted) {
-                                            // Trigger refresh if needed or just pop back to list
-                                            Navigator.pop(context, true);
-                                          }
-                                        },
-                                        icon: const Icon(Icons.edit),
-                                        label: const Text(
-                                          "EDIT SHIFT",
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: ElevatedButton.icon(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.redAccent
-                                              .withValues(alpha: 0.1),
-                                          foregroundColor: Colors.redAccent,
-                                          side: const BorderSide(
-                                              color: Colors.redAccent),
-                                          shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12)),
-                                          padding: const EdgeInsets.symmetric(
-                                              vertical: 14),
-                                        ),
-                                        onPressed: () =>
-                                            _showDeleteConfirmation(context),
-                                        icon: const Icon(Icons.delete_forever),
-                                        label: const Text(
-                                          "DELETE SHIFT",
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                            ],
-                          ),
-                        ),
-                      ));
-                    }),
-                  ),
+          const Positioned.fill(child: Background()),
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1040),
+                  child: _buildDetailsPanel(shift),
                 ),
-              ))
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value,
-      {Color color = Colors.white70}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildDetailsPanel(Shift shift) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF262D3F).withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              )),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                color: color,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 18, 64, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'SHIFT DETAILS',
+                  style: TextStyle(
+                    color: ManagerScreenStyle.cyan,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 3,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 18,
+                  runSpacing: 12,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      shift.taskName,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    _statusBadge(shift.status),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: Colors.white.withValues(alpha: 0.08)),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final columns = constraints.maxWidth >= 820
+                        ? 3
+                        : constraints.maxWidth >= 560
+                            ? 2
+                            : 1;
+                    final spacing = 16.0;
+                    final width =
+                        (constraints.maxWidth - spacing * (columns - 1)) /
+                            columns;
+
+                    return Wrap(
+                      spacing: spacing,
+                      runSpacing: 12,
+                      children: [
+                        _detailTile(
+                            width,
+                            'DATE',
+                            DateFormat.yMMMMd().format(shift.date),
+                            Icons.calendar_month_rounded),
+                        _detailTile(
+                            width,
+                            'START TIME',
+                            _formatTime(shift.startTime),
+                            Icons.schedule_rounded),
+                        _detailTile(width, 'END TIME',
+                            _formatTime(shift.endTime), Icons.schedule_rounded),
+                        _detailTile(
+                            width,
+                            'JOB',
+                            _getJobTitleByJobId(shift.jobId ?? 0),
+                            Icons.work_rounded),
+                        _detailTile(
+                            width,
+                            'EMPLOYEES',
+                            shift.assignedEmployeeIds.length.toString(),
+                            Icons.groups_rounded),
+                        _detailTile(
+                            width, 'STATUS', shift.status, Icons.flag_rounded),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  "ASSIGNED EMPLOYEES",
+                  style: TextStyle(
+                    color: ManagerScreenStyle.cyan,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    letterSpacing: 1.6,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                if (shift.employeeResponses.isEmpty)
+                  const Text(
+                    'No employee responses available.',
+                    style: TextStyle(color: Colors.white70),
+                  )
+                else
+                  ...shift.employeeResponses.map((response) {
+                    final name = _getEmployeeNameById(response.employeeId);
+                    return _buildEmployeeCard(name, response);
+                  }),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: Colors.white.withValues(alpha: 0.08)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: ManagerActionButton(
+                text: 'Edit Shift',
+                icon: Icons.edit_rounded,
+                onPressed: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          Managercreateshift(shift: widget.shift),
+                    ),
+                  );
+                  if (result == true && mounted) {
+                    Navigator.pop(context, true);
+                  }
+                },
               ),
-              textAlign: TextAlign.end,
-              maxLines: null,
-              overflow: TextOverflow.visible,
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _detailTile(double width, String label, String value, IconData icon) {
+    return SizedBox(
+      width: width,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 70),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: ManagerScreenStyle.tileBg.withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.56),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.8,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    value.trim().isEmpty ? 'Not provided' : value,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Icon(icon, color: ManagerScreenStyle.cyan, size: 22),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _statusBadge(String status) {
+    final color = _getStatusColor(status);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.6)),
+      ),
+      child: Text(
+        status.trim().isEmpty ? 'UNKNOWN' : status.trim().toUpperCase(),
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.4,
+        ),
       ),
     );
   }
@@ -292,7 +341,7 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.black26,
+        color: ManagerScreenStyle.tileBg.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: _getStatusColor(response.status).withValues(alpha: 0.3),
@@ -469,6 +518,10 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
 
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
+      case 'active':
+        return const Color(0xFFFFFF2E);
+      case 'scheduled':
+        return const Color(0xFFFFC56D);
       case 'clockedin':
         return Colors.green;
       case 'clockedout':
@@ -483,96 +536,12 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
       case 'rejected':
         return Colors.red;
       default:
-        return Colors.white54;
-    }
-  }
-
-  Color _getApprovalColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'approved':
-        return Colors.green;
-      case 'rejected':
-        return Colors.red;
-      case 'pending':
-        return Colors.orange;
-      default:
-        return Colors.white54;
+        return ManagerScreenStyle.cyan;
     }
   }
 
   String _getEmployeeNameById(int id) {
     return employeeMap[id] ?? "$id";
-  }
-
-  void _showDeleteConfirmation(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2C2F36),
-        title:
-            const Text("Delete Shift", style: TextStyle(color: Colors.white)),
-        content: const Text(
-            "Are you sure you want to delete this shift? This action cannot be undone.",
-            style: TextStyle(color: Colors.white70)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child:
-                const Text("CANCEL", style: TextStyle(color: Colors.white60)),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context); // Close dialog
-              _handleDelete();
-            },
-            child: const Text("DELETE",
-                style: TextStyle(
-                    color: Colors.redAccent, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _handleDelete() async {
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-          child: CircularProgressIndicator(color: Colors.redAccent)),
-    );
-
-    try {
-      final success = await ShiftService().deleteShift(widget.shift.shiftId);
-      if (Navigator.canPop(context)) Navigator.pop(context); // Close loading
-
-      if (success) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                backgroundColor: Colors.green,
-                content: Text("Shift deleted successfully")),
-          );
-          Navigator.pop(context, true); // Go back with refresh signal
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                backgroundColor: Colors.red,
-                content: Text("Failed to delete shift")),
-          );
-        }
-      }
-    } catch (e) {
-      if (Navigator.canPop(context)) Navigator.pop(context);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(backgroundColor: Colors.red, content: Text("Error: $e")),
-        );
-      }
-    }
   }
 }
 
