@@ -94,6 +94,107 @@ class _ManagerjobsState extends State<Managerjobs>
     return description.isEmpty ? 'No Description' : description;
   }
 
+  Future<void> _openJobDetails(Job job) async {
+    final result = await _showDetailsPopup(
+      child: ManagerJobView(
+        job: job,
+        embedded: true,
+      ),
+    );
+
+    if (result == true) {
+      _loadData();
+    }
+  }
+
+  Future<void> _openShiftDetails(Shift shift) async {
+    final result = await _showDetailsPopup(
+      child: ManagerShiftsView(
+        shift: shift,
+        embedded: true,
+      ),
+    );
+
+    if (result == true) {
+      _loadData();
+    }
+  }
+
+  Future<bool?> _showDetailsPopup({required Widget child}) {
+    return showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.68),
+      builder: (dialogContext) {
+        final size = MediaQuery.of(dialogContext).size;
+        final dialogWidth = size.width - 16;
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 18),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: dialogWidth,
+              maxHeight: size.height * 0.88,
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Scrollbar(
+                    child: SingleChildScrollView(
+                      child: SizedBox(
+                        width: dialogWidth,
+                        child: child,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: _buildPopupCloseButton(dialogContext),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPopupCloseButton(BuildContext dialogContext) {
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: () => Navigator.of(dialogContext).pop(false),
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: const Color(0xFF20283A).withValues(alpha: 0.72),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.24),
+                blurRadius: 14,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.close_rounded,
+            color: Colors.white,
+            size: 26,
+          ),
+        ),
+      ),
+    );
+  }
+
   ({String text, Color backgroundColor, Color textColor})? _dueBadge(Job job) {
     final dueDate = _parseDate(job.jobDueDate);
     if (dueDate == null) return null;
@@ -595,14 +696,7 @@ class _ManagerjobsState extends State<Managerjobs>
                   itemBuilder: (context, index) {
                     final job = filteredJobs[index];
                     return InkWell(
-                      onTap: () async {
-                        final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) =>
-                                    ManagerJobView(job: job)));
-                        if (result == true) _loadData();
-                      },
+                      onTap: () => _openJobDetails(job),
                       child: _buildJobListItem(job),
                     );
                   },
@@ -664,14 +758,7 @@ class _ManagerjobsState extends State<Managerjobs>
                   itemBuilder: (context, index) {
                     final shift = filteredShifts[index];
                     return InkWell(
-                      onTap: () async {
-                        final result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) =>
-                                    ManagerShiftsView(shift: shift)));
-                        if (result == true) _loadData();
-                      },
+                      onTap: () => _openShiftDetails(shift),
                       child: _buildShiftListItem(shift),
                     );
                   },
