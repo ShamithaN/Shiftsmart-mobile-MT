@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shiftsmart/models/employee.dart';
@@ -11,8 +12,6 @@ import 'package:shiftsmart/services/employee_service.dart';
 import 'package:shiftsmart/services/shift_service.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
-import 'package:shiftsmart/widgets/circleindicator.dart';
-import 'package:shiftsmart/widgets/gradientbox.dart';
 import 'package:shiftsmart/widgets/gradienthorizontal.dart';
 import 'package:shiftsmart/models/project.dart';
 import 'package:shiftsmart/services/attendance_service.dart';
@@ -21,6 +20,7 @@ import 'package:shiftsmart/providers/tenant_provider.dart';
 import 'package:shiftsmart/providers/user_provider.dart';
 import 'package:shiftsmart/services/super_admin_service.dart';
 import 'package:shiftsmart/services/auth_service.dart';
+import 'package:shiftsmart/widgets/bottomnavbar.dart';
 import 'package:shiftsmart/widgets/organization_selector.dart';
 
 class Managerdashboard extends StatefulWidget {
@@ -273,11 +273,19 @@ class _ManagerdashboardState extends State<Managerdashboard> {
   }
 
   int getCompletedProjectsCount() {
-    return allProjects.where((project) => project.status == 'Completed').length;
+    return allProjects.where((project) {
+      final status = project.status.trim().toLowerCase();
+      return status == 'completed' || status == 'complete';
+    }).length;
   }
 
   int getInProgressProjectsCount() {
-    return allProjects.where((project) => project.status == 'Active').length;
+    return allProjects.where((project) {
+      final status = project.status.trim().toLowerCase();
+      return status == 'active' ||
+          status == 'in progress' ||
+          status == 'inprogress';
+    }).length;
   }
 
   Employee? getEmployeeById(int id) {
@@ -354,206 +362,16 @@ class _ManagerdashboardState extends State<Managerdashboard> {
                                     ),
                                     child: Column(
                                       children: [
-                                        Gradientbox(
-                                          width: double.infinity,
-                                          height: screenHeight * 0.35,
-                                          child: Padding(
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: screenWidth * 0.03,
-                                              vertical: screenHeight * 0.015,
-                                            ),
-                                            child: Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    const Text(
-                                                      "PROJECT OVERVIEW",
-                                                      style: TextStyle(
-                                                        fontSize: 18,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color: Colors.white,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 20),
-                                                    Row(
-                                                      children: [
-                                                        const SizedBox(
-                                                            width: 50),
-                                                        Column(
-                                                          children: [
-                                                            const Text(
-                                                              "In Progress",
-                                                              style: TextStyle(
-                                                                color: Colors
-                                                                    .white,
-                                                                fontSize: 14,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                              ),
-                                                            ),
-                                                            const SizedBox(
-                                                                height: 8),
-                                                            Circleindicator(
-                                                              value: total > 0
-                                                                  ? inProgress /
-                                                                      total
-                                                                  : 0,
-                                                              total: total,
-                                                              count: inProgress,
-                                                              label:
-                                                                  "In Progress",
-                                                            ),
-                                                          ],
-                                                        ),
-                                                        const SizedBox(
-                                                            width: 30),
-                                                        Column(
-                                                          children: [
-                                                            const Text(
-                                                              "Completed",
-                                                              style: TextStyle(
-                                                                color: Colors
-                                                                    .white,
-                                                                fontSize: 14,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                              ),
-                                                            ),
-                                                            const SizedBox(
-                                                                height: 8),
-                                                            Circleindicator(
-                                                              value: total > 0
-                                                                  ? completed /
-                                                                      total
-                                                                  : 0,
-                                                              total: total,
-                                                              count: completed,
-                                                              label:
-                                                                  "Completed",
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ],
-                                                    )
-                                                  ],
-                                                ),
-                                                const Spacer(),
-                                              ],
-                                            ),
-                                          ),
+                                        _buildProjectOverviewCard(
+                                          screenWidth: screenWidth,
+                                          totalProjects: total,
+                                          completedProjects: completed,
+                                          activeProjects: inProgress,
                                         ),
                                         SizedBox(height: screenHeight * 0.025),
-                                        Gradienthorizontal(
-                                          width: double.infinity,
-                                          height: screenHeight * 0.20,
-                                          child: Padding(
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: screenWidth * 0.04,
-                                              vertical: screenHeight * 0.015,
-                                            ),
-                                            child: Align(
-                                              alignment: Alignment.topLeft,
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.start,
-                                                children: [
-                                                  const Text(
-                                                    "Today on Leave",
-                                                    style: TextStyle(
-                                                      fontSize: 20,
-                                                      color: Colors.white,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 10),
-                                                  SingleChildScrollView(
-                                                    scrollDirection:
-                                                        Axis.horizontal,
-                                                    child: Row(
-                                                      children:
-                                                          getTodayLeaveRequests()
-                                                                  .isNotEmpty
-                                                              ? getTodayLeaveRequests()
-                                                                  .map((leave) {
-                                                                  final employee =
-                                                                      getEmployeeById(
-                                                                          leave
-                                                                              .employeeId);
-                                                                  return Padding(
-                                                                    padding: const EdgeInsets
-                                                                        .only(
-                                                                        right:
-                                                                            12),
-                                                                    child:
-                                                                        Column(
-                                                                      children: [
-                                                                        CircleAvatar(
-                                                                          radius:
-                                                                              30,
-                                                                          backgroundColor:
-                                                                              Colors.grey[800],
-                                                                          backgroundImage: (employee?.profilePicture != null && employee!.profilePicture!.startsWith('data:image'))
-                                                                              ? MemoryImage(
-                                                                                  base64Decode(employee.profilePicture!.split(',').last),
-                                                                                )
-                                                                              : (employee?.profilePicture != null && employee!.profilePicture!.isNotEmpty)
-                                                                                  ? NetworkImage(employee.profilePicture!)
-                                                                                  : null,
-                                                                          child: (employee?.profilePicture == null || employee!.profilePicture!.isEmpty)
-                                                                              ? const Icon(Icons.person, size: 30, color: Colors.white)
-                                                                              : null,
-                                                                        ),
-                                                                        const SizedBox(
-                                                                            height:
-                                                                                6),
-                                                                        SizedBox(
-                                                                          width:
-                                                                              70,
-                                                                          child:
-                                                                              Text(
-                                                                            employee?.firstName ??
-                                                                                'Unknown',
-                                                                            style:
-                                                                                const TextStyle(color: Colors.white, fontSize: 12),
-                                                                            overflow:
-                                                                                TextOverflow.ellipsis,
-                                                                            textAlign:
-                                                                                TextAlign.center,
-                                                                          ),
-                                                                        ),
-                                                                      ],
-                                                                    ),
-                                                                  );
-                                                                }).toList()
-                                                              : [
-                                                                  const Padding(
-                                                                    padding: EdgeInsets.symmetric(
-                                                                        vertical:
-                                                                            12),
-                                                                    child: Text(
-                                                                      "No one is on leave today.",
-                                                                      style: TextStyle(
-                                                                          color:
-                                                                              Colors.white70),
-                                                                    ),
-                                                                  ),
-                                                                ],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
+                                        _buildTodayOnLeaveCard(
+                                          screenWidth: screenWidth,
+                                          screenHeight: screenHeight,
                                         ),
                                         SizedBox(height: screenHeight * 0.025),
                                         ConstrainedBox(
@@ -867,6 +685,338 @@ class _ManagerdashboardState extends State<Managerdashboard> {
     }
   }
 
+  Widget _buildProjectOverviewCard({
+    required double screenWidth,
+    required int totalProjects,
+    required int completedProjects,
+    required int activeProjects,
+  }) {
+    const completedColor = Color(0xFF66BE8B);
+    const activeColor = Color(0xFFFFD246);
+    const cardBorder = Color(0x1FFFFFFF);
+
+    final completedValue =
+        totalProjects > 0 ? completedProjects / totalProjects : 0.0;
+    final activeValue =
+        totalProjects > 0 ? activeProjects / totalProjects : 0.0;
+    final completedPercent = (completedValue * 100).round();
+    final activePercent = (activeValue * 100).round();
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: screenWidth < 390 ? 18 : 28,
+        vertical: screenWidth < 390 ? 22 : 28,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: cardBorder),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF12283B),
+            Color(0xFF0D1426),
+            Color(0xFF090E1C),
+          ],
+          stops: [0.0, 0.45, 1.0],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final compactScale = (width / 520).clamp(0.64, 1.0);
+          final donutSize = 176.0 * compactScale;
+          final titleSize = 28.0 * compactScale;
+          final subtitleSize = 18.0 * compactScale;
+          final iconSize = 54.0 * compactScale;
+          final chart = _ProjectDonutChart(
+            size: donutSize,
+            totalProjects: totalProjects,
+            completedProjects: completedProjects,
+            activeProjects: activeProjects,
+            completedValue: completedValue,
+            activeValue: activeValue,
+            completedPercent: completedPercent,
+            activePercent: activePercent,
+            completedColor: completedColor,
+            activeColor: activeColor,
+          );
+          final legend = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _projectOverviewLegendRow(
+                color: completedColor,
+                label: 'COMPLETED',
+                percent: completedPercent,
+                scale: compactScale,
+              ),
+              SizedBox(height: 34 * compactScale),
+              _projectOverviewLegendRow(
+                color: activeColor,
+                label: 'ACTIVE',
+                percent: activePercent,
+                scale: compactScale,
+              ),
+            ],
+          );
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Project Overview',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: titleSize,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Status of current projects',
+                          style: TextStyle(
+                            color: Color(0xFF9AA8BE),
+                            fontSize: subtitleSize,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: () {
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const Bottomnavbar(selectedIndex: 1),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: iconSize,
+                        height: iconSize,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1A315E),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF6EA7FF)
+                                  .withValues(alpha: 0.2),
+                              blurRadius: 18,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.north_east_rounded,
+                          color: const Color(0xFF78AFFF),
+                          size: 28 * compactScale,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 32 * compactScale),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  chart,
+                  SizedBox(width: width < 460 ? 22 * compactScale : 52),
+                  Flexible(child: legend),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _projectOverviewLegendRow({
+    required Color color,
+    required String label,
+    required int percent,
+    double scale = 1,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 18 * scale,
+          height: 46 * scale,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.36),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(width: 18 * scale),
+        Text(
+          label,
+          style: TextStyle(
+            color: const Color(0xFFD7DDE8),
+            fontSize: 22 * scale,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0,
+          ),
+        ),
+        SizedBox(width: 20 * scale),
+        Text(
+          '$percent%',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 24 * scale,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTodayOnLeaveCard({
+    required double screenWidth,
+    required double screenHeight,
+  }) {
+    final todayLeaves = getTodayLeaveRequests();
+
+    return Container(
+      width: double.infinity,
+      constraints: BoxConstraints(minHeight: screenHeight * 0.20),
+      padding: EdgeInsets.symmetric(
+        horizontal: screenWidth * 0.045,
+        vertical: screenHeight * 0.022,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF2B3446),
+            Color(0xFF29384F),
+            Color(0xFF315684),
+          ],
+          stops: [0.0, 0.54, 1.0],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.22),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          const Text(
+            "Today on Leave",
+            style: TextStyle(
+              fontSize: 22,
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
+            ),
+          ),
+          SizedBox(height: screenHeight * 0.028),
+          if (todayLeaves.isEmpty)
+            const Text(
+              "No one is on leave today.",
+              style: TextStyle(
+                color: Color(0xFFC7CEDB),
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0,
+              ),
+            )
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: todayLeaves.map((leave) {
+                  final employee = getEmployeeById(leave.employeeId);
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Column(
+                      children: [
+                        CircleAvatar(
+                          radius: 30,
+                          backgroundColor: Colors.grey[800],
+                          backgroundImage: (employee?.profilePicture != null &&
+                                  employee!.profilePicture!
+                                      .startsWith('data:image'))
+                              ? MemoryImage(
+                                  base64Decode(
+                                    employee.profilePicture!.split(',').last,
+                                  ),
+                                )
+                              : (employee?.profilePicture != null &&
+                                      employee!.profilePicture!.isNotEmpty)
+                                  ? NetworkImage(employee.profilePicture!)
+                                  : null,
+                          child: (employee?.profilePicture == null ||
+                                  employee!.profilePicture!.isEmpty)
+                              ? const Icon(
+                                  Icons.person,
+                                  size: 30,
+                                  color: Colors.white,
+                                )
+                              : null,
+                        ),
+                        const SizedBox(height: 6),
+                        SizedBox(
+                          width: 70,
+                          child: Text(
+                            employee?.firstName ?? 'Unknown',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _handleApproval(
       int employeeId, int shiftId, String status) async {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -900,5 +1050,330 @@ class _ManagerdashboardState extends State<Managerdashboard> {
         SnackBar(content: Text("Error: $e")),
       );
     }
+  }
+}
+
+enum _ProjectDonutSegment { completed, active }
+
+class _ProjectDonutChart extends StatefulWidget {
+  const _ProjectDonutChart({
+    required this.size,
+    required this.totalProjects,
+    required this.completedProjects,
+    required this.activeProjects,
+    required this.completedValue,
+    required this.activeValue,
+    required this.completedPercent,
+    required this.activePercent,
+    required this.completedColor,
+    required this.activeColor,
+  });
+
+  final double size;
+  final int totalProjects;
+  final int completedProjects;
+  final int activeProjects;
+  final double completedValue;
+  final double activeValue;
+  final int completedPercent;
+  final int activePercent;
+  final Color completedColor;
+  final Color activeColor;
+
+  @override
+  State<_ProjectDonutChart> createState() => _ProjectDonutChartState();
+}
+
+class _ProjectDonutChartState extends State<_ProjectDonutChart> {
+  _ProjectDonutSegment? _hoveredSegment;
+
+  void _updateSegment(Offset localPosition) {
+    final segment = _segmentForPosition(localPosition);
+    if (segment != _hoveredSegment) {
+      setState(() => _hoveredSegment = segment);
+    }
+  }
+
+  _ProjectDonutSegment? _segmentForPosition(Offset position) {
+    final center = Offset(widget.size / 2, widget.size / 2);
+    final distance = (position - center).distance;
+    final outerRadius = widget.size / 2;
+    final innerRadius = outerRadius - (widget.size * 0.24);
+
+    if (distance < innerRadius || distance > outerRadius) {
+      return null;
+    }
+
+    var angle = math.atan2(position.dy - center.dy, position.dx - center.dx);
+    angle = (angle + math.pi / 2) % (math.pi * 2);
+
+    final completedSweep = widget.completedValue.clamp(0.0, 1.0) * math.pi * 2;
+    final activeSweep = widget.activeValue.clamp(0.0, 1.0) * math.pi * 2;
+
+    if (completedSweep > 0 && angle <= completedSweep) {
+      return _ProjectDonutSegment.completed;
+    }
+    if (activeSweep > 0 && angle <= completedSweep + activeSweep) {
+      return _ProjectDonutSegment.active;
+    }
+
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scale = (widget.size / 176).clamp(0.64, 1.0);
+
+    return SizedBox(
+      width: widget.size,
+      height: widget.size,
+      child: MouseRegion(
+        cursor: _hoveredSegment == null
+            ? SystemMouseCursors.basic
+            : SystemMouseCursors.click,
+        onHover: (event) => _updateSegment(event.localPosition),
+        onExit: (_) => setState(() => _hoveredSegment = null),
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTapDown: (details) => _updateSegment(details.localPosition),
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              CustomPaint(
+                size: Size.square(widget.size),
+                painter: _ProjectDonutPainter(
+                  completedValue: widget.completedValue,
+                  activeValue: widget.activeValue,
+                  completedColor: widget.completedColor,
+                  activeColor: widget.activeColor,
+                ),
+              ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${widget.totalProjects}',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 42 * scale,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  SizedBox(height: 4 * scale),
+                  Text(
+                    'Total Projects',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: const Color(0xFFD0D6E1),
+                      fontSize: 16 * scale,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ],
+              ),
+              if (_hoveredSegment == _ProjectDonutSegment.completed)
+                Positioned(
+                  top: -14 * scale,
+                  right: -112 * scale,
+                  child: _ProjectDonutTooltip(
+                    color: widget.completedColor,
+                    label: 'COMPLETED',
+                    count: widget.completedProjects,
+                    percent: widget.completedPercent,
+                    scale: scale,
+                  ),
+                ),
+              if (_hoveredSegment == _ProjectDonutSegment.active)
+                Positioned(
+                  left: -108 * scale,
+                  bottom: -26 * scale,
+                  child: _ProjectDonutTooltip(
+                    color: widget.activeColor,
+                    label: 'ACTIVE',
+                    count: widget.activeProjects,
+                    percent: widget.activePercent,
+                    scale: scale,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProjectDonutTooltip extends StatelessWidget {
+  const _ProjectDonutTooltip({
+    required this.color,
+    required this.label,
+    required this.count,
+    required this.percent,
+    required this.scale,
+  });
+
+  final Color color;
+  final String label;
+  final int count;
+  final int percent;
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) {
+    final tooltipScale = scale.clamp(0.82, 1.0);
+
+    return Container(
+      width: 194 * tooltipScale,
+      height: 96 * tooltipScale,
+      padding: EdgeInsets.symmetric(
+        horizontal: 16 * tooltipScale,
+        vertical: 12 * tooltipScale,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF050918).withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(16 * tooltipScale),
+        border: Border.all(color: const Color(0xFF242B3E)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.36),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 14 * tooltipScale,
+                height: 14 * tooltipScale,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              SizedBox(width: 12 * tooltipScale),
+              Text(
+                label,
+                style: TextStyle(
+                  color: const Color(0xFFAAB3C5),
+                  fontSize: 13 * tooltipScale,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 5 * tooltipScale,
+                ),
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              Text(
+                '$count',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 28 * tooltipScale,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 12 * tooltipScale,
+                  vertical: 4 * tooltipScale,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF252838),
+                  borderRadius: BorderRadius.circular(20 * tooltipScale),
+                ),
+                child: Text(
+                  '$percent%',
+                  style: TextStyle(
+                    color: const Color(0xFFE9ECF3),
+                    fontSize: 16 * tooltipScale,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProjectDonutPainter extends CustomPainter {
+  const _ProjectDonutPainter({
+    required this.completedValue,
+    required this.activeValue,
+    required this.completedColor,
+    required this.activeColor,
+  });
+
+  final double completedValue;
+  final double activeValue;
+  final Color completedColor;
+  final Color activeColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final strokeWidth = size.width * 0.24;
+    final inset = strokeWidth / 2;
+    final rect = Rect.fromLTWH(
+      inset,
+      inset,
+      size.width - strokeWidth,
+      size.height - strokeWidth,
+    );
+    final trackPaint = Paint()
+      ..color = const Color(0xFF182235)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.butt;
+    final completedPaint = Paint()
+      ..color = completedColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+    final activePaint = Paint()
+      ..color = activeColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(rect, 0, math.pi * 2, false, trackPaint);
+
+    const startAngle = -math.pi / 2;
+    final completedSweep = (completedValue.clamp(0.0, 1.0)) * math.pi * 2;
+    final activeSweep = (activeValue.clamp(0.0, 1.0)) * math.pi * 2;
+
+    if (completedSweep > 0) {
+      canvas.drawArc(rect, startAngle, completedSweep, false, completedPaint);
+    }
+
+    if (activeSweep > 0) {
+      canvas.drawArc(
+        rect,
+        startAngle + completedSweep,
+        activeSweep,
+        false,
+        activePaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ProjectDonutPainter oldDelegate) {
+    return oldDelegate.completedValue != completedValue ||
+        oldDelegate.activeValue != activeValue ||
+        oldDelegate.completedColor != completedColor ||
+        oldDelegate.activeColor != activeColor;
   }
 }
