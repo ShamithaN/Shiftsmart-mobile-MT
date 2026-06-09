@@ -715,11 +715,11 @@ class _ManagerdashboardState extends State<Managerdashboard> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF12283B),
-            Color(0xFF0D1426),
-            Color(0xFF090E1C),
+            Color(0xFF2B3446),
+            Color(0xFF29384F),
+            Color(0xFF315684),
           ],
-          stops: [0.0, 0.45, 1.0],
+          stops: [0.0, 0.54, 1.0],
         ),
         boxShadow: [
           BoxShadow(
@@ -1098,7 +1098,7 @@ class _ProjectDonutChartState extends State<_ProjectDonutChart> {
     final center = Offset(widget.size / 2, widget.size / 2);
     final distance = (position - center).distance;
     final outerRadius = widget.size / 2;
-    final innerRadius = outerRadius - (widget.size * 0.24);
+    final innerRadius = outerRadius - (widget.size * 0.16);
 
     if (distance < innerRadius || distance > outerRadius) {
       return null;
@@ -1161,15 +1161,16 @@ class _ProjectDonutChartState extends State<_ProjectDonutChart> {
                       letterSpacing: 0,
                     ),
                   ),
-                  SizedBox(height: 4 * scale),
+                  SizedBox(height: 2 * scale),
                   Text(
-                    'Total Projects',
+                    'Total\nProjects',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: const Color(0xFFD0D6E1),
-                      fontSize: 16 * scale,
-                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFFE2E7F0),
+                      fontSize: 15 * scale,
+                      fontWeight: FontWeight.bold,
                       letterSpacing: 0,
+                      height: 1.1,
                     ),
                   ),
                 ],
@@ -1324,7 +1325,7 @@ class _ProjectDonutPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final strokeWidth = size.width * 0.24;
+    final strokeWidth = size.width * 0.16;
     final inset = strokeWidth / 2;
     final rect = Rect.fromLTWH(
       inset,
