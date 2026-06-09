@@ -137,9 +137,12 @@ class _EmployeeTrackingScreenState extends State<EmployeeTrackingScreen> {
     try {
       Position initialPos = await Geolocator.getCurrentPosition();
       _updateMyLocation(initialPos);
-      setState(() => _isLoading = false);
     } catch (e) {
       debugPrint("Error getting initial location: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
 
     _positionStream =
