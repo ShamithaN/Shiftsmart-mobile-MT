@@ -171,12 +171,6 @@ class _ManagercompanyviewState extends State<Managercompanyview> {
           children: [
             _detailTile(
               width: itemWidth,
-              label: 'COMPANY ID',
-              value: company.id.toString(),
-              icon: Icons.tag_rounded,
-            ),
-            _detailTile(
-              width: itemWidth,
               label: 'CONTACT PERSON',
               value: _valueOrFallback(company.ContactPerson, 'Not provided'),
               icon: Icons.person_rounded,
