@@ -8,16 +8,23 @@ import GoogleMaps // 1. Ensure this is imported
   private var apnsTokenString: String?
 
   private func googleMapsApiKey() -> String {
+    // 1. Check Info.plist for iOS-specific key
+    if let key = Bundle.main.object(forInfoDictionaryKey: "GOOGLE_MAPS_IOS_KEY") as? String,
+       !key.isEmpty {
+      return key
+    }
+    // 2. Fallback to generic key in Info.plist
     if let key = Bundle.main.object(forInfoDictionaryKey: "GOOGLE_MAPS_API_KEY") as? String,
        !key.isEmpty {
       return key
     }
-
-    if let key = ProcessInfo.processInfo.environment["GOOGLE_MAPS_API_KEY"],
+    // 3. Check environment variable
+    if let key = ProcessInfo.processInfo.environment["GOOGLE_MAPS_IOS_KEY"],
        !key.isEmpty {
       return key
     }
 
+    // 4. Read from bundled .env file
     let assetPaths = [
       Bundle.main.path(forResource: ".env", ofType: nil, inDirectory: "flutter_assets"),
       Bundle.main.path(forResource: ".env", ofType: nil, inDirectory: "Frameworks/App.framework/flutter_assets")
@@ -28,16 +35,26 @@ import GoogleMaps // 1. Ensure this is imported
         continue
       }
 
+      var iosKey: String? = nil
+      var genericKey: String? = nil
+
       for line in contents.components(separatedBy: .newlines) {
         let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.hasPrefix("GOOGLE_MAPS_API_KEY=") {
-          return String(trimmed.dropFirst("GOOGLE_MAPS_API_KEY=".count))
+        if trimmed.hasPrefix("GOOGLE_MAPS_IOS_KEY=") {
+          iosKey = String(trimmed.dropFirst("GOOGLE_MAPS_IOS_KEY=".count))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        } else if trimmed.hasPrefix("GOOGLE_MAPS_API_KEY=") {
+          genericKey = String(trimmed.dropFirst("GOOGLE_MAPS_API_KEY=".count))
             .trimmingCharacters(in: .whitespacesAndNewlines)
         }
       }
+      // Prefer iOS-specific key, then fall back to generic
+      if let key = iosKey, !key.isEmpty { return key }
+      if let key = genericKey, !key.isEmpty { return key }
     }
 
-    return "AIzaSyDUmFaCazbVnAWE2mcRtZLMzqeidR16LkQ"
+    // 5. Hard-coded iOS Maps Key fallback
+    return "AIzaSyABsFboPicJ93MEaL3ChmlyiRCxbT9bg_U"
   }
 
   override func application(
