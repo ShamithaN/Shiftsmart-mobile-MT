@@ -149,7 +149,7 @@ class SiteService {
     debugPrint(" Fetching Active Locations: $url");
 
     try {
-      final response = await _apiClient.get(url, useAuth: false);
+      final response = await _apiClient.get(url, useAuth: true);
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonData = jsonDecode(response.body);
