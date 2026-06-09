@@ -716,42 +716,73 @@ class _ActionButton extends StatelessWidget {
   final VoidCallback onPressed;
   final bool secondary;
   final bool success;
-  final double width;
+  final double? width;
 
   const _ActionButton({
     required this.text,
     required this.onPressed,
     this.secondary = false,
     this.success = false,
-    this.width = 150,
+    this.width,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = success
-        ? const Color(0xFF4CAF58)
+    final gradient = success
+        ? const LinearGradient(
+            colors: [Color(0xFF43CFC1), Color(0xFF5B6FE8)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          )
         : secondary
-            ? const Color(0xFF5D6878)
-            : const Color(0xFF3F6FFF);
+            ? const LinearGradient(
+                colors: [Color(0xFF1B3A4B), Color(0xFF2E3D7A)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              )
+            : const LinearGradient(
+                colors: [Color(0xFF43CFC1), Color(0xFF5B6FE8)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              );
+
+    final icon = success
+        ? Icons.check_circle_outline_rounded
+        : secondary
+            ? Icons.arrow_back_rounded
+            : null;
 
     return SizedBox(
       height: 52,
       width: width,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(10),
         ),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0,
+        child: ElevatedButton.icon(
+          onPressed: onPressed,
+          icon: icon != null
+              ? Icon(icon, color: Colors.white, size: 20)
+              : const SizedBox.shrink(),
+          label: Text(
+            text,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
+              color: Colors.white,
+            ),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            shadowColor: Colors.transparent,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         ),
       ),
