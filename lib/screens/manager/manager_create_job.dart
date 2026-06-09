@@ -46,15 +46,23 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
 
   // UI State
   bool _isInitializing = true;
-  int _currentStep = 0;
+  bool _isSaving = false;
   final ImagePicker _picker = ImagePicker();
-  final PageController _pageController = PageController();
 
   @override
   void initState() {
     super.initState();
     enableFullScreen();
     _initializeData();
+  }
+
+  @override
+  void dispose() {
+    _jobNameController.dispose();
+    _descriptionController.dispose();
+    _startDateController.dispose();
+    _endDateController.dispose();
+    super.dispose();
   }
 
   // --- 1. ROBUST INITIALIZATION LOGIC ---
@@ -81,23 +89,20 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
       final allProjects = await projectsFuture;
       final allSites = await sitesFuture;
       final allJobRoleTypes = await roleTypesFuture;
-      // Variables to hold initial selections
+
       Project? initialProject;
       Site? initialSite;
       List<JobRole> initialRoles = [];
 
-      // If Editing, populate data
       if (existingJob != null) {
-        // Find Project (Safe check)
         try {
-          initialProject = allProjects
-              .firstWhere((p) => p.projectId == existingJob.projectId);
+          initialProject =
+              allProjects.firstWhere((p) => p.projectId == existingJob.projectId);
         } catch (e) {
           debugPrint(
               "Warning: Project ID ${existingJob.projectId} not found in list.");
         }
 
-        // Find Site (Safe check)
         if (initialProject != null) {
           try {
             initialSite = allSites.firstWhere((s) =>
@@ -109,7 +114,6 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
           }
         }
 
-        // Fetch & Populate Roles
         initialRoles =
             _withRoleTypeNames(existingJob.jobRoles, allJobRoleTypes);
         if (existingJob.jobId != 0) {
@@ -126,19 +130,15 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
         }
       }
 
-      // Update State ONLY once all data is ready
       if (mounted) {
         setState(() {
           _projects = allProjects;
           _sites = allSites;
           _jobRoleTypes = allJobRoleTypes;
-
           _selectedProject = initialProject;
           _selectedSite = initialSite;
-
           _selectedJobRoles.clear();
           _selectedJobRoles.addAll(initialRoles);
-
           _isInitializing = false;
         });
       }
@@ -210,58 +210,44 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
     }
   }
 
-  // --- Navigation: Next Step ---
-  void _nextStep() {
-    // Validation Step 1
-    if (_currentStep == 0) {
-      if (_jobNameController.text.isEmpty ||
-          _descriptionController.text.isEmpty ||
-          _startDateController.text.isEmpty ||
-          _endDateController.text.isEmpty ||
-          _selectedProject == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Please fill in all required fields.")),
-        );
-        return;
-      }
+  // --- Validation ---
+  bool _validate() {
+    // Section 1 validation
+    if (_jobNameController.text.isEmpty) {
+      _showError("Job name is required.");
+      return false;
     }
-    // Validation Step 2
-    else if (_currentStep == 1) {
-      if (_selectedSite == null || _selectedJobRoles.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content:
-                  Text("Please select a site and add at least one job role.")),
-        );
-        return;
-      }
+    if (_descriptionController.text.isEmpty) {
+      _showError("Description is required.");
+      return false;
     }
-    // Submission Step 3
-    else if (_currentStep == 2) {
-      _submitJobAction();
-      return;
+    if (_startDateController.text.isEmpty) {
+      _showError("Start Date is required.");
+      return false;
     }
-
-    setState(() {
-      _currentStep++;
-    });
-    _pageController.nextPage(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+    if (_endDateController.text.isEmpty) {
+      _showError("Due Date is required.");
+      return false;
+    }
+    if (_selectedProject == null) {
+      _showError("Please select a Project.");
+      return false;
+    }
+    // Section 2 validation
+    if (_selectedSite == null) {
+      _showError("Please select a Site.");
+      return false;
+    }
+    if (_selectedJobRoles.isEmpty) {
+      _showError("Please add at least one job role.");
+      return false;
+    }
+    return true;
   }
 
-  // --- Navigation: Previous Step ---
-  void _previousStep() {
-    if (_currentStep > 0) {
-      setState(() {
-        _currentStep--;
-      });
-      _pageController.previousPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    }
+  void _showError(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   // --- Job Roles Logic ---
@@ -316,6 +302,10 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
 
   // --- 2. SUBMIT ACTION ---
   Future<void> _submitJobAction() async {
+    if (!_validate()) return;
+
+    setState(() => _isSaving = true);
+
     String startDate = "${_startDateController.text}T00:00:00Z";
     String endDate = "${_endDateController.text}T00:00:00Z";
 
@@ -341,11 +331,9 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
 
     try {
       if (widget.existingJob != null) {
-        // UPDATE
         success =
             await JobService().updateJob(widget.existingJob!.jobId, jobData);
       } else {
-        // CREATE
         if (_selectedImage != null) {
           success =
               await JobService().createJobWithImage(jobData, _selectedImage!);
@@ -359,11 +347,12 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
       success = false;
     }
 
-    Navigator.pop(context); // Dismiss Loading
+    if (mounted) Navigator.pop(context); // Dismiss Loading
+
+    setState(() => _isSaving = false);
 
     if (mounted) {
       if (success) {
-        // --- Show Success Dialog ---
         SuccessDialog.show(
           context,
           title: widget.existingJob != null ? "Job Updated" : "Job Created",
@@ -373,7 +362,6 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
           buttonText: "Ok",
           onPressed: () {
             Navigator.pop(context); // Close dialog
-            // Navigate to Job List (Manager Dashboard)
             Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(
                   builder: (context) => const Bottomnavbar(selectedIndex: 2)),
@@ -426,209 +414,216 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
 
   @override
   Widget build(BuildContext context) {
+    final isEditMode = widget.existingJob != null;
+
     return Stack(
       children: [
         const Positioned.fill(child: Background()),
         Scaffold(
           drawer: const Sidenav(),
-          appBar: const Uppernavbar(
-            showBackButton: true,
-          ),
+          appBar: const Uppernavbar(showBackButton: true),
           backgroundColor: Colors.transparent,
           body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: ManagerFormShell(
-                title: widget.existingJob != null ? "UPDATE JOB" : "CREATE JOB",
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: _isInitializing
-                          ? const Center(
-                              child: CircularProgressIndicator(
-                                  color: ManagerScreenStyle.cyan))
-                          : PageView(
-                              controller: _pageController,
-                              physics: const NeverScrollableScrollPhysics(),
+            child: ManagerFormShell(
+                title: isEditMode ? "UPDATE JOB" : "CREATE JOB",
+                child: _isInitializing
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                            color: ManagerScreenStyle.cyan))
+                    : Column(
+                        children: [
+                          // ── Scrollable form area ──
+                          Expanded(
+                            child: ListView(
+                              padding: const EdgeInsets.fromLTRB(0, 8, 0, 16),
                               children: [
-                                _buildStep1(),
-                                _buildStep2(),
-                                _buildStep3(),
+                                // ── Section 1: Job Details ──
+                                ManagerSectionPanel(
+                                  title: 'Job Details',
+                                  subtitle:
+                                      'Add the job name, description, schedule, and project.',
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      _buildInputField("Name",
+                                          _jobNameController,
+                                          required: true),
+                                      const SizedBox(height: 18),
+                                      _buildInputField(
+                                        "Description",
+                                        _descriptionController,
+                                        maxLines: 3,
+                                        required: true,
+                                      ),
+                                      const SizedBox(height: 18),
+                                      _buildDateField(
+                                          "Start Date", _startDateController),
+                                      const SizedBox(height: 18),
+                                      _buildDateField(
+                                          "Due Date", _endDateController),
+                                      const SizedBox(height: 18),
+                                      _buildProjectDropdown(),
+                                    ],
+                                  ),
+                                ),
+
+                                const SizedBox(height: 18),
+
+                                // ── Section 2: Site & Resources ──
+                                ManagerSectionPanel(
+                                  title: 'Site and Resources',
+                                  subtitle:
+                                      'Choose the worksite and assign the required role types.',
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      _buildSiteDropdown(),
+                                      const SizedBox(height: 24),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          const Text(
+                                            "Select Resources",
+                                            style: TextStyle(
+                                              color: ManagerScreenStyle.cyan,
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                          IconButton.filled(
+                                            onPressed: () {
+                                              if (_jobRoleTypes.isEmpty) return;
+                                              final defaultRole =
+                                                  _jobRoleTypes.first;
+                                              _addJobRole(defaultRole);
+                                            },
+                                            style: IconButton.styleFrom(
+                                              backgroundColor:
+                                                  ManagerScreenStyle.fieldBg,
+                                              foregroundColor: Colors.white,
+                                            ),
+                                            icon:
+                                                const Icon(Icons.add_rounded),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 16),
+                                      if (_selectedJobRoles.isEmpty)
+                                        const Padding(
+                                          padding: EdgeInsets.symmetric(
+                                              vertical: 20),
+                                          child: Center(
+                                            child: Text("No roles added yet.",
+                                                style: TextStyle(
+                                                    color: Colors.white54)),
+                                          ),
+                                        ),
+                                      ListView.builder(
+                                        shrinkWrap: true,
+                                        physics:
+                                            const NeverScrollableScrollPhysics(),
+                                        itemCount: _selectedJobRoles.length,
+                                        itemBuilder: (context, index) {
+                                          return _buildRoleCard(
+                                              index, _selectedJobRoles[index]);
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                const SizedBox(height: 18),
+
+                                // ── Section 3: Job Media ──
+                                ManagerSectionPanel(
+                                  title: 'Job Media',
+                                  subtitle:
+                                      'Attach an optional image for this job.',
+                                  child: GestureDetector(
+                                    onTap: _showImageSourceSelection,
+                                    child: Container(
+                                      width: double.infinity,
+                                      height: 200,
+                                      decoration: BoxDecoration(
+                                        color: ManagerScreenStyle.fieldBg,
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                        border: Border.all(
+                                            color: Colors.white
+                                                .withValues(alpha: 0.2),
+                                            width: 1.5),
+                                      ),
+                                      child: _selectedImage == null
+                                          ? const Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                    Icons
+                                                        .cloud_upload_outlined,
+                                                    color: Colors.white70,
+                                                    size: 48),
+                                                SizedBox(height: 16),
+                                                Text(
+                                                    "Tap to upload an image",
+                                                    style: TextStyle(
+                                                        color: Colors.white70))
+                                              ],
+                                            )
+                                          : ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              child: Image.file(
+                                                  _selectedImage!,
+                                                  fit: BoxFit.cover),
+                                            ),
+                                    ),
+                                  ),
+                                ),
+
+                                const SizedBox(height: 8),
                               ],
                             ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 16),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          ManagerActionButton(
-                            text: _currentStep > 0 ? "Back" : "Cancel",
-                            icon: Icons.arrow_back_rounded,
-                            secondary: true,
-                            onPressed: _currentStep > 0
-                                ? _previousStep
-                                : () => Navigator.pop(context),
                           ),
-                          const SizedBox(width: 15),
-                          Expanded(
-                            child: ManagerActionButton(
-                              text: _currentStep == 2
-                                  ? (widget.existingJob != null
-                                      ? "Update Job"
-                                      : "Save Job")
-                                  : "Next",
-                              icon: _currentStep == 2
-                                  ? Icons.check_circle_rounded
-                                  : Icons.arrow_forward_rounded,
-                              onPressed: _nextStep,
+
+                          // ── Bottom Buttons ──
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                            child: Row(
+                              children: [
+                                ManagerActionButton(
+                                  text: "Cancel",
+                                  icon: Icons.arrow_back_rounded,
+                                  secondary: true,
+                                  onPressed: () => Navigator.pop(context),
+                                ),
+                                const SizedBox(width: 15),
+                                Expanded(
+                                  child: ManagerActionButton(
+                                    text: _isSaving
+                                        ? (isEditMode
+                                            ? "Updating..."
+                                            : "Saving...")
+                                        : (isEditMode
+                                            ? "Update Job"
+                                            : "Save Job"),
+                                    icon: Icons.check_circle_rounded,
+                                    onPressed:
+                                        _isSaving ? () {} : _submitJobAction,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-              ),
             ),
           ),
         ),
       ],
-    );
-  }
-
-  // --- Step 1: Basic Details ---
-  Widget _buildStep1() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: ManagerSectionPanel(
-        title: 'Job Details',
-        subtitle: 'Add the job name, description, schedule, and project.',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildInputField("Name", _jobNameController, required: true),
-            const SizedBox(height: 18),
-            _buildInputField(
-              "Description",
-              _descriptionController,
-              maxLines: 3,
-              required: true,
-            ),
-            const SizedBox(height: 18),
-            _buildDateField("Start Date", _startDateController),
-            const SizedBox(height: 18),
-            _buildDateField("Due Date", _endDateController),
-            const SizedBox(height: 18),
-            _buildProjectDropdown(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // --- Step 2: Site & Roles ---
-  Widget _buildStep2() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: ManagerSectionPanel(
-        title: 'Site and Resources',
-        subtitle: 'Choose the worksite and assign the required role types.',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSiteDropdown(),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  "Select Resources",
-                  style: TextStyle(
-                    color: ManagerScreenStyle.cyan,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                IconButton.filled(
-                  onPressed: () {
-                    if (_jobRoleTypes.isEmpty) return;
-                    final defaultRole = _jobRoleTypes.first;
-                    _addJobRole(defaultRole);
-                  },
-                  style: IconButton.styleFrom(
-                    backgroundColor: ManagerScreenStyle.fieldBg,
-                    foregroundColor: Colors.white,
-                  ),
-                  icon: const Icon(Icons.add_rounded),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (_selectedJobRoles.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: Center(
-                  child: Text("No roles added yet.",
-                      style: TextStyle(color: Colors.white54)),
-                ),
-              ),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _selectedJobRoles.length,
-              itemBuilder: (context, index) {
-                return _buildRoleCard(index, _selectedJobRoles[index]);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // --- Step 3: Media Upload ---
-  Widget _buildStep3() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: ManagerSectionPanel(
-        title: 'Job Media',
-        subtitle: 'Attach an optional image for this job.',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            GestureDetector(
-              onTap: _showImageSourceSelection,
-              child: Container(
-                width: double.infinity,
-                height: 250,
-                decoration: BoxDecoration(
-                  color: ManagerScreenStyle.fieldBg,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.2), width: 1.5),
-                ),
-                child: _selectedImage == null
-                    ? const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.cloud_upload_outlined,
-                              color: Colors.white70, size: 48),
-                          SizedBox(height: 16),
-                          Text("Tap to upload an image",
-                              style: TextStyle(color: Colors.white70))
-                        ],
-                      )
-                    : ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.file(_selectedImage!, fit: BoxFit.cover),
-                      ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -661,8 +656,8 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
                       color: Colors.white.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.close,
-                        color: Colors.redAccent, size: 18),
+                    child:
+                        const Icon(Icons.close, color: Colors.redAccent, size: 18),
                   ),
                 ),
               ],
@@ -675,8 +670,7 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
                     label: "Count:",
                     initialValue: role.numberOfRoles,
                     onChanged: (v) {
-                      setState(
-                          () => _selectedJobRoles[index].numberOfRoles = v);
+                      setState(() => _selectedJobRoles[index].numberOfRoles = v);
                     },
                   ),
                 ),
@@ -698,10 +692,9 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
       );
     }
 
-    // Ensure we have a valid role type to show in dropdown
     final currentRoleType = _jobRoleTypes.firstWhere(
       (type) => type.id == role.jobRoleTypeId,
-      orElse: () => _jobRoleTypes.first, // Fallback safety
+      orElse: () => _jobRoleTypes.first,
     );
 
     return Container(
@@ -757,8 +750,7 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
                     color: Colors.white.withValues(alpha: 0.10),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.close,
-                      color: Colors.redAccent, size: 18),
+                  child: const Icon(Icons.close, color: Colors.redAccent, size: 18),
                 ),
               ),
             ],
@@ -897,7 +889,6 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
             setState(() {
               _selectedProject =
                   _projects.firstWhere((p) => p.projectId == value);
-
               final sites = sitesForSelectedProject;
               _selectedSite = sites.isNotEmpty ? sites.first : null;
             });
