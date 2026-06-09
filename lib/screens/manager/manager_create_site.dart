@@ -7,6 +7,7 @@ import 'package:shiftsmart/models/site.dart';
 import 'package:shiftsmart/services/project_service.dart';
 import 'package:shiftsmart/services/site_service.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
+import 'package:shiftsmart/utils/google_maps_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/manager_screen_style.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
@@ -39,7 +40,7 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
   LatLng? _selectedLocation;
   List<Project> allProjects = [];
   int? _selectedProjectId;
-  List<String> _suggestions = [];
+  List<Map<String, String>> _suggestions = [];
   String tokenForSession = const Uuid().v4();
   bool _isSaving = false;
 
@@ -161,6 +162,34 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
     final address = _addressController.text;
     if (address.isEmpty) return;
 
+    // Try Google Geocoding API first (much more reliable in simulators than native geocoding)
+    try {
+      final key = GoogleMapsHelper.apiKey;
+      final url =
+          "https://maps.googleapis.com/maps/api/geocode/json?address=${Uri.encodeComponent(address)}&key=$key";
+      final response = await http.get(
+        Uri.parse(url),
+        headers: GoogleMapsHelper.platformHeaders,
+      );
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        final results = json['results'] as List;
+        if (results.isNotEmpty) {
+          final location = results.first['geometry']['location'];
+          final lat = location['lat'] as double;
+          final lng = location['lng'] as double;
+          final latLng = LatLng(lat, lng);
+
+          await _selectLocation(latLng, updateAddress: false);
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint("Google Geocoding API error: $e");
+    }
+
+    // Fallback to native geocoding
     try {
       final locations = await geo.locationFromAddress(address);
       if (locations.isNotEmpty) {
@@ -179,22 +208,56 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
     }
   }
 
+  Future<void> _getPlaceDetails(String placeId) async {
+    if (placeId.isEmpty) return;
+    final key = GoogleMapsHelper.apiKey;
+    final url =
+        "https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&key=$key";
+
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: GoogleMapsHelper.platformHeaders,
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        final result = json['result'];
+        if (result != null && result['geometry'] != null) {
+          final location = result['geometry']['location'];
+          final lat = location['lat'] as double;
+          final lng = location['lng'] as double;
+          final latLng = LatLng(lat, lng);
+
+          await _selectLocation(latLng, updateAddress: false);
+        }
+      }
+    } catch (e) {
+      debugPrint("Place details error: $e");
+    }
+  }
+
   // --- Google Places Autocomplete ---
   Future<List<Map<String, String>>> makeSuggestion(String input) async {
-    String key = dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '';
+    final key = GoogleMapsHelper.apiKey;
     final url =
         "https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$input&key=$key&sessiontoken=$tokenForSession";
 
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(
+        Uri.parse(url),
+        headers: GoogleMapsHelper.platformHeaders,
+      );
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         final predictions = json['predictions'] as List;
         return predictions.map<Map<String, String>>((e) {
+          final structured = e['structured_formatting'] ?? {};
           return {
-            "description": e['description'],
-            "place_id": e['place_id'],
+            "description": e['description'] ?? '',
+            "place_id": e['place_id'] ?? '',
+            "main_text": structured['main_text'] ?? e['description'] ?? '',
+            "secondary_text": structured['secondary_text'] ?? '',
           };
         }).toList();
       }
@@ -391,8 +454,7 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
             if (value.isNotEmpty) {
               final results = await makeSuggestion(value);
               setState(() {
-                _suggestions =
-                    results.map((e) => e['description'] ?? '').toList();
+                _suggestions = results;
               });
             } else {
               setState(() {
@@ -400,12 +462,8 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
               });
             }
           },
-          decoration: managerFieldDecoration(
-            suffixIcon: IconButton(
-              icon: const Icon(Icons.search, color: Colors.white70),
-              onPressed: _moveMapToAddress,
-            ),
-          ),
+          onSubmitted: (_) => _moveMapToAddress(),
+          decoration: managerFieldDecoration(),
         ),
         const SizedBox(height: 6),
         // Suggestions Dropdown
@@ -414,27 +472,148 @@ class _ManagercreatesiteState extends State<Managercreatesite> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(6),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-            constraints: const BoxConstraints(maxHeight: 200),
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: _suggestions.length,
-              itemBuilder: (context, index) {
-                final suggestion = _suggestions[index];
-                return ListTile(
-                  title: Text(
-                    suggestion,
-                    style: const TextStyle(color: Colors.black),
+            constraints: const BoxConstraints(maxHeight: 250),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    itemCount: _suggestions.length,
+                    itemBuilder: (context, index) {
+                      final suggestion = _suggestions[index];
+                      final mainText = suggestion['main_text'] ?? '';
+                      final secondaryText = suggestion['secondary_text'] ?? '';
+                      final fullDescription = suggestion['description'] ?? '';
+
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ListTile(
+                            leading: const Icon(
+                              Icons.location_on,
+                              color: Colors.grey,
+                              size: 20,
+                            ),
+                            minLeadingWidth: 10,
+                            dense: true,
+                            title: RichText(
+                              text: TextSpan(
+                                text: mainText,
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                                children: [
+                                  if (secondaryText.isNotEmpty)
+                                    TextSpan(
+                                      text: ' $secondaryText',
+                                      style: const TextStyle(
+                                        color: Colors.grey,
+                                        fontWeight: FontWeight.normal,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            onTap: () async {
+                              _addressController.text = fullDescription;
+                              setState(() {
+                                _suggestions.clear();
+                              });
+                              await _getPlaceDetails(suggestion['place_id'] ?? '');
+                            },
+                          ),
+                          if (index < _suggestions.length - 1)
+                            const Divider(
+                              height: 1,
+                              color: Colors.black12,
+                              indent: 44,
+                            ),
+                        ],
+                      );
+                    },
                   ),
-                  onTap: () {
-                    _addressController.text = suggestion;
-                    _moveMapToAddress();
-                    setState(() {
-                      _suggestions.clear();
-                    });
-                  },
-                );
-              },
+                ),
+                // Powered by Google logo
+                Padding(
+                  padding: const EdgeInsets.only(right: 12, bottom: 8, top: 4),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: RichText(
+                      text: TextSpan(
+                        text: 'powered by ',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 10,
+                          fontStyle: FontStyle.italic,
+                        ),
+                        children: const [
+                          TextSpan(
+                            text: 'G',
+                            style: TextStyle(
+                              color: Color(0xFF4285F4),
+                              fontWeight: FontWeight.bold,
+                              fontStyle: FontStyle.normal,
+                            ),
+                          ),
+                          TextSpan(
+                            text: 'o',
+                            style: TextStyle(
+                              color: Color(0xFFEA4335),
+                              fontWeight: FontWeight.bold,
+                              fontStyle: FontStyle.normal,
+                            ),
+                          ),
+                          TextSpan(
+                            text: 'o',
+                            style: TextStyle(
+                              color: Color(0xFFFBBC05),
+                              fontWeight: FontWeight.bold,
+                              fontStyle: FontStyle.normal,
+                            ),
+                          ),
+                          TextSpan(
+                            text: 'g',
+                            style: TextStyle(
+                              color: Color(0xFF4285F4),
+                              fontWeight: FontWeight.bold,
+                              fontStyle: FontStyle.normal,
+                            ),
+                          ),
+                          TextSpan(
+                            text: 'l',
+                            style: TextStyle(
+                              color: Color(0xFF34A853),
+                              fontWeight: FontWeight.bold,
+                              fontStyle: FontStyle.normal,
+                            ),
+                          ),
+                          TextSpan(
+                            text: 'e',
+                            style: TextStyle(
+                              color: Color(0xFFEA4335),
+                              fontWeight: FontWeight.bold,
+                              fontStyle: FontStyle.normal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
       ],
