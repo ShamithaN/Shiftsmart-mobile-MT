@@ -5,21 +5,33 @@ plugins {
     id "com.google.gms.google-services" 
 }
 
-def GOOGLE_MAPS_API_KEY = project.hasProperty("GOOGLE_MAPS_API_KEY") 
-    ? project.GOOGLE_MAPS_API_KEY 
-    : project.findProperty("GOOGLE_MAPS_API_KEY") 
-        ?: System.getenv("GOOGLE_MAPS_API_KEY")
+def GOOGLE_MAPS_API_KEY = project.hasProperty("GOOGLE_MAPS_ANDROID_KEY") 
+    ? project.GOOGLE_MAPS_ANDROID_KEY 
+    : project.findProperty("GOOGLE_MAPS_ANDROID_KEY") 
+        ?: System.getenv("GOOGLE_MAPS_ANDROID_KEY")
 
 if (!GOOGLE_MAPS_API_KEY) {
     def envFile = rootProject.file("../.env")
     if (envFile.exists()) {
+        def androidKey = null
+        def genericKey = null
         envFile.eachLine { line ->
             def trimmed = line.trim()
-            if (trimmed && !trimmed.startsWith("#") && trimmed.startsWith("GOOGLE_MAPS_API_KEY=")) {
-                GOOGLE_MAPS_API_KEY = trimmed.substring("GOOGLE_MAPS_API_KEY=".length()).trim()
+            if (trimmed && !trimmed.startsWith("#")) {
+                if (trimmed.startsWith("GOOGLE_MAPS_ANDROID_KEY=")) {
+                    androidKey = trimmed.substring("GOOGLE_MAPS_ANDROID_KEY=".length()).trim()
+                } else if (trimmed.startsWith("GOOGLE_MAPS_API_KEY=")) {
+                    genericKey = trimmed.substring("GOOGLE_MAPS_API_KEY=".length()).trim()
+                }
             }
         }
+        GOOGLE_MAPS_API_KEY = androidKey ?: genericKey
     }
+}
+
+// Hardcoded fallback – Android Maps Key
+if (!GOOGLE_MAPS_API_KEY) {
+    GOOGLE_MAPS_API_KEY = "AIzaSyAMMc6iybjpM1DvH5C216Kv56o-yqrwnCM"
 }
 
 def keystoreProperties = new Properties()
