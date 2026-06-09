@@ -4,6 +4,7 @@ import 'package:shiftsmart/screens/manager/manager_create_site.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class Managersiteview extends StatefulWidget {
   final Site site;
@@ -26,6 +27,10 @@ class _ManagersiteviewState extends State<Managersiteview> {
   static const _panelBg = Color(0xFF262D3F);
   static const _tileBg = Color(0xFF1B2335);
   static const _cyan = Color(0xFF77E4F7);
+
+  GoogleMapController? _mapController;
+  MapType _mapType = MapType.normal;
+  static const LatLng _defaultCenter = LatLng(-33.8688, 151.2093);
 
   Site get site => widget.site;
 
@@ -90,6 +95,8 @@ class _ManagersiteviewState extends State<Managersiteview> {
                   title: 'ADDRESS',
                   body: _valueOrFallback(site.address, 'No address provided'),
                 ),
+                const SizedBox(height: 24),
+                _buildMapSection(),
               ],
             ),
           ),
@@ -155,66 +162,11 @@ class _ManagersiteviewState extends State<Managersiteview> {
   }
 
   Widget _buildSiteInfo() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 820
-            ? 3
-            : constraints.maxWidth >= 560
-                ? 2
-                : 1;
-        final spacing = 16.0;
-        final itemWidth =
-            (constraints.maxWidth - (spacing * (columns - 1))) / columns;
-
-        return Wrap(
-          spacing: spacing,
-          runSpacing: 12,
-          children: [
-            _detailTile(
-              width: itemWidth,
-              label: 'PROJECT',
-              value: _projectName,
-              icon: Icons.assignment_rounded,
-            ),
-            _detailTile(
-              width: itemWidth,
-              label: 'SITE ID',
-              value: site.siteId.toString(),
-              icon: Icons.tag_rounded,
-            ),
-            _detailTile(
-              width: itemWidth,
-              label: 'GEOFENCE TYPE',
-              value: _valueOrFallback(site.geoFenceType, 'Not provided'),
-              icon: Icons.radar_rounded,
-            ),
-            _detailTile(
-              width: itemWidth,
-              label: 'RADIUS',
-              value: site.radius == null ? 'Not provided' : '${site.radius} m',
-              icon: Icons.adjust_rounded,
-            ),
-            _detailTile(
-              width: itemWidth,
-              label: 'LATITUDE',
-              value: _valueOrFallback(site.latitude, 'Not provided'),
-              icon: Icons.explore_rounded,
-            ),
-            _detailTile(
-              width: itemWidth,
-              label: 'LONGITUDE',
-              value: _valueOrFallback(site.longitude, 'Not provided'),
-              icon: Icons.explore_outlined,
-            ),
-            _detailTile(
-              width: itemWidth,
-              label: 'COORDINATES',
-              value: _coordinatesValue,
-              icon: Icons.location_on_rounded,
-            ),
-          ],
-        );
-      },
+    return _detailTile(
+      width: double.infinity,
+      label: 'PROJECT',
+      value: _projectName,
+      icon: Icons.assignment_rounded,
     );
   }
 
@@ -382,20 +334,6 @@ class _ManagersiteviewState extends State<Managersiteview> {
     );
   }
 
-  String get _coordinatesValue {
-    final savedCoordinates = _valueOrFallback(site.geoCoordinates, '');
-    if (savedCoordinates.isNotEmpty) {
-      return savedCoordinates;
-    }
-
-    final lat = _valueOrFallback(site.latitude, '');
-    final lng = _valueOrFallback(site.longitude, '');
-    if (lat.isNotEmpty && lng.isNotEmpty) {
-      return '$lat, $lng';
-    }
-
-    return 'Not provided';
-  }
 
   String _valueOrFallback(String? value, String fallback) {
     final trimmed = value?.trim() ?? '';
@@ -405,5 +343,122 @@ class _ManagersiteviewState extends State<Managersiteview> {
       return fallback;
     }
     return trimmed;
+  }
+
+  Widget _buildMapSection() {
+    final lat = double.tryParse(site.latitude ?? '') ?? _defaultCenter.latitude;
+    final lng = double.tryParse(site.longitude ?? '') ?? _defaultCenter.longitude;
+    final siteLocation = LatLng(lat, lng);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "LOCATION MAP",
+            style: TextStyle(
+              color: _cyan,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(height: 14),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              height: 300,
+              width: double.infinity,
+              child: Stack(
+                children: [
+                  GoogleMap(
+                    onMapCreated: (controller) {
+                      _mapController = controller;
+                      _mapController?.animateCamera(
+                        CameraUpdate.newCameraPosition(
+                          CameraPosition(target: siteLocation, zoom: 15),
+                        ),
+                      );
+                    },
+                    initialCameraPosition: CameraPosition(
+                      target: siteLocation,
+                      zoom: 15,
+                    ),
+                    markers: {
+                      Marker(
+                        markerId: const MarkerId('site_location'),
+                        position: siteLocation,
+                        infoWindow: InfoWindow(
+                          title: site.siteName,
+                          snippet: site.address,
+                        ),
+                      ),
+                    },
+                    mapType: _mapType,
+                    zoomControlsEnabled: true,
+                    myLocationEnabled: false,
+                    myLocationButtonEnabled: false,
+                    compassEnabled: true,
+                    mapToolbarEnabled: false,
+                  ),
+                  Positioned(
+                    left: 10,
+                    top: 10,
+                    child: Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                      elevation: 3,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _mapTypeButton('Map', MapType.normal),
+                          Container(
+                            width: 1,
+                            height: 34,
+                            color: Colors.black.withValues(alpha: 0.08),
+                          ),
+                          _mapTypeButton('Satellite', MapType.satellite),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mapTypeButton(String label, MapType mapType) {
+    final selected = _mapType == mapType;
+
+    return TextButton(
+      style: TextButton.styleFrom(
+        foregroundColor: selected ? Colors.black : const Color(0xFF555555),
+        backgroundColor: selected ? Colors.white : const Color(0xFFF5F5F5),
+        minimumSize: const Size(74, 38),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      ),
+      onPressed: () {
+        setState(() => _mapType = mapType);
+      },
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        ),
+      ),
+    );
   }
 }
