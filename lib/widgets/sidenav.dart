@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shiftsmart/models/site.dart';
 import 'package:shiftsmart/providers/user_provider.dart';
 import 'package:shiftsmart/screens/chats/chatlist.dart';
 import 'package:shiftsmart/screens/login.dart';
@@ -9,7 +8,6 @@ import 'package:shiftsmart/screens/manager/manager_employee_reports.dart';
 import 'package:shiftsmart/screens/manager/manager_location_tracking.dart';
 import 'package:shiftsmart/screens/manager/manager_profile.dart';
 import 'package:shiftsmart/screens/manager/manager_settings.dart';
-import 'package:shiftsmart/services/site_service.dart'; // Import SiteService
 import 'package:shiftsmart/services/auth_service.dart';
 import 'package:shiftsmart/utils/profile_helper.dart';
 import 'package:shiftsmart/widgets/bottomnavbar.dart';
@@ -33,8 +31,6 @@ class Sidenav extends StatefulWidget {
 
 class _SidenavState extends State<Sidenav> {
   final AuthService _authService = AuthService();
-  // 1. Initialize SiteService
-  final SiteService _siteService = SiteService();
 
   @override
   void initState() {
@@ -70,95 +66,7 @@ class _SidenavState extends State<Sidenav> {
     }
   }
 
-  // 2. Use Service instead of Hardcoded URL
-  Future<List<Site>> _fetchSites() async {
-    return await _siteService.fetchAllSites();
-  }
 
-  void _showSitePicker(BuildContext context) async {
-    // Show loading dialog if needed, or handle async in builder
-    try {
-      List<Site> sites = await _fetchSites();
-
-      if (!mounted) return;
-
-      showDialog(
-        context: context,
-        builder: (context) => Dialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          child: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF2A3243), Color(0xFF222834)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.all(Radius.circular(20)),
-            ),
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text("Select a Site",
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.5,
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: sites.length,
-                    itemBuilder: (context, index) {
-                      var site = sites[index];
-                      return GestureDetector(
-                        onTap: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  ManagerLocationTracking(siteId: site.siteId),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(site.siteName,
-                                  style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600)),
-                              const SizedBox(height: 4),
-                              // Handle optional project
-                              if (site.project != null)
-                                Text(site.project!.name,
-                                    style: const TextStyle(
-                                        color: Colors.white60, fontSize: 12)),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    } catch (e) {
-      debugPrint("Error loading sites: $e");
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -234,10 +142,16 @@ class _SidenavState extends State<Sidenav> {
                             builder: (context) => const Chatlist()));
                   }, isActive: widget.currentScreen == 'Chat'),
 
-                  //  Updated Call
+                  //  Navigate directly to map screen
                   buildNavItem(
                       'Location Tracking', 'assets/Location.png', iconSize, () {
-                    _showSitePicker(context);
+                    Navigator.of(context).pop(); // close drawer
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ManagerLocationTracking(),
+                      ),
+                    );
                   }, isActive: widget.currentScreen == 'LocationTracking'),
 
                   buildNavItem('Log out', 'assets/logout.png', iconSize, () {
