@@ -52,7 +52,9 @@ dependencies:
   cupertino_icons: ^1.0.8
   http: ^1.6.0
   numberpicker: ^2.1.2
-  google_maps_flutter: 
+  google_maps_flutter: ^2.9.0
+  google_maps_flutter_android: ^2.14.17
+  google_maps_flutter_platform_interface: ^2.10.0
  
   flutter_chat_ui: ^1.6.15
   flutter_chat_types: ^3.6.2 
