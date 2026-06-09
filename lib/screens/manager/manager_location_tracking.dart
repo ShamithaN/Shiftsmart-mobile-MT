@@ -10,9 +10,9 @@ import 'package:shiftsmart/models/site_employee.dart';
 import 'package:shiftsmart/services/site_service.dart';
 
 class ManagerLocationTracking extends StatefulWidget {
-  final int siteId;
+  final int? siteId;
 
-  const ManagerLocationTracking({super.key, required this.siteId});
+  const ManagerLocationTracking({super.key, this.siteId});
 
   @override
   State<ManagerLocationTracking> createState() =>
@@ -38,7 +38,7 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
   void initState() {
     super.initState();
     enableFullScreen();
-    _loadSiteData();
+    _loadAllSites();
 
     // Auto-refresh locations every 30 seconds
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
@@ -54,17 +54,38 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
     super.dispose();
   }
 
-  Future<void> _loadSiteData() async {
+  Future<void> _loadAllSites() async {
     try {
-      final site = await _fetchSiteDetails(widget.siteId);
-      final sitePosition = _siteLatLng(site);
+      final sites = await _siteService.fetchAllSites();
+
+      Site? selected;
+      if (widget.siteId != null) {
+        try {
+          selected = sites.firstWhere(
+            (s) => s.siteId == widget.siteId,
+          );
+        } catch (_) {
+          selected = null;
+        }
+      }
 
       setState(() {
-        currentSite = site;
-        _mapCenter = sitePosition ?? _defaultMapCenter;
+        availableSites = sites;
+        currentSite = selected;
+        if (selected != null) {
+          _mapCenter = _siteLatLng(selected) ?? _defaultMapCenter;
+        } else {
+          _mapCenter = _defaultMapCenter;
+        }
       });
 
-      await _refreshEmployeeLocations();
+      if (selected != null) {
+        await _refreshEmployeeLocations();
+      } else {
+        setState(() {
+          isLoading = false;
+        });
+      }
     } catch (e) {
       setState(() {
         isLoading = false;
@@ -78,13 +99,24 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
     }
   }
 
-  void _onSiteSelected(Site site) {
+  void _onSiteSelected(Site? site) {
     setState(() {
       currentSite = site;
-      final sitePosition = _siteLatLng(site);
-      _mapCenter = sitePosition ?? _defaultMapCenter;
+      if (site != null) {
+        final sitePosition = _siteLatLng(site);
+        _mapCenter = sitePosition ?? _defaultMapCenter;
+      } else {
+        employees = [];
+        filteredEmployees = [];
+        _markers = {};
+        _mapCenter = _defaultMapCenter;
+      }
     });
-    _refreshEmployeeLocations();
+    if (site != null) {
+      _refreshEmployeeLocations();
+    } else {
+      _fitMapToContent();
+    }
   }
 
   Future<void> _refreshEmployeeLocations() async {
@@ -92,7 +124,7 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
 
     try {
       final siteEmployees =
-          await _siteService.fetchEmployeesInSite(widget.siteId, currentSite!);
+          await _siteService.fetchEmployeesInSite(currentSite!.siteId, currentSite!);
 
       if (mounted) {
         setState(() {
@@ -105,6 +137,11 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
       }
     } catch (e) {
       debugPrint("Error refreshing locations: $e");
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -217,15 +254,6 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
     return LatLng(lat, lng);
   }
 
-  Future<Site> _fetchSiteDetails(int siteId) async {
-    final site = await _siteService.fetchSiteById(siteId);
-    if (site != null) {
-      return site;
-    } else {
-      throw Exception('Site not found');
-    }
-  }
-
   void onQueryChanged(String query) {
     setState(() {
       if (query.isEmpty) {
@@ -247,7 +275,7 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
           backgroundColor: Colors.transparent,
           drawer: const Sidenav(currentScreen: 'LocationTracking'),
           extendBodyBehindAppBar: true,
-          appBar: const Uppernavbar(showBackButton: false),
+          appBar: const Uppernavbar(showBackButton: true),
           body: SafeArea(
             child: Stack(
               children: [
@@ -258,29 +286,15 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
                 // Site Selector at top center
                 Positioned(
                   top: 24,
-                  left: 50,
-                  right: 50,
+                  left: 16,
+                  right: 16,
                   child: _buildSiteSelector(),
                 ),
                 // Map type toggle - below site selector on left
                 Positioned(
                   left: 24,
-                  top: 150,
+                  top: 130,
                   child: _buildMapTypeToggle(),
-                ),
-                // Refresh button - top right of selector
-                Positioned(
-                  right: 40,
-                  top: 32,
-                  child: Material(
-                    color: Colors.transparent,
-                    child: IconButton(
-                      icon: const Icon(Icons.refresh,
-                          color: Color(0xFF6B7280), size: 20),
-                      onPressed: () => _refreshEmployeeLocations(),
-                      tooltip: 'Refresh',
-                    ),
-                  ),
                 ),
                 // Recenter button - bottom right
                 Positioned(
@@ -352,16 +366,147 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
     );
   }
 
+  void _showSiteSelectionDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        String searchQuery = "";
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            final filteredSites = availableSites.where((site) {
+              return site.siteName.toLowerCase().contains(searchQuery.toLowerCase());
+            }).toList();
+
+            return Dialog(
+              backgroundColor: const Color(0xFF1F2937),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                width: MediaQuery.of(context).size.width * 0.9,
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.6,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Select Site',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Search Field
+                    TextField(
+                      onChanged: (value) {
+                        setStateDialog(() {
+                          searchQuery = value;
+                        });
+                      },
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Search site...',
+                        hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
+                        prefixIcon: const Icon(Icons.search, color: Color(0xFF9CA3AF)),
+                        filled: true,
+                        fillColor: const Color(0xFF111827),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 1.5),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 1.5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Scrollable List
+                    Expanded(
+                      child: ListView(
+                        children: [
+                          // Choose a site option
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                            title: const Text(
+                              'Choose a site',
+                              style: TextStyle(color: Color(0xFF9CA3AF)),
+                            ),
+                            leading: currentSite == null
+                                ? const Icon(Icons.check, color: Color(0xFF3B82F6))
+                                : const SizedBox(width: 24),
+                            onTap: () {
+                              Navigator.pop(context);
+                              _onSiteSelected(null);
+                            },
+                          ),
+                          const Divider(color: Colors.white10),
+                          if (filteredSites.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 20),
+                              child: Center(
+                                child: Text(
+                                  'No sites found',
+                                  style: TextStyle(color: Color(0xFF9CA3AF)),
+                                ),
+                              ),
+                            )
+                          else
+                            ...filteredSites.map((site) {
+                              final isSelected = currentSite?.siteId == site.siteId;
+                              return ListTile(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                                title: Text(
+                                  site.siteName,
+                                  style: TextStyle(
+                                    color: isSelected ? const Color(0xFF3B82F6) : Colors.white,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                                leading: isSelected
+                                    ? const Icon(Icons.check, color: Color(0xFF3B82F6))
+                                    : const SizedBox(width: 24),
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  _onSiteSelected(site);
+                                },
+                              );
+                            }),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildSiteSelector() {
+    final activeCount = employees.length;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF1F2937),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 12,
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 14,
             offset: const Offset(0, 4),
           ),
         ],
@@ -370,68 +515,93 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          // --- Dropdown row ---
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // "Site" label
               const Text(
                 'Site',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const Spacer(),
-              PopupMenuButton<Site>(
-                initialValue: currentSite,
-                onSelected: _onSiteSelected,
-                itemBuilder: (context) => [
-                  const PopupMenuItem<Site>(
-                    enabled: false,
-                    child: Text('Choose a site'),
-                  ),
-                  const PopupMenuDivider(),
-                  ...availableSites.map((site) => PopupMenuItem(
-                        value: site,
-                        child: Text(site.siteName),
-                      )),
-                ],
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF374151),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        currentSite?.siteName ?? 'Choose a site',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+              const SizedBox(width: 12),
+              // Full-width dropdown with blue border
+              Expanded(
+                child: InkWell(
+                  onTap: _showSiteSelectionDialog,
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    height: 44,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF111827),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: const Color(0xFF3B82F6),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            currentSite?.siteName ?? 'Choose a site',
+                            style: TextStyle(
+                              color: currentSite == null
+                                  ? const Color(0xFF9CA3AF)
+                                  : Colors.white,
+                              fontSize: 14,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(
-                        Icons.keyboard_arrow_down,
-                        color: Colors.white70,
-                        size: 18,
-                      ),
-                    ],
+                        const Icon(
+                          Icons.keyboard_arrow_down,
+                          color: Color(0xFF9CA3AF),
+                          size: 20,
+                        ),
+                      ],
+                    ),
                   ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Refresh icon
+              GestureDetector(
+                onTap: _refreshEmployeeLocations,
+                child: const Icon(
+                  Icons.refresh,
+                  color: Color(0xFF9CA3AF),
+                  size: 22,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Select a site to start tracking',
-            style: TextStyle(
-              color: Color(0xFF9CA3AF),
-              fontSize: 12,
-            ),
+          // --- Bottom row: hint + active count ---
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Select a site to start tracking',
+                style: TextStyle(
+                  color: Color(0xFF9CA3AF),
+                  fontSize: 12,
+                ),
+              ),
+              Text(
+                '$activeCount active',
+                style: const TextStyle(
+                  color: Color(0xFF3B82F6),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -471,52 +641,287 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
     );
   }
 
-  Widget _buildTrackingPanel() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1F2937),
-        border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Tracking',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+  void _showActiveEmployeesBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setSheetState) {
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.7,
+              ),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF262A34), Color(0xFF1C2230)],
+                ),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border(
+                  top: BorderSide(color: Colors.white12, width: 1),
                 ),
               ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Handle
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 12, bottom: 8),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    child: Row(
+                      children: [
+                        const Text(
+                          'Tracking',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            currentSite?.siteName ?? '',
+                            style: const TextStyle(
+                              color: Color(0xFF9CA3AF),
+                              fontSize: 14,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(color: Colors.white12, height: 1),
+                  
+                  // Content List
+                  Flexible(
+                    child: employees.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+                            child: Center(
+                              child: Text(
+                                'No active employees',
+                                style: TextStyle(color: Color(0xFF9CA3AF)),
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            padding: const EdgeInsets.all(16),
+                            itemCount: employees.length,
+                            itemBuilder: (context, index) {
+                              final employee = employees[index];
+                              
+                              final initials = employee.name.isNotEmpty
+                                  ? employee.name.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase()
+                                  : 'EE';
+                              
+                              final bool isInside = employee.isInside;
+                              final distanceText = employee.distance == null
+                                  ? '~0.00 km'
+                                  : '~${employee.distance!.toStringAsFixed(2)} km';
+                              
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1F2937),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.05),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    // Initials Avatar
+                                    Container(
+                                      width: 48,
+                                      height: 48,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFF3B82F6),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        initials,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    
+                                    // Info
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            employee.name,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: isInside 
+                                                  ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                                                  : const Color(0xFFEF4444).withValues(alpha: 0.1),
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(
+                                                color: isInside 
+                                                    ? const Color(0xFF10B981).withValues(alpha: 0.3)
+                                                    : const Color(0xFFEF4444).withValues(alpha: 0.3),
+                                                width: 1,
+                                              ),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Container(
+                                                  width: 6,
+                                                  height: 6,
+                                                  decoration: BoxDecoration(
+                                                    color: isInside 
+                                                        ? const Color(0xFF10B981)
+                                                        : const Color(0xFFEF4444),
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  isInside ? 'Inside Fence' : 'Outside Fence',
+                                                  style: TextStyle(
+                                                    color: isInside 
+                                                        ? const Color(0xFF10B981)
+                                                        : const Color(0xFFEF4444),
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    
+                                    // Distance
+                                    Text(
+                                      distanceText,
+                                      style: const TextStyle(
+                                        color: Color(0xFF9CA3AF),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildTrackingPanel() {
+    final hasActiveEmployees = currentSite != null && employees.isNotEmpty;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: hasActiveEmployees ? _showActiveEmployeesBottomSheet : null,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1F2937),
+            border: Border(
+              top: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Tracking',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        currentSite == null ? 'No site selected' : '${employees.length} active',
+                        style: const TextStyle(
+                          color: Color(0xFF9CA3AF),
+                          fontSize: 12,
+                        ),
+                      ),
+                      if (hasActiveEmployees) ...[
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.keyboard_arrow_up,
+                          color: Color(0xFF9CA3AF),
+                          size: 16,
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
               Text(
-                currentSite == null ? 'No site selected' : '${employees.length} active',
+                currentSite == null
+                    ? 'No clocked-in employees for this site.'
+                    : employees.isEmpty
+                        ? 'No employees currently active'
+                        : '${employees.length} employee${employees.length != 1 ? 's' : ''} checked in',
                 style: const TextStyle(
                   color: Color(0xFF9CA3AF),
-                  fontSize: 12,
+                  fontSize: 13,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            currentSite == null
-                ? 'No clocked-in employees for this site.'
-                : employees.isEmpty
-                    ? 'No employees currently active'
-                    : '${employees.length} employee${employees.length != 1 ? 's' : ''} checked in',
-            style: const TextStyle(
-              color: Color(0xFF9CA3AF),
-              fontSize: 13,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
