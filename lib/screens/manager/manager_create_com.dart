@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shiftsmart/models/company.dart';
 import 'package:shiftsmart/services/company_service.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
+import 'package:shiftsmart/utils/google_maps_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/manager_screen_style.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
@@ -30,7 +31,7 @@ class _ManagercreatecomState extends State<Managercreatecom> {
 
   // Address Search Variables
   String tokenForSession = const Uuid().v4();
-  List<String> _suggestions = [];
+  List<Map<String, String>> _suggestions = [];
   bool _isSaving = false;
 
   @override
@@ -54,22 +55,27 @@ class _ManagercreatecomState extends State<Managercreatecom> {
     super.dispose();
   }
 
-  // --- 1. Address Suggestion Logic ---
   Future<List<Map<String, String>>> makeSuggestion(String input) async {
-    String key = dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '';
+    final key = GoogleMapsHelper.apiKey;
     final url =
         "https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$input&key=$key&sessiontoken=$tokenForSession";
 
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(
+        Uri.parse(url),
+        headers: GoogleMapsHelper.platformHeaders,
+      );
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         final predictions = json['predictions'] as List;
         return predictions.map<Map<String, String>>((e) {
+          final structured = e['structured_formatting'] ?? {};
           return {
-            "description": e['description'],
-            "place_id": e['place_id'],
+            "description": e['description'] ?? '',
+            "place_id": e['place_id'] ?? '',
+            "main_text": structured['main_text'] ?? e['description'] ?? '',
+            "secondary_text": structured['secondary_text'] ?? '',
           };
         }).toList();
       }
@@ -257,8 +263,7 @@ class _ManagercreatecomState extends State<Managercreatecom> {
             if (value.isNotEmpty) {
               final results = await makeSuggestion(value);
               setState(() {
-                _suggestions =
-                    results.map((e) => e['description'] ?? '').toList();
+                _suggestions = results;
               });
             } else {
               setState(() {
@@ -272,7 +277,7 @@ class _ManagercreatecomState extends State<Managercreatecom> {
                     icon: const Icon(Icons.clear, color: Colors.white70),
                     onPressed: () => setState(() => _suggestions = []),
                   )
-                : const Icon(Icons.search, color: Colors.white54),
+                : null,
           ),
         ),
 
@@ -283,27 +288,147 @@ class _ManagercreatecomState extends State<Managercreatecom> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(6),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-            constraints: const BoxConstraints(maxHeight: 200),
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: _suggestions.length,
-              itemBuilder: (context, index) {
-                final suggestion = _suggestions[index];
-                return ListTile(
-                  dense: true,
-                  title: Text(
-                    suggestion,
-                    style: const TextStyle(color: Colors.black87),
+            constraints: const BoxConstraints(maxHeight: 250),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    itemCount: _suggestions.length,
+                    itemBuilder: (context, index) {
+                      final suggestion = _suggestions[index];
+                      final mainText = suggestion['main_text'] ?? '';
+                      final secondaryText = suggestion['secondary_text'] ?? '';
+                      final fullDescription = suggestion['description'] ?? '';
+
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ListTile(
+                            leading: const Icon(
+                              Icons.location_on,
+                              color: Colors.grey,
+                              size: 20,
+                            ),
+                            minLeadingWidth: 10,
+                            dense: true,
+                            title: RichText(
+                              text: TextSpan(
+                                text: mainText,
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                                children: [
+                                  if (secondaryText.isNotEmpty)
+                                    TextSpan(
+                                      text: ' $secondaryText',
+                                      style: const TextStyle(
+                                        color: Colors.grey,
+                                        fontWeight: FontWeight.normal,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            onTap: () {
+                              setState(() {
+                                _addController.text = fullDescription;
+                                _suggestions.clear();
+                              });
+                            },
+                          ),
+                          if (index < _suggestions.length - 1)
+                            const Divider(
+                              height: 1,
+                              color: Colors.black12,
+                              indent: 44,
+                            ),
+                        ],
+                      );
+                    },
                   ),
-                  onTap: () {
-                    setState(() {
-                      _addController.text = suggestion;
-                      _suggestions.clear(); // Hide list after selection
-                    });
-                  },
-                );
-              },
+                ),
+                // Powered by Google logo
+                Padding(
+                  padding: const EdgeInsets.only(right: 12, bottom: 8, top: 4),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: RichText(
+                      text: TextSpan(
+                        text: 'powered by ',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 10,
+                          fontStyle: FontStyle.italic,
+                        ),
+                        children: const [
+                          TextSpan(
+                            text: 'G',
+                            style: TextStyle(
+                              color: Color(0xFF4285F4),
+                              fontWeight: FontWeight.bold,
+                              fontStyle: FontStyle.normal,
+                            ),
+                          ),
+                          TextSpan(
+                            text: 'o',
+                            style: TextStyle(
+                              color: Color(0xFFEA4335),
+                              fontWeight: FontWeight.bold,
+                              fontStyle: FontStyle.normal,
+                            ),
+                          ),
+                          TextSpan(
+                            text: 'o',
+                            style: TextStyle(
+                              color: Color(0xFFFBBC05),
+                              fontWeight: FontWeight.bold,
+                              fontStyle: FontStyle.normal,
+                            ),
+                          ),
+                          TextSpan(
+                            text: 'g',
+                            style: TextStyle(
+                              color: Color(0xFF4285F4),
+                              fontWeight: FontWeight.bold,
+                              fontStyle: FontStyle.normal,
+                            ),
+                          ),
+                          TextSpan(
+                            text: 'l',
+                            style: TextStyle(
+                              color: Color(0xFF34A853),
+                              fontWeight: FontWeight.bold,
+                              fontStyle: FontStyle.normal,
+                            ),
+                          ),
+                          TextSpan(
+                            text: 'e',
+                            style: TextStyle(
+                              color: Color(0xFFEA4335),
+                              fontWeight: FontWeight.bold,
+                              fontStyle: FontStyle.normal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
       ],
