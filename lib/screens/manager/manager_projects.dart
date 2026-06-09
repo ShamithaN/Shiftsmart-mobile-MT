@@ -454,8 +454,6 @@ class _Managerprojectstate extends State<Managerprojects> {
                   child: _buildListItem(
                     title: company.name,
                     subtitle: company.address,
-                    bottomInfo:
-                        "☎ ${company.phoneNumber} - ${company.ContactPerson}",
                     onEdit: () => _openCompanyDetails(company),
                   ),
                 );
@@ -712,12 +710,6 @@ class _Managerprojectstate extends State<Managerprojects> {
               const SizedBox(width: 8),
               const Icon(Icons.chevron_right, color: Colors.white54, size: 20)
             ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            description.trim().isEmpty ? 'No Description' : description,
-            softWrap: true,
-            style: const TextStyle(color: Colors.white70, fontSize: 13),
           ),
           const SizedBox(height: 8),
           Row(
