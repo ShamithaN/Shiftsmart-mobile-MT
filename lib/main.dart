@@ -2,6 +2,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:google_maps_flutter_android/google_maps_flutter_android.dart';
+import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -102,6 +104,18 @@ Future<void> setupLocalNotifications() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Google Maps renderer (fixes blank/beige map tiles)
+  // Wrapped in try-catch because hot restart throws "Renderer already initialized"
+  try {
+    final GoogleMapsFlutterPlatform mapsImplementation =
+        GoogleMapsFlutterPlatform.instance;
+    if (mapsImplementation is GoogleMapsFlutterAndroid) {
+      await mapsImplementation.initializeWithRenderer(AndroidMapRenderer.latest);
+    }
+  } catch (_) {
+    // Renderer already initialized (e.g. on hot restart) – safe to ignore
+  }
 
   // Initialize Firebase & Environment
   await Firebase.initializeApp();
