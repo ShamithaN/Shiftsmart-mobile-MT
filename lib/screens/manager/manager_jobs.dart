@@ -89,11 +89,6 @@ class _ManagerjobsState extends State<Managerjobs>
     }
   }
 
-  String _jobDescription(Job job) {
-    final description = job.description.trim();
-    return description.isEmpty ? 'No Description' : description;
-  }
-
   Future<void> _openJobDetails(Job job) async {
     final result = await _showDetailsPopup(
       child: ManagerJobView(
@@ -822,12 +817,6 @@ class _ManagerjobsState extends State<Managerjobs>
               const Icon(Icons.arrow_forward_ios,
                   color: Colors.white70, size: 18),
             ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _jobDescription(job),
-            softWrap: true,
-            style: const TextStyle(color: Colors.white70, fontSize: 13),
           ),
           const SizedBox(height: 8),
           Wrap(
