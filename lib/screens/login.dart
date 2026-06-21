@@ -6,6 +6,7 @@ import 'package:local_auth/local_auth.dart'; // Biometric authentication
 import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // Encrypted credential storage
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shiftsmart/providers/tenant_provider.dart';
 import 'package:shiftsmart/providers/user_provider.dart';
 import 'package:shiftsmart/screens/employee/emp_onboard.dart';
 import 'package:shiftsmart/screens/forgot_password.dart';
@@ -499,8 +500,10 @@ class _LoginState extends State<Login> {
       }
 
       // Check login success or onboarding requirement
-      final String backendMsg = (loginResponse['message'] ?? loginResponse['Message'] ?? '').toString();
-      
+      final String backendMsg =
+          (loginResponse['message'] ?? loginResponse['Message'] ?? '')
+              .toString();
+
       // Extract tenants list for deeper inspection
       final dynamic tenants = loginResponse['tenants'];
       dynamic targetTenant;
@@ -508,9 +511,9 @@ class _LoginState extends State<Login> {
         // Prefer the tenant that explicitly requires onboarding
         try {
           targetTenant = tenants.firstWhere(
-            (t) => (t['onboardingRequired'] == true || 
-                   t['OnboardingRequired'] == true || 
-                   t['onboardingRequired'].toString().toLowerCase() == 'true'),
+            (t) => (t['onboardingRequired'] == true ||
+                t['OnboardingRequired'] == true ||
+                t['onboardingRequired'].toString().toLowerCase() == 'true'),
             orElse: () => tenants[0],
           );
         } catch (_) {
@@ -518,11 +521,12 @@ class _LoginState extends State<Login> {
         }
       }
 
-      final bool isSuccess = backendMsg.toLowerCase().contains('login successful') ||
-          loginResponse['status'] == 1 ||
-          loginResponse['isSuccess'] == true ||
-          loginResponse['Success'] == true ||
-          loginResponse['statusCode'] == 200;
+      final bool isSuccess =
+          backendMsg.toLowerCase().contains('login successful') ||
+              loginResponse['status'] == 1 ||
+              loginResponse['isSuccess'] == true ||
+              loginResponse['Success'] == true ||
+              loginResponse['statusCode'] == 200;
 
       // Null-safe onboarding flag evaluation - checks top level and target tenant
       final dynamic onboardingFlag = loginResponse['onboardingRequired'] ??
@@ -530,7 +534,7 @@ class _LoginState extends State<Login> {
           loginResponse['onboarding_required'] ??
           targetTenant?['onboardingRequired'] ??
           targetTenant?['OnboardingRequired'];
-          
+
       final bool isOnboarding = onboardingFlag != null &&
           (onboardingFlag == true ||
               onboardingFlag.toString().toLowerCase() == 'true' ||
@@ -554,6 +558,9 @@ class _LoginState extends State<Login> {
       // Store user email and role in shared preferences
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('userEmail', email);
+      if (targetTenant is Map) {
+        await _saveTenantContext(prefs, targetTenant);
+      }
 
       final String derivedRole = (loginResponse['userRole'] ??
               loginResponse['UserRole'] ??
@@ -575,27 +582,26 @@ class _LoginState extends State<Login> {
             targetTenant?['userId'] ??
             targetTenant?['UserId'];
 
-        final String onboardingMode =
-            (loginResponse["onboardingMode"] ?? 
-             loginResponse["OnboardingMode"] ?? 
-             targetTenant?["onboardingMode"] ?? 
-             targetTenant?["OnboardingMode"] ?? 
-             "none")
-                .toString()
-                .toLowerCase();
+        final String onboardingMode = (loginResponse["onboardingMode"] ??
+                loginResponse["OnboardingMode"] ??
+                targetTenant?["onboardingMode"] ??
+                targetTenant?["OnboardingMode"] ??
+                "none")
+            .toString()
+            .toLowerCase();
 
         if (onboardingMode == "pending") {
-          _showStylishDialog(
-            "Review in Progress",
-            "Your onboarding details have been submitted and are currently being reviewed by our team. We will notify you once your account is active."
-          );
+          _showStylishDialog("Review in Progress",
+              "Your onboarding details have been submitted and are currently being reviewed by our team. We will notify you once your account is active.");
           return;
         }
 
         Map<String, dynamic>? existingProfile;
 
-        if ((onboardingMode == "resubmission" || onboardingMode == "pending") && idToPass != null) {
-          existingProfile = await _authService.fetchRejectedProfileData(idToPass);
+        if ((onboardingMode == "resubmission" || onboardingMode == "pending") &&
+            idToPass != null) {
+          existingProfile =
+              await _authService.fetchRejectedProfileData(idToPass);
         }
 
         if (!mounted) return;
@@ -618,7 +624,8 @@ class _LoginState extends State<Login> {
         password,
       );
 
-      final String? appToken = exchangeResponse?['appToken'] ?? exchangeResponse?['AppToken'];
+      final String? appToken =
+          exchangeResponse?['appToken'] ?? exchangeResponse?['AppToken'];
 
       if (exchangeResponse == null || appToken == null) {
         print(" Exchange Response Failed: $exchangeResponse");
@@ -629,11 +636,12 @@ class _LoginState extends State<Login> {
         return;
       }
 
-      print(" Exchange Success. userId: ${exchangeResponse["userId"]}, role: ${exchangeResponse["userRole"]}");
+      print(
+          " Exchange Success. userId: ${exchangeResponse["userId"]}, role: ${exchangeResponse["userRole"]}");
 
       // Store user ID and role  fall back to loginResponse or JWT if exchange omits them
       final Map<String, dynamic>? jwtPayload = _apiClient.decodeJwt(appToken);
-      
+
       int? userId = exchangeResponse["userId"] ??
           exchangeResponse["UserId"] ??
           exchangeResponse["employeeId"] ??
@@ -642,8 +650,12 @@ class _LoginState extends State<Login> {
           loginResponse["UserId"] ??
           loginResponse["employeeId"] ??
           loginResponse["EmployeeId"] ??
-          (jwtPayload?['sub'] != null ? int.tryParse(jwtPayload!['sub'].toString()) : null) ??
-          (jwtPayload?['userId'] != null ? int.tryParse(jwtPayload!['userId'].toString()) : null);
+          (jwtPayload?['sub'] != null
+              ? int.tryParse(jwtPayload!['sub'].toString())
+              : null) ??
+          (jwtPayload?['userId'] != null
+              ? int.tryParse(jwtPayload!['userId'].toString())
+              : null);
 
       String role = (exchangeResponse["userRole"] ??
               exchangeResponse["UserRole"] ??
@@ -656,11 +668,13 @@ class _LoginState extends State<Login> {
           .toString();
 
       if (userId == null) {
-        print(" CRITICAL: userId NULL after all fallbacks (Exchange, Login, JWT).");
-        _showStylishDialog("Profile Error", "User data is inconsistent. Please contact support.");
+        print(
+            " CRITICAL: userId NULL after all fallbacks (Exchange, Login, JWT).");
+        _showStylishDialog("Profile Error",
+            "User data is inconsistent. Please contact support.");
         return;
       }
-      
+
       await prefs.setInt('userId', userId);
       await prefs.setString('userRole', role);
 
@@ -670,12 +684,13 @@ class _LoginState extends State<Login> {
 
       if (fullProfile != null) {
         // Store employee details
-        final int? empId = fullProfile['employeeId'] ?? fullProfile['EmployeeId'];
+        final int? empId =
+            fullProfile['employeeId'] ?? fullProfile['EmployeeId'];
         if (empId == null) {
-           _showStylishDialog("Profile Error", "Employee ID missing.");
-           return;
+          _showStylishDialog("Profile Error", "Employee ID missing.");
+          return;
         }
-        
+
         await prefs.setInt('employeeId', empId);
         await prefs.setString(
           'userName',
@@ -686,27 +701,41 @@ class _LoginState extends State<Login> {
         final userProfile = {
           "userId": userId,
           "employeeId": empId,
-          "firstName": fullProfile["firstName"] ?? fullProfile["FirstName"] ?? "",
-          "middleName": fullProfile["middleName"] ?? fullProfile["MiddleName"] ?? "",
+          "firstName":
+              fullProfile["firstName"] ?? fullProfile["FirstName"] ?? "",
+          "middleName":
+              fullProfile["middleName"] ?? fullProfile["MiddleName"] ?? "",
           "lastName": fullProfile["lastName"] ?? fullProfile["LastName"] ?? "",
           "gender": fullProfile["gender"] ?? fullProfile["Gender"] ?? "",
           "email": fullProfile["email"] ?? fullProfile["Email"] ?? "",
-          "mobileNumber": fullProfile["mobileNumber"] ?? fullProfile["MobileNumber"] ?? "",
-          "dateOfBirth": fullProfile["dateOfBirth"] ?? fullProfile["DateOfBirth"] ?? "",
+          "mobileNumber":
+              fullProfile["mobileNumber"] ?? fullProfile["MobileNumber"] ?? "",
+          "dateOfBirth":
+              fullProfile["dateOfBirth"] ?? fullProfile["DateOfBirth"] ?? "",
           "street": fullProfile["street"] ?? fullProfile["Street"] ?? "",
           "city": fullProfile["city"] ?? fullProfile["City"] ?? "",
           "state": fullProfile["state"] ?? fullProfile["State"] ?? "",
-          "postalCode": fullProfile["postalCode"] ?? fullProfile["PostalCode"] ?? "",
+          "postalCode":
+              fullProfile["postalCode"] ?? fullProfile["PostalCode"] ?? "",
           "country": fullProfile["country"] ?? fullProfile["Country"] ?? "",
-          "employmentStatus": fullProfile["employmentStatus"] ?? fullProfile["EmploymentStatus"] ?? "",
+          "employmentStatus": fullProfile["employmentStatus"] ??
+              fullProfile["EmploymentStatus"] ??
+              "",
           "jobRole": fullProfile["jobRole"] ?? fullProfile["JobRole"] ?? "",
           "userRole": role,
-          "profilePicture": fullProfile["profilePicture"] ?? fullProfile["ProfilePicture"] ?? "",
-          "bankAccountName": fullProfile["bankAccountName"] ?? fullProfile["BankAccountName"] ?? "",
-          "bankAccountNumber": fullProfile["bankAccountNumber"] ?? fullProfile["BankAccountNumber"] ?? "",
+          "profilePicture": fullProfile["profilePicture"] ??
+              fullProfile["ProfilePicture"] ??
+              "",
+          "bankAccountName": fullProfile["bankAccountName"] ??
+              fullProfile["BankAccountName"] ??
+              "",
+          "bankAccountNumber": fullProfile["bankAccountNumber"] ??
+              fullProfile["BankAccountNumber"] ??
+              "",
           "bankBSB": fullProfile["bankBSB"] ?? fullProfile["BankBSB"] ?? "",
           "bankName": fullProfile["bankName"] ?? fullProfile["BankName"] ?? "",
-          "nextOfKins": (fullProfile["nextOfKins"] ?? fullProfile["NextOfKins"] ?? []),
+          "nextOfKins":
+              (fullProfile["nextOfKins"] ?? fullProfile["NextOfKins"] ?? []),
         };
 
         // Update global user provider
@@ -715,6 +744,18 @@ class _LoginState extends State<Login> {
           up.setUserProfile(userProfile);
           if (loginResponse['tenants'] != null) {
             up.setTenants(loginResponse['tenants']);
+          }
+          final tenantProvider = context.read<TenantProvider>();
+          final tenantList = _tenantListFrom(loginResponse['tenants']);
+          if (tenantList.isNotEmpty) {
+            tenantProvider.setTenants(tenantList);
+          }
+          if (targetTenant is Map) {
+            final tenantMap = Map<String, dynamic>.from(targetTenant);
+            final tenantName = _tenantNameFrom(tenantMap);
+            if (tenantName.isNotEmpty) {
+              tenantProvider.initFromCurrentTenant(tenantName, tenantMap);
+            }
           }
         }
 
@@ -737,8 +778,9 @@ class _LoginState extends State<Login> {
       if (!mounted) return;
       print(" FINAL ROUTING CHECK: Evaluating role '$role'"); // DEBUG
       final String normalizedRole = role.trim().toLowerCase();
-      
-      if (normalizedRole.contains("manager") || normalizedRole.contains("admin")) {
+
+      if (normalizedRole.contains("manager") ||
+          normalizedRole.contains("admin")) {
         print(" Routing to Manager/Admin Dashboard"); // DEBUG
         Navigator.pushReplacement(
           context,
@@ -747,7 +789,8 @@ class _LoginState extends State<Login> {
           ),
         );
       } else {
-        print(" Routing to Employee Dashboard (Fallback). Normalized string was: $normalizedRole"); // DEBUG
+        print(
+            " Routing to Employee Dashboard (Fallback). Normalized string was: $normalizedRole"); // DEBUG
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const EmpBottomnavbar()),
@@ -772,6 +815,55 @@ class _LoginState extends State<Login> {
         });
       }
     }
+  }
+
+  Future<void> _saveTenantContext(
+    SharedPreferences prefs,
+    Map<dynamic, dynamic> tenant,
+  ) async {
+    final tenantId = _tenantIdFrom(tenant);
+    if (tenantId != null && tenantId != 0) {
+      await prefs.setInt('selectedTenantId', tenantId);
+      await prefs.setInt('currentTenantId', tenantId);
+      await prefs.setInt('tenantId', tenantId);
+    }
+
+    final tenantName = _tenantNameFrom(tenant);
+    if (tenantName.isNotEmpty) {
+      await prefs.setString('selectedTenantName', tenantName);
+    }
+  }
+
+  int? _tenantIdFrom(Map<dynamic, dynamic> tenant) {
+    final raw = tenant['tenantId'] ??
+        tenant['TenantId'] ??
+        tenant['id'] ??
+        tenant['ID'] ??
+        tenant['tenantID'] ??
+        tenant['TenantID'] ??
+        tenant['tenant_id'];
+    if (raw == null) return null;
+    if (raw is int) return raw;
+    return int.tryParse(raw.toString());
+  }
+
+  List<Map<String, dynamic>> _tenantListFrom(dynamic rawTenants) {
+    if (rawTenants is! List) return [];
+
+    return rawTenants
+        .whereType<Map>()
+        .map((tenant) => Map<String, dynamic>.from(tenant))
+        .toList();
+  }
+
+  String _tenantNameFrom(Map<dynamic, dynamic> tenant) {
+    return (tenant['name'] ??
+            tenant['Name'] ??
+            tenant['tenantName'] ??
+            tenant['TenantName'] ??
+            tenant['organizationName'] ??
+            '')
+        .toString();
   }
 
   @override
