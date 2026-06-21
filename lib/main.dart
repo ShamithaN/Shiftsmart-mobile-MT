@@ -16,7 +16,6 @@ import 'package:shiftsmart/screens/login.dart';
 import 'package:shiftsmart/providers/user_provider.dart';
 import 'package:shiftsmart/providers/tenant_provider.dart';
 import 'package:shiftsmart/services/notification_service.dart';
-import 'package:shiftsmart/services/auth_service.dart';
 
 // Global navigator key for showing dialogs without context (e.g. from services)
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -25,8 +24,8 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  print("Handling a background message: ${message.messageId}");
-  print("Background Data: ${message.data}");
+  debugPrint("Handling a background message: ${message.messageId}");
+  debugPrint("Background Data: ${message.data}");
 
   // Initialize Local Notifications (Required for background isolate)
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -39,6 +38,13 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     importance: Importance.max,
   );
 
+  const initializationSettings = InitializationSettings(
+    android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    iOS: DarwinInitializationSettings(),
+    macOS: DarwinInitializationSettings(),
+  );
+  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+
   await flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>()
@@ -48,19 +54,26 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   String? title;
   String? body;
 
-  if (message.data.containsKey('shiftDetails')) {
+  if (message.notification != null) {
+    title = message.notification?.title;
+    body = message.notification?.body;
+  } else if (message.data.containsKey('shiftDetails')) {
     title = "New Shift Assigned";
     body = message.data['shiftDetails'];
   } else if (message.data.containsKey('completionDetails')) {
     title = "Shift Completed";
     body = message.data['completionDetails'];
-  } else if (message.data.containsKey('Status')) {
+  } else if (message.data.containsKey('status') ||
+      message.data.containsKey('Status')) {
     title = "Leave Update";
-    body = "Your leave request is ${message.data['Status']}";
-  } else if (message.notification != null) {
-    // Fallback for standard notifications
-    title = message.notification?.title;
-    body = message.notification?.body;
+    body =
+        "Your leave request is ${message.data['status'] ?? message.data['Status']}";
+  } else if (message.data.containsKey('type')) {
+    title = _titleForMessageType(message.data['type']);
+    body = message.data['body'] ??
+        message.data['message'] ??
+        message.data['details'] ??
+        message.data['shiftDetails'];
   }
 
   // Show the Notification
@@ -96,10 +109,40 @@ Future<void> setupLocalNotifications() async {
     importance: Importance.max,
   );
 
+  const initializationSettings = InitializationSettings(
+    android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    iOS: DarwinInitializationSettings(),
+    macOS: DarwinInitializationSettings(),
+  );
+  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+
   await flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(channel);
+}
+
+String _titleForMessageType(String? type) {
+  switch (type) {
+    case 'shift_assignment':
+      return 'Shift Assigned';
+    case 'shift_completed':
+      return 'Shift Completed';
+    case 'leave_request':
+      return 'New Leave Request';
+    case 'leave_status':
+      return 'Leave Request Status';
+    case 'shift_response':
+      return 'Shift Response';
+    case 'shift_updated':
+      return 'Shift Updated';
+    case 'shift_incomplete':
+      return 'Incomplete Shift Alert';
+    case 'onboarding_complete':
+      return 'Onboarding Complete';
+    default:
+      return 'Notification';
+  }
 }
 
 void main() async {
@@ -111,7 +154,8 @@ void main() async {
     final GoogleMapsFlutterPlatform mapsImplementation =
         GoogleMapsFlutterPlatform.instance;
     if (mapsImplementation is GoogleMapsFlutterAndroid) {
-      await mapsImplementation.initializeWithRenderer(AndroidMapRenderer.latest);
+      await mapsImplementation
+          .initializeWithRenderer(AndroidMapRenderer.latest);
     }
   } catch (_) {
     // Renderer already initialized (e.g. on hot restart) – safe to ignore
@@ -168,9 +212,6 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  // Add AuthService to fetch profile
-  final AuthService _authService = AuthService();
-
   @override
   void initState() {
     super.initState();
@@ -192,10 +233,11 @@ class _MyHomePageState extends State<MyHomePage> {
       final String? email = prefs.getString('userEmail');
 
       if (token != null && token.isNotEmpty && email != null) {
-        final bool biometricEnabled = prefs.getBool('biometric_enabled') ?? false;
+        final bool biometricEnabled =
+            prefs.getBool('biometric_enabled') ?? false;
 
         if (biometricEnabled) {
-          print(" Biometrics enabled. Redirecting to Biometric Login...");
+          debugPrint("Biometrics enabled. Redirecting to Biometric Login...");
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -203,7 +245,7 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
           );
         } else {
-          print(" Biometrics disabled. Standard Login.");
+          debugPrint("Biometrics disabled. Standard Login.");
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -214,15 +256,16 @@ class _MyHomePageState extends State<MyHomePage> {
         return;
       }
     } catch (e) {
-      print(" Session check failed: $e");
+      debugPrint("Session check failed: $e");
     }
 
     // 4. Fallback: If no token or invalid token, go to Login (Standard)
     if (mounted) {
-      print(" No valid session found. Going to Standard Login.");
+      debugPrint("No valid session found. Going to Standard Login.");
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const Login(promptBiometric: false)),
+        MaterialPageRoute(
+            builder: (context) => const Login(promptBiometric: false)),
       );
     }
   }
