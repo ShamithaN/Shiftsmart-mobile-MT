@@ -5,12 +5,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shiftsmart/models/notification.dart';
 import 'package:shiftsmart/services/notification_service.dart';
 import 'package:shiftsmart/widgets/background.dart';
-import 'package:shiftsmart/widgets/uppernavbar.dart';
 import 'package:intl/intl.dart'; // Add this for formatting dates
 import 'package:shiftsmart/services/super_admin_service.dart'; // Add this to call your active announcements API
 import 'package:provider/provider.dart';
 import 'package:shiftsmart/providers/tenant_provider.dart';
 import 'package:shiftsmart/utils/date_time_parser.dart';
+import 'package:shiftsmart/widgets/organization_selector.dart';
 
 class Notifications extends StatefulWidget {
   const Notifications({super.key});
@@ -39,7 +39,10 @@ class _NotificationsState extends State<Notifications> {
   }
 
   Future<void> loadNotifications() async {
-    print(' loadNotifications STARTED');
+    debugPrint('loadNotifications STARTED');
+    if (mounted) {
+      setState(() => isLoading = true);
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       final employeeId = prefs.getInt('employeeId');
@@ -63,6 +66,9 @@ class _NotificationsState extends State<Notifications> {
           currentTenantId = int.tryParse(idRaw.toString());
         }
       }
+      currentTenantId = await _notificationService.resolveCurrentTenantId(
+        tenantId: currentTenantId,
+      );
 
       final List<NotificationItem> fetchedRead = [];
       final List<NotificationItem> fetchedUnread = [];
@@ -70,13 +76,16 @@ class _NotificationsState extends State<Notifications> {
 
       // 1. Fetch Notifications independently (safely caught)
       try {
-        // REMOVED tenantId: currentTenantId from these two calls
-        final read =
-            await _notificationService.fetchNotificationsread(employeeId);
+        final read = await _notificationService.fetchNotificationsread(
+          employeeId,
+          tenantId: currentTenantId,
+        );
         fetchedRead.addAll(read);
 
-        final unread =
-            await _notificationService.fetchNotificationsUnread(employeeId);
+        final unread = await _notificationService.fetchNotificationsUnread(
+          employeeId,
+          tenantId: currentTenantId,
+        );
         fetchedUnread.addAll(unread);
       } catch (e) {
         debugPrint("Error fetching normal notifications: $e");
@@ -96,6 +105,7 @@ class _NotificationsState extends State<Notifications> {
       if (mounted) {
         setState(() {
           allNotifications = [...fetchedRead, ...fetchedUnread];
+          allNotifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           activeAnnouncements = fetchedAnnouncements;
           _userRole = role; // Set the role in state
           isLoading = false;
@@ -232,48 +242,65 @@ class _NotificationsState extends State<Notifications> {
     return widgets;
   }
 
-  Widget _buildTabButton(String title, int index, {IconData? icon}) {
+  bool get _isAdminOrManager =>
+      _userRole.toLowerCase().contains("admin") ||
+      _userRole.toLowerCase().contains("manager");
+
+  List<dynamic> get _visibleAnnouncements {
+    return activeAnnouncements.where((ann) {
+      if (_isAdminOrManager) return true;
+      return !_isBillingAnnouncement(ann);
+    }).toList();
+  }
+
+  Widget _buildTabButton(
+    String title,
+    int index,
+    int count, {
+    IconData? icon,
+    int flex = 1,
+  }) {
     final isActive = _selectedTabIndex == index;
-    final content = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (icon != null) ...[
-          Icon(icon,
-              color: isActive ? const Color(0xFFFFD700) : Colors.white,
-              size: 16),
-          const SizedBox(width: 6),
-        ],
-        Text(
-          title,
-          style: TextStyle(
-            color: isActive ? const Color(0xFFFFD700) : Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 15,
+    final foregroundColor = isActive ? Colors.white : Colors.white60;
+    final content = FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, color: foregroundColor, size: 14),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            "$title ($count)",
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: foregroundColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
 
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedTabIndex = index;
-        });
-      },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          content,
-          if (isActive)
-            Container(
-              margin: const EdgeInsets.only(top: 6),
-              height: 2,
-              width: 100, // Approximate width for underline
-              color: const Color(0xFFFFD700),
-            )
-          else
+    return Expanded(
+      flex: flex,
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedTabIndex = index;
+          });
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            content,
             const SizedBox(height: 8),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -307,13 +334,7 @@ class _NotificationsState extends State<Notifications> {
     }
 
     // Filter announcements based on role: Billing/Subscription alerts -> Admin/Manager only
-    final bool isAdminOrManager = _userRole.toLowerCase().contains("admin") ||
-        _userRole.toLowerCase().contains("manager");
-
-    final filteredAnnouncements = activeAnnouncements.where((ann) {
-      if (isAdminOrManager) return true;
-      return !_isBillingAnnouncement(ann);
-    }).toList();
+    final filteredAnnouncements = _visibleAnnouncements;
 
     if (filteredAnnouncements.isEmpty) {
       return const Center(
@@ -426,6 +447,9 @@ class _NotificationsState extends State<Notifications> {
       return false; // Tab 2 is announcements
     }).toList();
     final grouped = groupNotifications(filteredNotifications);
+    final unreadCount = unreadNotificationIds.length;
+    final readCount = allNotifications.length - unreadCount;
+    final announcementCount = _visibleAnnouncements.length;
 
     return Stack(
       children: [
@@ -462,13 +486,15 @@ class _NotificationsState extends State<Notifications> {
                     ],
                   ),
                   const SizedBox(height: 20),
+                  OrganizationSelector(onTenantSwitched: loadNotifications),
+                  const SizedBox(height: 16),
 
                   // Main container box
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
                         color: const Color(0xFF2D3243)
-                            .withOpacity(0.9), // Dark grayish blue
+                            .withValues(alpha: 0.9), // Dark grayish blue
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Column(
@@ -477,19 +503,22 @@ class _NotificationsState extends State<Notifications> {
                           // Tabs
                           Padding(
                             padding: const EdgeInsets.only(
-                                left: 20, top: 20, bottom: 10),
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
-                                  _buildTabButton("Unread", 0),
-                                  const SizedBox(width: 20),
-                                  _buildTabButton("Read", 1),
-                                  const SizedBox(width: 20),
-                                  _buildTabButton("Announcements", 2,
-                                      icon: Icons.campaign),
-                                ],
-                              ),
+                                left: 12, right: 12, top: 18, bottom: 8),
+                            child: Row(
+                              children: [
+                                _buildTabButton("Unread", 0, unreadCount,
+                                    flex: 7),
+                                const SizedBox(width: 8),
+                                _buildTabButton("Read", 1, readCount, flex: 7),
+                                const SizedBox(width: 8),
+                                _buildTabButton(
+                                  "Announcements",
+                                  2,
+                                  announcementCount,
+                                  icon: Icons.campaign,
+                                  flex: 13,
+                                ),
+                              ],
                             ),
                           ),
                           // Content area
@@ -503,30 +532,40 @@ class _NotificationsState extends State<Notifications> {
                                       ? const Center(
                                           child: CircularProgressIndicator(
                                               color: Colors.blueAccent))
-                                      : ListView(
-                                          padding:
-                                              const EdgeInsets.only(top: 10),
-                                          children: [
-                                            if (_selectedTabIndex == 0 &&
-                                                unreadNotificationIds
-                                                    .isNotEmpty)
-                                              Align(
-                                                alignment:
-                                                    Alignment.centerRight,
-                                                child: TextButton(
-                                                  onPressed:
-                                                      _markAllUnreadAsRead,
-                                                  child: const Text(
-                                                      "Mark all as read",
-                                                      style: TextStyle(
-                                                          color: Colors
-                                                              .blueAccent)),
-                                                ),
+                                      : filteredNotifications.isEmpty
+                                          ? Center(
+                                              child: Text(
+                                                _selectedTabIndex == 0
+                                                    ? "No unread notifications."
+                                                    : "No read notifications.",
+                                                style: const TextStyle(
+                                                    color: Colors.white70),
                                               ),
-                                            ...buildGroupedNotifications(
-                                                grouped)
-                                          ],
-                                        )),
+                                            )
+                                          : ListView(
+                                              padding: const EdgeInsets.only(
+                                                  top: 10),
+                                              children: [
+                                                if (_selectedTabIndex == 0 &&
+                                                    unreadNotificationIds
+                                                        .isNotEmpty)
+                                                  Align(
+                                                    alignment:
+                                                        Alignment.centerRight,
+                                                    child: TextButton(
+                                                      onPressed:
+                                                          _markAllUnreadAsRead,
+                                                      child: const Text(
+                                                          "Mark all as read",
+                                                          style: TextStyle(
+                                                              color: Colors
+                                                                  .blueAccent)),
+                                                    ),
+                                                  ),
+                                                ...buildGroupedNotifications(
+                                                    grouped)
+                                              ],
+                                            )),
                             ),
                           ),
                         ],
