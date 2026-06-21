@@ -146,6 +146,7 @@ import 'package:flutter/material.dart';
 import 'package:shiftsmart/screens/notifications.dart';
 import 'package:shiftsmart/services/notification_service.dart';
 import 'package:provider/provider.dart';
+import 'package:shiftsmart/providers/tenant_provider.dart';
 import 'package:shiftsmart/providers/user_provider.dart';
 import 'package:shiftsmart/widgets/bottomnavbar.dart';
 import 'package:shiftsmart/widgets/emp_bottomnavbar.dart';
@@ -186,12 +187,28 @@ class _UppernavbarState extends State<Uppernavbar> {
       final employeeId = prefs.getInt('employeeId') ?? prefs.getInt('userId');
       if (employeeId == null) return;
 
-      final unread =
-          await _notificationService.fetchNotificationsUnread(employeeId);
+      final unread = await _notificationService.fetchNotificationsUnread(
+        employeeId,
+        tenantId: _currentTenantId,
+      );
       if (!mounted) return;
       setState(() => _unreadNotificationCount = unread.length);
     } catch (e) {
       debugPrint("Error checking unread notifications: $e");
+    }
+  }
+
+  int? get _currentTenantId {
+    try {
+      final selectedTenant =
+          Provider.of<TenantProvider>(context, listen: false).selectedTenant;
+      final idRaw = selectedTenant?['tenantId'] ??
+          selectedTenant?['TenantId'] ??
+          selectedTenant?['id'] ??
+          selectedTenant?['ID'];
+      return idRaw == null ? null : int.tryParse(idRaw.toString());
+    } catch (_) {
+      return null;
     }
   }
 
