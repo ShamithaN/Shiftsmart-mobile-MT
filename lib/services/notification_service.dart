@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shiftsmart/models/notification.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'api_client.dart';
@@ -62,6 +63,12 @@ class NotificationService {
         badge: true,
         sound: true,
       );
+      await _firebaseMessaging.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      await _initializeLocalNotifications();
 
       debugPrint('User granted permission: ${settings.authorizationStatus}');
 
@@ -95,18 +102,26 @@ class NotificationService {
           String? title;
           String? body;
 
-          if (message.data.containsKey('shiftDetails')) {
+          if (message.notification != null) {
+            title = message.notification?.title;
+            body = message.notification?.body;
+          } else if (message.data.containsKey('shiftDetails')) {
             title = "New Shift Assigned";
             body = message.data['shiftDetails'];
           } else if (message.data.containsKey('completionDetails')) {
             title = "Shift Completed";
             body = message.data['completionDetails'];
-          } else if (message.data.containsKey('Status')) {
+          } else if (message.data.containsKey('status') ||
+              message.data.containsKey('Status')) {
             title = "Leave Update";
-            body = "Your leave request is ${message.data['Status']}";
-          } else if (message.notification != null) {
-            title = message.notification?.title;
-            body = message.notification?.body;
+            body =
+                "Your leave request is ${message.data['status'] ?? message.data['Status']}";
+          } else if (message.data.containsKey('type')) {
+            title = _titleForMessageType(message.data['type']);
+            body = message.data['body'] ??
+                message.data['message'] ??
+                message.data['details'] ??
+                message.data['shiftDetails'];
           }
 
           if (title != null && body != null) {
@@ -176,14 +191,44 @@ class NotificationService {
     }
   }
 
-  Future<List<NotificationItem>> fetchNotificationsread(int employeeId) async {
+  Future<List<NotificationItem>> fetchNotificationsread(
+    int employeeId, {
+    int? tenantId,
+  }) async {
+    return _fetchNotifications(
+      employeeId: employeeId,
+      status: 'read',
+      tenantId: tenantId,
+    );
+  }
+
+  Future<List<NotificationItem>> fetchNotificationsUnread(
+    int employeeId, {
+    int? tenantId,
+  }) async {
+    return _fetchNotifications(
+      employeeId: employeeId,
+      status: 'unread',
+      tenantId: tenantId,
+    );
+  }
+
+  Future<List<NotificationItem>> _fetchNotifications({
+    required int employeeId,
+    required String status,
+    int? tenantId,
+  }) async {
     if (mainKey.isEmpty) throw Exception("Missing NOTIFI_MAIN_KEY");
+    final resolvedTenantId = await resolveCurrentTenantId(tenantId: tenantId);
 
     final Map<String, String> queryParams = {
       'code': mainKey,
       'employeeId': employeeId.toString(),
-      'status': 'read',
+      'status': status,
     };
+    if (resolvedTenantId != null && resolvedTenantId != 0) {
+      queryParams['tenantId'] = resolvedTenantId.toString();
+    }
 
     final uri = Uri.parse('$baseUrl/notifications')
         .replace(queryParameters: queryParams);
@@ -192,43 +237,57 @@ class NotificationService {
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-      final notifications = data['notifications'];
-      List<NotificationItem> items = [];
+      final notifications =
+          data['notifications'] ?? data['Notifications'] ?? [];
+      final List<NotificationItem> items = [];
       for (var n in notifications) {
-        items.add(NotificationItem.fromJson(n));
+        if (n is Map<String, dynamic>) {
+          items.add(NotificationItem.fromJson(n));
+        } else if (n is Map) {
+          items.add(NotificationItem.fromJson(Map<String, dynamic>.from(n)));
+        }
       }
+      if (resolvedTenantId != null && resolvedTenantId != 0) {
+        items.removeWhere((item) =>
+            item.tenantId != null &&
+            item.tenantId != 0 &&
+            item.tenantId != resolvedTenantId);
+      }
+      items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return items;
     } else {
       throw Exception('Failed to fetch notifications: ${response.statusCode}');
     }
   }
 
-  Future<List<NotificationItem>> fetchNotificationsUnread(
-      int employeeId) async {
-    if (mainKey.isEmpty) throw Exception("Missing NOTIFI_MAIN_KEY");
+  Future<int?> resolveCurrentTenantId({int? tenantId}) async {
+    if (tenantId != null && tenantId != 0) return tenantId;
 
-    final Map<String, String> queryParams = {
-      'code': mainKey,
-      'employeeId': employeeId.toString(),
-      'status': 'unread',
-    };
+    final prefs = await SharedPreferences.getInstance();
+    final savedTenantId = prefs.getInt('selectedTenantId') ??
+        prefs.getInt('currentTenantId') ??
+        prefs.getInt('tenantId');
+    if (savedTenantId != null && savedTenantId != 0) return savedTenantId;
 
-    final uri = Uri.parse('$baseUrl/notifications')
-        .replace(queryParameters: queryParams);
+    final token = await _apiClient.getAppToken();
+    if (token == null || token.isEmpty) return null;
 
-    final response = await _apiClient.get(uri.toString(), useAuth: true);
+    final payload = _apiClient.decodeJwt(token);
+    if (payload == null) return null;
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      final notifications = data['notifications'];
-      List<NotificationItem> items = [];
-      for (var n in notifications) {
-        items.add(NotificationItem.fromJson(n));
-      }
-      return items;
-    } else {
-      throw Exception('Failed to fetch notifications: ${response.statusCode}');
-    }
+    return _intFromAny(
+      payload['tenantId'] ??
+          payload['TenantId'] ??
+          payload['tenantID'] ??
+          payload['TenantID'] ??
+          payload['tenant_id'],
+    );
+  }
+
+  int? _intFromAny(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    return int.tryParse(value.toString());
   }
 
   Future<void> markAsRead(List<int> notificationIds) async {
@@ -374,8 +433,19 @@ class NotificationService {
     final formattedTime =
         DateFormat('h:mma').format(clockOutTime).toLowerCase();
     final message =
-        " EMERGENCY: $employeeName clocked out early from shift #$shiftId at $formattedTime. Reason: ${reason ?? 'Not provided'}";
-    final body = {"CompletionDetails": message};
+        "EMERGENCY: $employeeName clocked out early from shift #$shiftId at $formattedTime. Reason: ${reason ?? 'Not provided'}";
+    final prefs = await SharedPreferences.getInstance();
+    final employeeId = prefs.getInt('employeeId') ?? prefs.getInt('userId');
+    if (employeeId == null) {
+      debugPrint("Geofence alert skipped: employeeId is not available.");
+      return;
+    }
+
+    final body = {
+      "EmployeeId": employeeId,
+      "Status": "early_clockout",
+      "Message": message,
+    };
 
     try {
       final response = await _apiClient.post(url, body: body, useAuth: true);
@@ -461,10 +531,7 @@ class NotificationService {
     return false;
   }
 
-  String get _registrationPlatform {
-    if (Platform.isIOS || Platform.isMacOS) return 'ios';
-    return 'android';
-  }
+  String get _registrationPlatform => 'fcm';
 
   Future<void> _registerCurrentDevice({
     required int employeeId,
@@ -522,9 +589,11 @@ class NotificationService {
     });
   }
 
-  Future<String?> _getDeviceTokenForRegistration({int maxAttempts = 5}) {
+  Future<String?> _getDeviceTokenForRegistration({int maxAttempts = 5}) async {
     if (Platform.isIOS || Platform.isMacOS) {
-      return _getApnsTokenForRegistration(maxAttempts: maxAttempts);
+      final apnsToken =
+          await _getApnsTokenForRegistration(maxAttempts: maxAttempts);
+      if (apnsToken == null) return null;
     }
 
     return _getFcmTokenForRegistration();
@@ -595,6 +664,42 @@ class NotificationService {
     } catch (e) {
       debugPrint("Native APNS token lookup error: $e");
       return null;
+    }
+  }
+
+  Future<void> _initializeLocalNotifications() async {
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings();
+    const settings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+      macOS: iosSettings,
+    );
+
+    await _localNotifications.initialize(settings);
+  }
+
+  String _titleForMessageType(String? type) {
+    switch (type) {
+      case 'shift_assignment':
+        return 'Shift Assigned';
+      case 'shift_completed':
+        return 'Shift Completed';
+      case 'leave_request':
+        return 'New Leave Request';
+      case 'leave_status':
+        return 'Leave Request Status';
+      case 'shift_response':
+        return 'Shift Response';
+      case 'shift_updated':
+        return 'Shift Updated';
+      case 'shift_incomplete':
+        return 'Incomplete Shift Alert';
+      case 'onboarding_complete':
+        return 'Onboarding Complete';
+      default:
+        return 'Notification';
     }
   }
 
