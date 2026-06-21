@@ -11,10 +11,54 @@ class TenantProvider with ChangeNotifier {
   final SuperAdminService _superAdminService = SuperAdminService();
 
   Map<String, dynamic>? _selectedTenant; // Full tenant map from API
-  String _selectedOrganization = '';      // Display name
+  String _selectedOrganization = ''; // Display name
   List<Map<String, dynamic>> _tenants = []; // All available tenants
 
   bool _isSwitching = false; // Switching-in-progress guard
+
+  String _tenantNameFrom(Map<String, dynamic> tenant) {
+    return (tenant['name'] ??
+            tenant['Name'] ??
+            tenant['tenantName'] ??
+            tenant['TenantName'] ??
+            tenant['organizationName'] ??
+            '')
+        .toString();
+  }
+
+  int? _tenantIdFrom(Map<String, dynamic> tenant) {
+    final rawId = tenant['tenantId'] ??
+        tenant['TenantId'] ??
+        tenant['id'] ??
+        tenant['ID'] ??
+        tenant['tenantID'] ??
+        tenant['TenantID'] ??
+        tenant['tenant_id'];
+    if (rawId is int) return rawId;
+    return int.tryParse(rawId?.toString() ?? '');
+  }
+
+  List<Map<String, dynamic>> _dedupeTenants(List<Map<String, dynamic>> tenants) {
+    final seenIds = <int>{};
+    final seenNames = <String>{};
+    final unique = <Map<String, dynamic>>[];
+
+    for (final tenant in tenants) {
+      final name = _tenantNameFrom(tenant).trim().toLowerCase();
+      final id = _tenantIdFrom(tenant);
+      if (id != null) {
+        if (seenIds.contains(id)) continue;
+        seenIds.add(id);
+      }
+      if (name.isNotEmpty) {
+        if (seenNames.contains(name)) continue;
+        seenNames.add(name);
+      }
+      unique.add(tenant);
+    }
+
+    return unique;
+  }
 
   // ── Getters ──────────────────────────────────────────────────────────────
   Map<String, dynamic>? get selectedTenant => _selectedTenant;
@@ -109,23 +153,27 @@ class TenantProvider with ChangeNotifier {
 
       final fetched = await _superAdminService.getAllTenants();
       if (fetched.isNotEmpty) {
-        _tenants = fetched.map((t) => t as Map<String, dynamic>).toList();
+        _tenants = _dedupeTenants(
+          fetched.map((t) => t as Map<String, dynamic>).toList(),
+        );
         await prefs.setString('cached_tenants', jsonEncode(_tenants));
       }
-      
+
       // Auto-select first tenant if none is selected
       if (_selectedOrganization.isEmpty && _tenants.isNotEmpty) {
         final first = _tenants.first;
-        _selectedOrganization = (first['name'] ?? 
-                                 first['Name'] ?? 
-                                 first['tenantName'] ?? 
-                                 first['TenantName'] ?? 
-                                 first['organizationName'] ?? 
-                                 'Unnamed').toString();
+        _selectedOrganization = (first['name'] ??
+                first['Name'] ??
+                first['tenantName'] ??
+                first['TenantName'] ??
+                first['organizationName'] ??
+                'Unnamed')
+            .toString();
         _selectedTenant = first;
+        await _saveSelectedTenant(first);
         _parseFeatures(first);
       }
-      
+
       notifyListeners();
     } catch (e) {
       debugPrint('[TenantProvider] Error loading tenants: $e');
@@ -133,59 +181,66 @@ class TenantProvider with ChangeNotifier {
   }
 
   void setTenants(List<Map<String, dynamic>> tenants) {
-    _tenants = tenants;
+    _tenants = _dedupeTenants(tenants);
     SharedPreferences.getInstance().then((prefs) {
-      prefs.setString('cached_tenants', jsonEncode(tenants));
+      prefs.setString('cached_tenants', jsonEncode(_tenants));
     });
 
     // Auto-select first tenant if none is currently selected
     if (_selectedOrganization.isEmpty && _tenants.isNotEmpty) {
       final first = _tenants.first;
-      _selectedOrganization = (first['name'] ?? 
-                               first['Name'] ?? 
-                               first['tenantName'] ?? 
-                               first['TenantName'] ?? 
-                               first['organizationName'] ?? 
-                               'Unnamed').toString();
+      _selectedOrganization = (first['name'] ??
+              first['Name'] ??
+              first['tenantName'] ??
+              first['TenantName'] ??
+              first['organizationName'] ??
+              'Unnamed')
+          .toString();
       _selectedTenant = first;
+      _saveSelectedTenant(first);
       _parseFeatures(first);
     }
     notifyListeners();
   }
 
   // ── Initialise from current token (call once after login) ─────────────────
-  void initFromCurrentTenant(String tenantName, Map<String, dynamic>? tenantMap) {
+  void initFromCurrentTenant(
+      String tenantName, Map<String, dynamic>? tenantMap) {
     _selectedOrganization = tenantName;
     _selectedTenant = tenantMap;
+    _saveSelectedTenant(tenantMap);
     _parseFeatures(tenantMap);
-    
+
     // Ensure this tenant is in our list so it shows up in the UI dropdown
     if (tenantMap != null) {
-      final exists = _tenants.any((t) => 
-        (t['name'] ?? t['Name'] ?? '').toString().toLowerCase() == tenantName.toLowerCase()
-      );
+      final exists = _tenants.any((t) =>
+          _tenantNameFrom(t).toLowerCase() == tenantName.toLowerCase());
       if (!exists) {
-        _tenants.add(tenantMap);
+        _tenants = _dedupeTenants([..._tenants, tenantMap]);
       }
     }
-    
+
     notifyListeners();
   }
 
   // ── Switch tenant (calls backend + notifies listeners) ───────────────────
   Future<bool> switchTenant(Map<String, dynamic> tenant) async {
-    final name = (tenant['name'] ?? 
-                  tenant['Name'] ?? 
-                  tenant['tenantName'] ?? 
-                  tenant['TenantName'] ?? 
-                  tenant['organizationName'] ?? 
-                  'Unnamed').toString();
-    final tenantId = tenant['tenantId'] ?? tenant['TenantId'] ??
-        tenant['id'] ?? tenant['ID'];
+    final name = (tenant['name'] ??
+            tenant['Name'] ??
+            tenant['tenantName'] ??
+            tenant['TenantName'] ??
+            tenant['organizationName'] ??
+            'Unnamed')
+        .toString();
+    final tenantId = tenant['tenantId'] ??
+        tenant['TenantId'] ??
+        tenant['id'] ??
+        tenant['ID'];
 
     // Optimistically update display name so UI is instant
     _selectedOrganization = name;
     _selectedTenant = tenant;
+    _saveSelectedTenant(tenant);
     _isSwitching = true;
     _blockedEndpoints.clear(); // reset on tenant switch
     notifyListeners();
@@ -197,7 +252,11 @@ class TenantProvider with ChangeNotifier {
         if (result != null) {
           success = true;
           // Use the canonical name from the backend if available
-          final backendName = (result['tenantName'] ?? result['TenantName'] ?? result['name'] ?? result['Name'])?.toString();
+          final backendName = (result['tenantName'] ??
+                  result['TenantName'] ??
+                  result['name'] ??
+                  result['Name'])
+              ?.toString();
           if (backendName != null && backendName.isNotEmpty) {
             _selectedOrganization = backendName;
           }
@@ -216,6 +275,7 @@ class TenantProvider with ChangeNotifier {
         );
         if (details != null) {
           _selectedTenant = details;
+          _saveSelectedTenant(details);
           _parseFeatures(details);
         }
       } catch (_) {}
@@ -226,9 +286,14 @@ class TenantProvider with ChangeNotifier {
 
   // ── Parse enabledFeatures from a tenant map ───────────────────────────────
   void _parseFeatures(Map<String, dynamic>? map) {
-    if (map == null) { _enabledFeatures = {}; return; }
-    final raw = map['enabledFeatures'] ?? map['EnabledFeatures'] ??
-        map['features'] ?? map['Features'];
+    if (map == null) {
+      _enabledFeatures = {};
+      return;
+    }
+    final raw = map['enabledFeatures'] ??
+        map['EnabledFeatures'] ??
+        map['features'] ??
+        map['Features'];
     if (raw is List && raw.isNotEmpty) {
       _enabledFeatures = raw.map((f) => f.toString().toLowerCase()).toSet();
     } else {
@@ -236,13 +301,44 @@ class TenantProvider with ChangeNotifier {
     }
   }
 
+  Future<void> _saveSelectedTenant(Map<String, dynamic>? tenant) async {
+    if (tenant == null) return;
+    final rawId = tenant['tenantId'] ??
+        tenant['TenantId'] ??
+        tenant['id'] ??
+        tenant['ID'] ??
+        tenant['tenantID'] ??
+        tenant['TenantID'] ??
+        tenant['tenant_id'];
+    final tenantId =
+        rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
+
+    final tenantName = (tenant['name'] ??
+            tenant['Name'] ??
+            tenant['tenantName'] ??
+            tenant['TenantName'] ??
+            tenant['organizationName'] ??
+            '')
+        .toString();
+
+    final prefs = await SharedPreferences.getInstance();
+    if (tenantId != null && tenantId != 0) {
+      await prefs.setInt('selectedTenantId', tenantId);
+      await prefs.setInt('currentTenantId', tenantId);
+      await prefs.setInt('tenantId', tenantId);
+    }
+    if (tenantName.isNotEmpty) {
+      await prefs.setString('selectedTenantName', tenantName);
+    }
+  }
+
   // ── Utility: find tenant map by organisation name ─────────────────────────
   Map<String, dynamic>? findTenantByName(String name) {
     try {
       return _tenants.firstWhere(
-        (t) => (t['name'] ?? t['Name'] ?? '')
-            .toString()
-            .toLowerCase() == name.toLowerCase(),
+        (t) =>
+            (t['name'] ?? t['Name'] ?? '').toString().toLowerCase() ==
+            name.toLowerCase(),
       );
     } catch (_) {
       return null;
