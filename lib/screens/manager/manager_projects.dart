@@ -450,13 +450,14 @@ class _Managerprojectstate extends State<Managerprojects> {
               itemBuilder: (context, index) {
                 final company = filteredCompanies[index];
                 return InkWell(
-                  onTap: () => _openCompanyDetails(company),
-                  child: _buildListItem(
-                    title: company.name,
-                    subtitle: company.address,
-                    onEdit: () => _openCompanyDetails(company),
-                  ),
-                );
+                    onTap: () => _openCompanyDetails(company),
+                    child: _buildListItem(
+                      title: company.name,
+                      subtitle: company.address,
+                      bottomInfo:
+                          "☎ ${company.phoneNumber.isNotEmpty ? company.phoneNumber : 'N/A'} - ${company.ContactPerson.isNotEmpty ? company.ContactPerson : 'N/A'}",
+                      onEdit: () => _openCompanyDetails(company),
+                    ));
               },
             ),
           ),
