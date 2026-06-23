@@ -88,9 +88,17 @@ class _ManagercreatecomState extends State<Managercreatecom> {
   // --- 2. Save Logic ---
   Future<void> _saveCompany() async {
     // Basic Validation
-    if (_nameController.text.isEmpty || _addController.text.isEmpty) {
+    final name = _nameController.text.trim();
+    final contactPerson = _personController.text.trim();
+    final contactNumber = _phoneController.text.trim();
+    final address = _addController.text.trim();
+
+    if (name.isEmpty ||
+        contactPerson.isEmpty ||
+        contactNumber.isEmpty ||
+        address.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Name and Address are required")),
+        const SnackBar(content: Text("All fields are required")),
       );
       return;
     }
@@ -98,10 +106,10 @@ class _ManagercreatecomState extends State<Managercreatecom> {
     setState(() => _isSaving = true);
 
     final Map<String, dynamic> companyData = {
-      "Name": _nameController.text.trim(),
-      "ContactNumber": _phoneController.text.trim(),
-      "Address": _addController.text.trim(),
-      "ContactPerson": _personController.text.trim()
+      "Name": name,
+      "ContactNumber": contactNumber,
+      "Address": address,
+      "ContactPerson": contactPerson,
     };
 
     if (widget.company != null) {
@@ -181,12 +189,14 @@ class _ManagercreatecomState extends State<Managercreatecom> {
                         _buildTextField("Name", _nameController,
                             required: true),
                         const SizedBox(height: 18),
-                        _buildTextField("Contact Person", _personController),
+                        _buildTextField("Contact Person", _personController,
+                            required: true),
                         const SizedBox(height: 18),
                         _buildTextField(
                           "Contact Number",
                           _phoneController,
                           keyboardType: TextInputType.phone,
+                          required: true,
                         ),
                         const SizedBox(height: 18),
                         _buildAddressField(),
