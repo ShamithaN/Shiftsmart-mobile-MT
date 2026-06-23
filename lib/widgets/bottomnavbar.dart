@@ -11,8 +11,13 @@ import 'package:shiftsmart/widgets/uppernavbar.dart';
 
 class Bottomnavbar extends StatefulWidget {
   final int selectedIndex;
+  final int jobsInitialTabIndex;
 
-  const Bottomnavbar({required this.selectedIndex, super.key});
+  const Bottomnavbar({
+    required this.selectedIndex,
+    this.jobsInitialTabIndex = 0,
+    super.key,
+  });
 
   @override
   State<Bottomnavbar> createState() => _BottomnavbarState();
@@ -32,13 +37,13 @@ class _BottomnavbarState extends State<Bottomnavbar> {
     });
   }
 
-  final List<Widget> _pages = [
-    const Managerdashboard(),
-    const Managerprojects(),
-    const Managerjobs(),
-    const Manageremployee(),
-    const Managerleave(),
-  ];
+  List<Widget> get _pages => [
+        const Managerdashboard(),
+        const Managerprojects(),
+        Managerjobs(initialTabIndex: widget.jobsInitialTabIndex),
+        const Manageremployee(),
+        const Managerleave(),
+      ];
 
   void _onItemTapped(int index) {
     setState(() {

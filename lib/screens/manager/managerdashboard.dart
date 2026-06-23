@@ -374,280 +374,277 @@ class _ManagerdashboardState extends State<Managerdashboard> {
                                           screenHeight: screenHeight,
                                         ),
                                         SizedBox(height: screenHeight * 0.025),
-                                        ConstrainedBox(
-                                          constraints: BoxConstraints(
-                                            minHeight: screenHeight * 0.18,
-                                            maxHeight: screenHeight * 0.45,
-                                          ),
-                                          child: Gradienthorizontal(
-                                            width: double.infinity,
-                                            height: double.infinity,
-                                            child: Padding(
-                                              padding: EdgeInsets.all(
-                                                  screenWidth * 0.04),
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  const Text(
-                                                    "TODAY'S SHIFTS",
-                                                    style: TextStyle(
-                                                      fontSize: 18,
-                                                      color: Colors.white,
-                                                      fontWeight:
-                                                          FontWeight.bold,
+                                        InkWell(
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                          onTap: () {
+                                            Navigator.of(context)
+                                                .pushReplacement(
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    const Bottomnavbar(
+                                                        selectedIndex: 2,
+                                                        jobsInitialTabIndex: 1),
+                                              ),
+                                            );
+                                          },
+                                          child: ConstrainedBox(
+                                            constraints: BoxConstraints(
+                                              minHeight: screenHeight * 0.18,
+                                              maxHeight: screenHeight * 0.45,
+                                            ),
+                                            child: Gradienthorizontal(
+                                              width: double.infinity,
+                                              height: double.infinity,
+                                              child: Padding(
+                                                padding: EdgeInsets.all(
+                                                    screenWidth * 0.04),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    const Text(
+                                                      "TODAY'S SHIFTS",
+                                                      style: TextStyle(
+                                                        fontSize: 18,
+                                                        color: Colors.white,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
                                                     ),
-                                                  ),
-                                                  const SizedBox(height: 6),
-                                                  Text(
-                                                    "${_todayShifts.length} shift(s) scheduled for today",
-                                                    style: const TextStyle(
-                                                      fontSize: 16,
-                                                      color: Colors.white,
+                                                    const SizedBox(height: 6),
+                                                    Text(
+                                                      "${_todayShifts.length} shift(s) scheduled for today",
+                                                      style: const TextStyle(
+                                                        fontSize: 16,
+                                                        color: Colors.white,
+                                                      ),
                                                     ),
-                                                  ),
-                                                  const SizedBox(height: 10),
-                                                  SizedBox(
-                                                    height: screenHeight * 0.25,
-                                                    child: _todayShifts.isEmpty
-                                                        ? const Center(
-                                                            child: Text(
-                                                              "No shifts scheduled today.",
-                                                              style: TextStyle(
-                                                                  color: Colors
-                                                                      .white70),
-                                                            ),
-                                                          )
-                                                        : ListView.builder(
-                                                            physics:
-                                                                const BouncingScrollPhysics(),
-                                                            itemCount:
-                                                                _todayShifts
-                                                                    .length,
-                                                            itemBuilder:
-                                                                (context,
-                                                                    index) {
-                                                              final shift =
-                                                                  _todayShifts[
-                                                                      index];
-                                                              return Padding(
-                                                                  padding: EdgeInsets.symmetric(
-                                                                      vertical:
-                                                                          screenHeight *
-                                                                              0.008),
-                                                                  child:
-                                                                      InkWell(
-                                                                    onTap: () {
-                                                                      Navigator
-                                                                          .push(
-                                                                        context,
-                                                                        MaterialPageRoute(
-                                                                          builder: (context) =>
-                                                                              ManagerShiftsView(shift: shift),
-                                                                        ),
-                                                                      );
-                                                                    },
-                                                                    child:
-                                                                        Container(
-                                                                      padding: EdgeInsets.all(
-                                                                          screenWidth *
-                                                                              0.03),
-                                                                      decoration:
-                                                                          BoxDecoration(
+                                                    const SizedBox(height: 10),
+                                                    SizedBox(
+                                                      height:
+                                                          screenHeight * 0.25,
+                                                      child:
+                                                          _todayShifts.isEmpty
+                                                              ? const Center(
+                                                                  child: Text(
+                                                                    "No shifts scheduled today.",
+                                                                    style: TextStyle(
                                                                         color: Colors
-                                                                            .white
-                                                                            .withOpacity(0.08),
-                                                                        borderRadius:
-                                                                            BorderRadius.circular(15),
-                                                                        border:
-                                                                            Border.all(
-                                                                          color: Colors
-                                                                              .white
-                                                                              .withOpacity(0.1),
-                                                                          width:
-                                                                              1,
-                                                                        ),
-                                                                        boxShadow: [
-                                                                          BoxShadow(
-                                                                            color:
-                                                                                Colors.black.withOpacity(0.1),
-                                                                            blurRadius:
-                                                                                10,
-                                                                            offset:
-                                                                                const Offset(0, 4),
-                                                                          ),
-                                                                        ],
-                                                                      ),
-                                                                      child:
-                                                                          Column(
-                                                                        crossAxisAlignment:
-                                                                            CrossAxisAlignment.start,
-                                                                        children: [
-                                                                          Row(
-                                                                            mainAxisAlignment:
-                                                                                MainAxisAlignment.spaceBetween,
-                                                                            children: [
-                                                                              Expanded(
-                                                                                child: Text(
-                                                                                  shift.taskName,
-                                                                                  style: const TextStyle(
-                                                                                    fontSize: 16,
-                                                                                    fontWeight: FontWeight.bold,
-                                                                                    color: Colors.white,
-                                                                                  ),
+                                                                            .white70),
+                                                                  ),
+                                                                )
+                                                              : ListView
+                                                                  .builder(
+                                                                  physics:
+                                                                      const BouncingScrollPhysics(),
+                                                                  itemCount:
+                                                                      _todayShifts
+                                                                          .length,
+                                                                  itemBuilder:
+                                                                      (context,
+                                                                          index) {
+                                                                    final shift =
+                                                                        _todayShifts[
+                                                                            index];
+                                                                    return Padding(
+                                                                        padding: EdgeInsets.symmetric(
+                                                                            vertical: screenHeight *
+                                                                                0.008),
+                                                                        child:
+                                                                            InkWell(
+                                                                          onTap:
+                                                                              () {
+                                                                            Navigator.push(
+                                                                              context,
+                                                                              MaterialPageRoute(
+                                                                                builder: (context) => ManagerShiftsView(shift: shift),
+                                                                              ),
+                                                                            );
+                                                                          },
+                                                                          child:
+                                                                              Container(
+                                                                            padding:
+                                                                                EdgeInsets.all(screenWidth * 0.03),
+                                                                            decoration:
+                                                                                BoxDecoration(
+                                                                              color: Colors.white.withOpacity(0.08),
+                                                                              borderRadius: BorderRadius.circular(15),
+                                                                              border: Border.all(
+                                                                                color: Colors.white.withOpacity(0.1),
+                                                                                width: 1,
+                                                                              ),
+                                                                              boxShadow: [
+                                                                                BoxShadow(
+                                                                                  color: Colors.black.withOpacity(0.1),
+                                                                                  blurRadius: 10,
+                                                                                  offset: const Offset(0, 4),
                                                                                 ),
-                                                                              ),
-                                                                              Text(
-                                                                                shift.status,
-                                                                                style: TextStyle(
-                                                                                  fontSize: 13,
-                                                                                  fontWeight: FontWeight.w500,
-                                                                                  color: shift.status.trim().toLowerCase() == 'active'
-                                                                                      ? Colors.greenAccent
-                                                                                      : (shift.status.trim().toLowerCase() == 'scheduled' || shift.status.trim().toLowerCase() == 'pending')
-                                                                                          ? Colors.yellowAccent
-                                                                                          : Colors.white70,
-                                                                                ),
-                                                                              ),
-                                                                              const SizedBox(
-                                                                                height: 10,
-                                                                              ),
-                                                                              const Icon(
-                                                                                Icons.arrow_forward_ios,
-                                                                                color: Colors.white70,
-                                                                                size: 14,
-                                                                              )
-                                                                            ],
-                                                                          ),
-                                                                          const SizedBox(
-                                                                              height: 6),
-                                                                          Text(
-                                                                            "${formatTime(shift.startTime)} - ${formatTime(shift.endTime)}",
-                                                                            style:
-                                                                                const TextStyle(
-                                                                              fontSize: 13,
-                                                                              color: Colors.white70,
+                                                                              ],
                                                                             ),
-                                                                          ),
-                                                                          const SizedBox(
-                                                                              height: 12),
-                                                                          Text(
-                                                                            "Assigned employees: ",
-                                                                            style:
-                                                                                const TextStyle(
-                                                                              fontSize: 15,
-                                                                              color: Colors.white,
-                                                                              fontWeight: FontWeight.w500,
-                                                                            ),
-                                                                          ),
-                                                                          const SizedBox(
-                                                                              height: 12),
-                                                                          Column(
-                                                                            children:
-                                                                                shift.employeeResponses.map((response) {
-                                                                              final employee = getEmployeeById(response.employeeId);
-                                                                              final isPendingApproval = response.approvalStatus == "Pending";
-
-                                                                              return Container(
-                                                                                margin: const EdgeInsets.only(bottom: 12),
-                                                                                padding: const EdgeInsets.all(10),
-                                                                                decoration: BoxDecoration(
-                                                                                  color: Colors.black26,
-                                                                                  borderRadius: BorderRadius.circular(8),
-                                                                                  border: isPendingApproval ? Border.all(color: Colors.orangeAccent.withValues(alpha: 0.5)) : null,
-                                                                                ),
-                                                                                child: Column(
-                                                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                                            child:
+                                                                                Column(
+                                                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                                                              children: [
+                                                                                Row(
+                                                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                                                   children: [
-                                                                                    Row(
-                                                                                      children: [
-                                                                                        CircleAvatar(
-                                                                                          radius: 18,
-                                                                                          backgroundColor: Colors.grey[800],
-                                                                                          backgroundImage: (employee?.profilePicture != null && employee!.profilePicture!.startsWith('data:image'))
-                                                                                              ? MemoryImage(base64Decode(employee.profilePicture!.split(',').last))
-                                                                                              : (employee?.profilePicture != null && employee!.profilePicture!.isNotEmpty)
-                                                                                                  ? NetworkImage(employee.profilePicture!)
-                                                                                                  : null,
-                                                                                          child: (employee?.profilePicture == null || employee!.profilePicture!.isEmpty) ? const Icon(Icons.person, color: Colors.white, size: 18) : null,
+                                                                                    Expanded(
+                                                                                      child: Text(
+                                                                                        shift.taskName,
+                                                                                        style: const TextStyle(
+                                                                                          fontSize: 16,
+                                                                                          fontWeight: FontWeight.bold,
+                                                                                          color: Colors.white,
                                                                                         ),
-                                                                                        const SizedBox(width: 10),
-                                                                                        Expanded(
-                                                                                          child: Column(
-                                                                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                                                                            children: [
-                                                                                              Text(
-                                                                                                employee?.firstName ?? 'Unknown',
-                                                                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                                                                                              ),
-                                                                                              Text(
-                                                                                                response.status,
-                                                                                                style: TextStyle(
-                                                                                                  color: _getStatusColor(response.status),
-                                                                                                  fontSize: 11,
-                                                                                                  fontWeight: FontWeight.w600,
-                                                                                                ),
-                                                                                              ),
-                                                                                            ],
-                                                                                          ),
-                                                                                        ),
-                                                                                        if (isPendingApproval)
-                                                                                          ElevatedButton(
-                                                                                            style: ElevatedButton.styleFrom(
-                                                                                              backgroundColor: Colors.green,
-                                                                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                                                                                              minimumSize: const Size(60, 30),
-                                                                                            ),
-                                                                                            onPressed: () => _handleApproval(response.employeeId, shift.shiftId, "Approved"),
-                                                                                            child: const Text("Approve", style: TextStyle(fontSize: 12, color: Colors.white)),
-                                                                                          ),
-                                                                                      ],
+                                                                                      ),
                                                                                     ),
-                                                                                    if (response.clockInTime != null)
-                                                                                      Padding(
-                                                                                        padding: const EdgeInsets.only(top: 8, left: 4),
-                                                                                        child: Text(
-                                                                                          "Clock In: ${DateFormat('hh:mm a').format(response.clockInTime!.toLocal())}",
-                                                                                          style: const TextStyle(color: Colors.white70, fontSize: 12),
-                                                                                        ),
+                                                                                    Text(
+                                                                                      shift.status,
+                                                                                      style: TextStyle(
+                                                                                        fontSize: 13,
+                                                                                        fontWeight: FontWeight.w500,
+                                                                                        color: shift.status.trim().toLowerCase() == 'active'
+                                                                                            ? Colors.greenAccent
+                                                                                            : (shift.status.trim().toLowerCase() == 'scheduled' || shift.status.trim().toLowerCase() == 'pending')
+                                                                                                ? Colors.yellowAccent
+                                                                                                : Colors.white70,
                                                                                       ),
-                                                                                    if (response.clockOutTime != null)
-                                                                                      Padding(
-                                                                                        padding: const EdgeInsets.only(top: 2, left: 4),
-                                                                                        child: Text(
-                                                                                          "Clock Out: ${DateFormat('hh:mm a').format(response.clockOutTime!.toLocal())}",
-                                                                                          style: const TextStyle(color: Colors.white70, fontSize: 12),
-                                                                                        ),
-                                                                                      ),
-                                                                                    if (response.isEarlyExit)
-                                                                                      Padding(
-                                                                                        padding: const EdgeInsets.only(top: 4, left: 4),
-                                                                                        child: Row(
-                                                                                          children: [
-                                                                                            const Icon(Icons.warning, color: Colors.orange, size: 14),
-                                                                                            const SizedBox(width: 4),
-                                                                                            Expanded(
-                                                                                              child: Text(
-                                                                                                "Reason: ${response.earlyExitReason ?? 'Emergency'}",
-                                                                                                style: const TextStyle(color: Colors.orange, fontSize: 12),
-                                                                                              ),
-                                                                                            ),
-                                                                                          ],
-                                                                                        ),
-                                                                                      ),
+                                                                                    ),
+                                                                                    const SizedBox(
+                                                                                      height: 10,
+                                                                                    ),
+                                                                                    const Icon(
+                                                                                      Icons.arrow_forward_ios,
+                                                                                      color: Colors.white70,
+                                                                                      size: 14,
+                                                                                    )
                                                                                   ],
                                                                                 ),
-                                                                              );
-                                                                            }).toList(),
+                                                                                const SizedBox(height: 6),
+                                                                                Text(
+                                                                                  "${formatTime(shift.startTime)} - ${formatTime(shift.endTime)}",
+                                                                                  style: const TextStyle(
+                                                                                    fontSize: 13,
+                                                                                    color: Colors.white70,
+                                                                                  ),
+                                                                                ),
+                                                                                const SizedBox(height: 12),
+                                                                                Text(
+                                                                                  "Assigned employees: ",
+                                                                                  style: const TextStyle(
+                                                                                    fontSize: 15,
+                                                                                    color: Colors.white,
+                                                                                    fontWeight: FontWeight.w500,
+                                                                                  ),
+                                                                                ),
+                                                                                const SizedBox(height: 12),
+                                                                                Column(
+                                                                                  children: shift.employeeResponses.map((response) {
+                                                                                    final employee = getEmployeeById(response.employeeId);
+                                                                                    final isPendingApproval = response.approvalStatus == "Pending";
+
+                                                                                    return Container(
+                                                                                      margin: const EdgeInsets.only(bottom: 12),
+                                                                                      padding: const EdgeInsets.all(10),
+                                                                                      decoration: BoxDecoration(
+                                                                                        color: Colors.black26,
+                                                                                        borderRadius: BorderRadius.circular(8),
+                                                                                        border: isPendingApproval ? Border.all(color: Colors.orangeAccent.withValues(alpha: 0.5)) : null,
+                                                                                      ),
+                                                                                      child: Column(
+                                                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                                                        children: [
+                                                                                          Row(
+                                                                                            children: [
+                                                                                              CircleAvatar(
+                                                                                                radius: 18,
+                                                                                                backgroundColor: Colors.grey[800],
+                                                                                                backgroundImage: (employee?.profilePicture != null && employee!.profilePicture!.startsWith('data:image'))
+                                                                                                    ? MemoryImage(base64Decode(employee.profilePicture!.split(',').last))
+                                                                                                    : (employee?.profilePicture != null && employee!.profilePicture!.isNotEmpty)
+                                                                                                        ? NetworkImage(employee.profilePicture!)
+                                                                                                        : null,
+                                                                                                child: (employee?.profilePicture == null || employee!.profilePicture!.isEmpty) ? const Icon(Icons.person, color: Colors.white, size: 18) : null,
+                                                                                              ),
+                                                                                              const SizedBox(width: 10),
+                                                                                              Expanded(
+                                                                                                child: Column(
+                                                                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                                                                  children: [
+                                                                                                    Text(
+                                                                                                      employee?.firstName ?? 'Unknown',
+                                                                                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                                                                                    ),
+                                                                                                    Text(
+                                                                                                      response.status,
+                                                                                                      style: TextStyle(
+                                                                                                        color: _getStatusColor(response.status),
+                                                                                                        fontSize: 11,
+                                                                                                        fontWeight: FontWeight.w600,
+                                                                                                      ),
+                                                                                                    ),
+                                                                                                  ],
+                                                                                                ),
+                                                                                              ),
+                                                                                              if (isPendingApproval)
+                                                                                                ElevatedButton(
+                                                                                                  style: ElevatedButton.styleFrom(
+                                                                                                    backgroundColor: Colors.green,
+                                                                                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                                                                                                    minimumSize: const Size(60, 30),
+                                                                                                  ),
+                                                                                                  onPressed: () => _handleApproval(response.employeeId, shift.shiftId, "Approved"),
+                                                                                                  child: const Text("Approve", style: TextStyle(fontSize: 12, color: Colors.white)),
+                                                                                                ),
+                                                                                            ],
+                                                                                          ),
+                                                                                          if (response.clockInTime != null)
+                                                                                            Padding(
+                                                                                              padding: const EdgeInsets.only(top: 8, left: 4),
+                                                                                              child: Text(
+                                                                                                "Clock In: ${DateFormat('hh:mm a').format(response.clockInTime!.toLocal())}",
+                                                                                                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                                                                              ),
+                                                                                            ),
+                                                                                          if (response.clockOutTime != null)
+                                                                                            Padding(
+                                                                                              padding: const EdgeInsets.only(top: 2, left: 4),
+                                                                                              child: Text(
+                                                                                                "Clock Out: ${DateFormat('hh:mm a').format(response.clockOutTime!.toLocal())}",
+                                                                                                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                                                                              ),
+                                                                                            ),
+                                                                                          if (response.isEarlyExit)
+                                                                                            Padding(
+                                                                                              padding: const EdgeInsets.only(top: 4, left: 4),
+                                                                                              child: Row(
+                                                                                                children: [
+                                                                                                  const Icon(Icons.warning, color: Colors.orange, size: 14),
+                                                                                                  const SizedBox(width: 4),
+                                                                                                  Expanded(
+                                                                                                    child: Text(
+                                                                                                      "Reason: ${response.earlyExitReason ?? 'Emergency'}",
+                                                                                                      style: const TextStyle(color: Colors.orange, fontSize: 12),
+                                                                                                    ),
+                                                                                                  ),
+                                                                                                ],
+                                                                                              ),
+                                                                                            ),
+                                                                                        ],
+                                                                                      ),
+                                                                                    );
+                                                                                  }).toList(),
+                                                                                ),
+                                                                              ],
+                                                                            ),
                                                                           ),
-                                                                        ],
-                                                                      ),
-                                                                    ),
-                                                                  ));
-                                                            },
-                                                          ),
-                                                  ),
-                                                ],
+                                                                        ));
+                                                                  },
+                                                                ),
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -907,114 +904,125 @@ class _ManagerdashboardState extends State<Managerdashboard> {
     required double screenHeight,
   }) {
     final todayLeaves = getTodayLeaveRequests();
-
-    return Container(
-      width: double.infinity,
-      constraints: BoxConstraints(minHeight: screenHeight * 0.20),
-      padding: EdgeInsets.symmetric(
-        horizontal: screenWidth * 0.045,
-        vertical: screenHeight * 0.022,
-      ),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF2B3446),
-            Color(0xFF29384F),
-            Color(0xFF315684),
-          ],
-          stops: [0.0, 0.54, 1.0],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.22),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          const Text(
-            "Today on Leave",
-            style: TextStyle(
-              fontSize: 22,
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0,
+    return InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => const Bottomnavbar(selectedIndex: 4),
             ),
+          );
+        },
+        child: Container(
+          width: double.infinity,
+          constraints: BoxConstraints(minHeight: screenHeight * 0.20),
+          padding: EdgeInsets.symmetric(
+            horizontal: screenWidth * 0.045,
+            vertical: screenHeight * 0.022,
           ),
-          SizedBox(height: screenHeight * 0.028),
-          if (todayLeaves.isEmpty)
-            const Text(
-              "No one is on leave today.",
-              style: TextStyle(
-                color: Color(0xFFC7CEDB),
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 0,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF2B3446),
+                Color(0xFF29384F),
+                Color(0xFF315684),
+              ],
+              stops: [0.0, 0.54, 1.0],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.22),
+                blurRadius: 18,
+                offset: const Offset(0, 10),
               ),
-            )
-          else
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: todayLeaves.map((leave) {
-                  final employee = getEmployeeById(leave.employeeId);
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: Column(
-                      children: [
-                        CircleAvatar(
-                          radius: 30,
-                          backgroundColor: Colors.grey[800],
-                          backgroundImage: (employee?.profilePicture != null &&
-                                  employee!.profilePicture!
-                                      .startsWith('data:image'))
-                              ? MemoryImage(
-                                  base64Decode(
-                                    employee.profilePicture!.split(',').last,
-                                  ),
-                                )
-                              : (employee?.profilePicture != null &&
-                                      employee!.profilePicture!.isNotEmpty)
-                                  ? NetworkImage(employee.profilePicture!)
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              const Text(
+                "Today on Leave",
+                style: TextStyle(
+                  fontSize: 22,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
+              ),
+              SizedBox(height: screenHeight * 0.028),
+              if (todayLeaves.isEmpty)
+                const Text(
+                  "No one is on leave today.",
+                  style: TextStyle(
+                    color: Color(0xFFC7CEDB),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0,
+                  ),
+                )
+              else
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: todayLeaves.map((leave) {
+                      final employee = getEmployeeById(leave.employeeId);
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 12),
+                        child: Column(
+                          children: [
+                            CircleAvatar(
+                              radius: 30,
+                              backgroundColor: Colors.grey[800],
+                              backgroundImage: (employee?.profilePicture !=
+                                          null &&
+                                      employee!.profilePicture!
+                                          .startsWith('data:image'))
+                                  ? MemoryImage(
+                                      base64Decode(
+                                        employee.profilePicture!
+                                            .split(',')
+                                            .last,
+                                      ),
+                                    )
+                                  : (employee?.profilePicture != null &&
+                                          employee!.profilePicture!.isNotEmpty)
+                                      ? NetworkImage(employee.profilePicture!)
+                                      : null,
+                              child: (employee?.profilePicture == null ||
+                                      employee!.profilePicture!.isEmpty)
+                                  ? const Icon(
+                                      Icons.person,
+                                      size: 30,
+                                      color: Colors.white,
+                                    )
                                   : null,
-                          child: (employee?.profilePicture == null ||
-                                  employee!.profilePicture!.isEmpty)
-                              ? const Icon(
-                                  Icons.person,
-                                  size: 30,
-                                  color: Colors.white,
-                                )
-                              : null,
-                        ),
-                        const SizedBox(height: 6),
-                        SizedBox(
-                          width: 70,
-                          child: Text(
-                            employee?.firstName ?? 'Unknown',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
                             ),
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                          ),
+                            const SizedBox(height: 6),
+                            SizedBox(
+                              width: 70,
+                              child: Text(
+                                employee?.firstName ?? 'Unknown',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-        ],
-      ),
-    );
+                      );
+                    }).toList(),
+                  ),
+                ),
+            ],
+          ),
+        ));
   }
 
   Future<void> _handleApproval(

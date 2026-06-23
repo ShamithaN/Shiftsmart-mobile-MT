@@ -23,7 +23,9 @@ import 'package:shiftsmart/widgets/bottomnavbar.dart';
 import 'package:shiftsmart/models/project.dart' as model;
 
 class Managerjobs extends StatefulWidget {
-  const Managerjobs({super.key});
+  final int initialTabIndex;
+
+  const Managerjobs({super.key, this.initialTabIndex = 0});
 
   @override
   State<Managerjobs> createState() => _ManagerjobsState();
@@ -460,6 +462,7 @@ class _ManagerjobsState extends State<Managerjobs>
               SafeArea(
                 child: DefaultTabController(
                   length: 2,
+                  initialIndex: widget.initialTabIndex,
                   child: Column(
                     children: [
                       TabBar(
