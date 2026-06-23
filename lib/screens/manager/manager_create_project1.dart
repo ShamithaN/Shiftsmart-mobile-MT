@@ -423,12 +423,17 @@ class _ManagercreateprojectState extends State<Managercreateproject> {
         ),
         const SizedBox(height: 8),
         _SelectBox<int>(
-          value: _selectedComId,
-          hint: 'Select a company',
+          value: allCom.any((company) => company.id == _selectedComId)
+              ? _selectedComId
+              : null,
+          hint: allCom.isEmpty ? 'No companies available' : 'Select a company',
           items: allCom.map((company) => company.id).toList(),
-          labelFor: (id) =>
-              allCom.firstWhere((company) => company.id == id).name,
-          onChanged: (value) => setState(() => _selectedComId = value),
+          labelFor: (id) {
+            return allCom.firstWhere((company) => company.id == id).name;
+          },
+          onChanged: allCom.isEmpty
+              ? (_) {}
+              : (value) => setState(() => _selectedComId = value),
         ),
       ],
     );

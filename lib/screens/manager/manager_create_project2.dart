@@ -383,14 +383,18 @@ class _Managercreateproject2State extends State<Managercreateproject2> {
       children: [
         const _FieldLabel('Project Status', required: true),
         const SizedBox(height: 8),
-        _SelectBox<String>(
-          value: _selectedStatus,
-          hint: 'Select status',
-          items: _statusOptions,
-          labelFor: (status) => status,
-          onChanged: (value) {
-            if (value != null) setState(() => _selectedStatus = value);
+        _SelectBox<int>(
+          value: allCom.any((company) => company.id == _selectedComId)
+              ? _selectedComId
+              : null,
+          hint: allCom.isEmpty ? 'No companies available' : 'Select a company',
+          items: allCom.map((company) => company.id).toList(),
+          labelFor: (id) {
+            return allCom.firstWhere((company) => company.id == id).name;
           },
+          onChanged: allCom.isEmpty
+              ? (_) {}
+              : (value) => setState(() => _selectedComId = value),
         ),
       ],
     );
