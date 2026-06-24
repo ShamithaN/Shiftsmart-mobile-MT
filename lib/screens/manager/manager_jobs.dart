@@ -32,7 +32,7 @@ class Managerjobs extends StatefulWidget {
 }
 
 class _ManagerjobsState extends State<Managerjobs>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
   final GlobalKey<RefreshIndicatorState> _refreshKey =
       GlobalKey<RefreshIndicatorState>();
 
@@ -46,15 +46,36 @@ class _ManagerjobsState extends State<Managerjobs>
   Map<int, model.Project> projectMap = {};
   Map<int, Employee> employeeMap = {};
   String _lastTenant = '';
-  String _searchQuery = '';
+  late final TabController _tabController;
+  final TextEditingController _jobSearchController = TextEditingController();
+  final TextEditingController _shiftSearchController = TextEditingController();
+  String _jobSearchQuery = '';
+  String _shiftSearchQuery = '';
+  int _currentTabIndex = 0;
 
   @override
   bool get wantKeepAlive => true;
 
   @override
+  void dispose() {
+    _tabController.removeListener(_handleTabChanged);
+    _tabController.dispose();
+    _jobSearchController.dispose();
+    _shiftSearchController.dispose();
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
     enableFullScreen();
+    _currentTabIndex = widget.initialTabIndex;
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialTabIndex,
+    );
+    _tabController.addListener(_handleTabChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshKey.currentState?.show();
       _loadData();
@@ -386,25 +407,38 @@ class _ManagerjobsState extends State<Managerjobs>
         tempJobs = List.from(allJobs);
       }
 
-      filteredJobs = _searchQuery.isEmpty
+      filteredJobs = _jobSearchQuery.isEmpty
           ? tempJobs
           : tempJobs
               .where((j) =>
-                  j.title.toLowerCase().contains(_searchQuery.toLowerCase()))
+                  j.title.toLowerCase().contains(_jobSearchQuery.toLowerCase()))
               .toList();
 
       // Shifts filter (search)
-      filteredShifts = _searchQuery.isEmpty
+      filteredShifts = _shiftSearchQuery.isEmpty
           ? List.from(allShifts)
           : allShifts
               .where((s) =>
-                  s.taskName.toLowerCase().contains(_searchQuery.toLowerCase()))
+                  s.taskName
+                      .toLowerCase()
+                      .contains(_shiftSearchQuery.toLowerCase()))
               .toList();
     });
   }
 
+  void _handleTabChanged() {
+    if (_currentTabIndex == _tabController.index) return;
+    setState(() {
+      _currentTabIndex = _tabController.index;
+    });
+  }
+
   void onQueryChanged(String query) {
-    _searchQuery = query;
+    if (_currentTabIndex == 0) {
+      _jobSearchQuery = query;
+    } else {
+      _shiftSearchQuery = query;
+    }
     _applyFilters();
   }
 
@@ -462,12 +496,10 @@ class _ManagerjobsState extends State<Managerjobs>
             children: [
               const Background(),
               SafeArea(
-                child: DefaultTabController(
-                  length: 2,
-                  initialIndex: widget.initialTabIndex,
-                  child: Column(
+                child: Column(
                     children: [
                       TabBar(
+                        controller: _tabController,
                         labelColor: Colors.blueAccent,
                         unselectedLabelColor: Colors.white,
                         indicatorColor: Colors.blueAccent,
@@ -485,6 +517,10 @@ class _ManagerjobsState extends State<Managerjobs>
                       Padding(
                         padding: const EdgeInsets.all(16.0),
                         child: TextField(
+                          key: ValueKey(_currentTabIndex),
+                          controller: _currentTabIndex == 0
+                              ? _jobSearchController
+                              : _shiftSearchController,
                           onChanged: onQueryChanged,
                           style: const TextStyle(color: Colors.white),
                           decoration: InputDecoration(
@@ -510,6 +546,7 @@ class _ManagerjobsState extends State<Managerjobs>
                                 key: _refreshKey,
                                 onRefresh: _loadData,
                                 child: TabBarView(
+                                  controller: _tabController,
                                   children: [
                                     _buildJobView(tp),
                                     _buildShiftView(tp),
@@ -520,7 +557,6 @@ class _ManagerjobsState extends State<Managerjobs>
                     ],
                   ),
                 ),
-              ),
             ],
           ),
         );
@@ -651,7 +687,7 @@ class _ManagerjobsState extends State<Managerjobs>
               'Contact your administrator to enable Job Management for your tenant.',
           onGotIt: () {
             if (!tp.isEndpointBlocked('shift')) {
-              DefaultTabController.of(context).animateTo(1);
+              _tabController.animateTo(1);
             } else {
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
@@ -1077,3 +1113,6 @@ class _ManagerjobsState extends State<Managerjobs>
     );
   }
 }
+
+
+
