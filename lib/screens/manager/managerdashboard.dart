@@ -739,7 +739,7 @@ class _ManagerdashboardState extends State<Managerdashboard> {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.symmetric(
-        horizontal: screenWidth < 390 ? 18 : 28,
+        horizontal: screenWidth * 0.04,
         vertical: screenWidth < 390 ? 22 : 28,
       ),
       decoration: BoxDecoration(
@@ -919,7 +919,7 @@ class _ManagerdashboardState extends State<Managerdashboard> {
           width: double.infinity,
           constraints: BoxConstraints(minHeight: screenHeight * 0.20),
           padding: EdgeInsets.symmetric(
-            horizontal: screenWidth * 0.045,
+            horizontal: screenWidth * 0.04,
             vertical: screenHeight * 0.022,
           ),
           decoration: BoxDecoration(

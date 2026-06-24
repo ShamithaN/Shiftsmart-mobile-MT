@@ -96,6 +96,7 @@ class _ManagerallshiftsState extends State<Managerallshifts> {
             children: [
               const Positioned.fill(child: Background()),
               Scaffold(
+                resizeToAvoidBottomInset: false,
                 backgroundColor: Colors.transparent,
                 appBar: const Uppernavbar(showBackButton: true),
                 drawer: const Sidenav(),
@@ -116,6 +117,7 @@ class _ManagerallshiftsState extends State<Managerallshifts> {
         }
 
         return Scaffold(
+          resizeToAvoidBottomInset: false,
           drawer: const Sidenav(),
           backgroundColor: const Color(0xFF1C2230),
           appBar: const Uppernavbar(

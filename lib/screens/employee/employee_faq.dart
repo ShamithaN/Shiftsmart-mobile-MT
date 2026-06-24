@@ -124,6 +124,7 @@ class _EmployeeFaqState extends State<EmployeeFaq> {
             .toList();
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       drawer: const EmpSidenav(
         currentScreen: 'EmployeeFAQ',
       ),

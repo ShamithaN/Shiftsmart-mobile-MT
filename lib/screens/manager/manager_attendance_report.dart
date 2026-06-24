@@ -87,6 +87,7 @@ class _ManagerattendancereportState extends State<Managerattendancereport> {
             children: [
               const Positioned.fill(child: Background()),
               Scaffold(
+                resizeToAvoidBottomInset: false,
                 backgroundColor: Colors.transparent,
                 appBar: const Uppernavbar(showBackButton: true),
                 drawer: const Sidenav(),
@@ -107,6 +108,7 @@ class _ManagerattendancereportState extends State<Managerattendancereport> {
         }
 
         return Scaffold(
+          resizeToAvoidBottomInset: false,
           backgroundColor: const Color(0xFF1C2230),
           appBar: const Uppernavbar(
             showBackButton: true,

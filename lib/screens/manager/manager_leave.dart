@@ -194,6 +194,7 @@ class _ManagerleaveState extends State<Managerleave> {
             children: [
               const Positioned.fill(child: Background()),
               Scaffold(
+                resizeToAvoidBottomInset: false,
                 backgroundColor: Colors.transparent,
                 body: SafeArea(
                   child: Center(
@@ -223,6 +224,7 @@ class _ManagerleaveState extends State<Managerleave> {
           children: [
             const Positioned.fill(child: Background()),
             Scaffold(
+              resizeToAvoidBottomInset: false,
               backgroundColor: Colors.transparent,
               body: _isLoading
                   ? const Center(

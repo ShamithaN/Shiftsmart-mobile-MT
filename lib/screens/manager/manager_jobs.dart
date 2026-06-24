@@ -427,6 +427,7 @@ class _ManagerjobsState extends State<Managerjobs>
             children: [
               const Positioned.fill(child: Background()),
               Scaffold(
+                resizeToAvoidBottomInset: false,
                 backgroundColor: Colors.transparent,
                 body: SafeArea(
                   child: Center(
@@ -456,6 +457,7 @@ class _ManagerjobsState extends State<Managerjobs>
 
         // ── Normal screen ─────────────────────────────────────────────
         return Scaffold(
+          resizeToAvoidBottomInset: false,
           body: Stack(
             children: [
               const Background(),

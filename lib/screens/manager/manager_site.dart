@@ -403,6 +403,7 @@ class _ManagersiteState extends State<Managersite> {
           }
         }
         return Scaffold(
+          resizeToAvoidBottomInset: false,
           drawer: const Sidenav(),
           backgroundColor: const Color(0xFF1C2230),
           appBar: const Uppernavbar(
