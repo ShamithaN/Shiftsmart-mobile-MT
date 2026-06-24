@@ -33,8 +33,6 @@ class Managerjobs extends StatefulWidget {
 
 class _ManagerjobsState extends State<Managerjobs>
     with AutomaticKeepAliveClientMixin, SingleTickerProviderStateMixin {
-  final GlobalKey<RefreshIndicatorState> _refreshKey =
-      GlobalKey<RefreshIndicatorState>();
 
   List<Job> allJobs = [];
   List<Job> filteredJobs = [];
@@ -77,7 +75,6 @@ class _ManagerjobsState extends State<Managerjobs>
     );
     _tabController.addListener(_handleTabChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshKey.currentState?.show();
       _loadData();
     });
   }
@@ -497,66 +494,72 @@ class _ManagerjobsState extends State<Managerjobs>
               const Background(),
               SafeArea(
                 child: Column(
-                    children: [
-                      TabBar(
-                        controller: _tabController,
-                        labelColor: Colors.blueAccent,
-                        unselectedLabelColor: Colors.white,
-                        indicatorColor: Colors.blueAccent,
-                        tabs: [
-                          Tab(
-                              icon: _buildTabIconWithCrown(
-                                  tp, 'job', const Icon(Icons.build)),
-                              text: "JOB ${filteredJobs.length}"),
-                          Tab(
-                              icon: _buildTabIconWithCrown(
-                                  tp, 'shift', const Icon(Icons.access_time)),
-                              text: "SHIFT ${filteredShifts.length}"),
-                        ],
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: TextField(
-                          key: ValueKey(_currentTabIndex),
-                          controller: _currentTabIndex == 0
-                              ? _jobSearchController
-                              : _shiftSearchController,
-                          onChanged: onQueryChanged,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            hintText: 'Search...',
-                            hintStyle: const TextStyle(color: Colors.white54),
-                            prefixIcon:
-                                const Icon(Icons.search, color: Colors.white54),
-                            filled: true,
-                            fillColor: const Color(0xFF2A3243),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide.none,
-                            ),
+                  children: [
+                    TabBar(
+                      controller: _tabController,
+                      labelColor: Colors.blueAccent,
+                      unselectedLabelColor: Colors.white,
+                      indicatorColor: Colors.blueAccent,
+                      tabs: [
+                        Tab(
+                          icon: _buildTabIconWithCrown(
+                            tp,
+                            'job',
+                            const Icon(Icons.build),
+                          ),
+                          text: "JOB ${filteredJobs.length}",
+                        ),
+                        Tab(
+                          icon: _buildTabIconWithCrown(
+                            tp,
+                            'shift',
+                            const Icon(Icons.access_time),
+                          ),
+                          text: "SHIFT ${filteredShifts.length}",
+                        ),
+                      ],
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: TextField(
+                        key: ValueKey(_currentTabIndex),
+                        controller: _currentTabIndex == 0
+                            ? _jobSearchController
+                            : _shiftSearchController,
+                        onChanged: onQueryChanged,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Search...',
+                          hintStyle: const TextStyle(color: Colors.white54),
+                          prefixIcon:
+                              const Icon(Icons.search, color: Colors.white54),
+                          filled: true,
+                          fillColor: const Color(0xFF2A3243),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none,
                           ),
                         ),
                       ),
-                      Expanded(
-                        child: _isLoading
-                            ? const Center(
-                                child: CircularProgressIndicator(
-                                    color: Color(0xFF724584)))
-                            : RefreshIndicator(
-                                key: _refreshKey,
-                                onRefresh: _loadData,
-                                child: TabBarView(
-                                  controller: _tabController,
-                                  children: [
-                                    _buildJobView(tp),
-                                    _buildShiftView(tp),
-                                  ],
-                                ),
+                    ),
+                    Expanded(
+                      child: _isLoading
+                          ? const Center(
+                              child: CircularProgressIndicator(
+                                color: Color(0xFF724584),
                               ),
-                      ),
-                    ],
-                  ),
+                            )
+                          : TabBarView(
+                              controller: _tabController,
+                              children: [
+                                _buildJobView(tp),
+                                _buildShiftView(tp),
+                              ],
+                            ),
+                    ),
+                  ],
                 ),
+              ),
             ],
           ),
         );
@@ -712,31 +715,39 @@ class _ManagerjobsState extends State<Managerjobs>
           if (result == true) _loadData();
         }),
         Expanded(
-          child: filteredJobs.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+          child: RefreshIndicator(
+            onRefresh: _loadData,
+            child: filteredJobs.isEmpty
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     children: [
-                      Image.asset('assets/cJob.png',
-                          height: 30, color: Colors.white54),
+                      const SizedBox(height: 160),
+                      Center(
+                        child: Image.asset('assets/cJob.png',
+                            height: 30, color: Colors.white54),
+                      ),
                       const SizedBox(height: 16),
-                      Text("No jobs found",
-                          style:
-                              TextStyle(color: Colors.grey[400], fontSize: 16)),
+                      Center(
+                        child: Text("No jobs found",
+                            style: TextStyle(
+                                color: Colors.grey[400], fontSize: 16)),
+                      ),
                     ],
+                  )
+                : ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: filteredJobs.length,
+                    itemBuilder: (context, index) {
+                      final job = filteredJobs[index];
+                      return InkWell(
+                        onTap: () => _openJobDetails(job),
+                        child: _buildJobListItem(job),
+                      );
+                    },
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: filteredJobs.length,
-                  itemBuilder: (context, index) {
-                    final job = filteredJobs[index];
-                    return InkWell(
-                      onTap: () => _openJobDetails(job),
-                      child: _buildJobListItem(job),
-                    );
-                  },
-                ),
+          ),
         ),
       ],
     );
@@ -774,31 +785,39 @@ class _ManagerjobsState extends State<Managerjobs>
           if (result == true) _loadData();
         }),
         Expanded(
-          child: filteredShifts.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+          child: RefreshIndicator(
+            onRefresh: _loadData,
+            child: filteredShifts.isEmpty
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     children: [
-                      Image.asset('assets/cShift.png',
-                          height: 30, color: Colors.white54),
+                      const SizedBox(height: 160),
+                      Center(
+                        child: Image.asset('assets/cShift.png',
+                            height: 30, color: Colors.white54),
+                      ),
                       const SizedBox(height: 16),
-                      Text("No shifts found",
-                          style:
-                              TextStyle(color: Colors.grey[400], fontSize: 16)),
+                      Center(
+                        child: Text("No shifts found",
+                            style: TextStyle(
+                                color: Colors.grey[400], fontSize: 16)),
+                      ),
                     ],
+                  )
+                : ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: filteredShifts.length,
+                    itemBuilder: (context, index) {
+                      final shift = filteredShifts[index];
+                      return InkWell(
+                        onTap: () => _openShiftDetails(shift),
+                        child: _buildShiftListItem(shift),
+                      );
+                    },
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: filteredShifts.length,
-                  itemBuilder: (context, index) {
-                    final shift = filteredShifts[index];
-                    return InkWell(
-                      onTap: () => _openShiftDetails(shift),
-                      child: _buildShiftListItem(shift),
-                    );
-                  },
-                ),
+          ),
         ),
       ],
     );
@@ -1113,6 +1132,8 @@ class _ManagerjobsState extends State<Managerjobs>
     );
   }
 }
+
+
 
 
 
