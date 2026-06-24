@@ -40,7 +40,7 @@ class _Managercreateproject2State extends State<Managercreateproject2> {
   List<Company> allCom = [];
   int? _selectedComId; // Track ID instead of Name String
   String _selectedStatus = 'Active';
-  final List<String> _statusOptions = const ['Active', 'Pending', 'Completed'];
+  final List<String> _statusOptions = const ['Active', 'Completed'];
 
   @override
   void initState() {

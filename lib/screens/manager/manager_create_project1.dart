@@ -29,7 +29,7 @@ class _ManagercreateprojectState extends State<Managercreateproject> {
   final TextEditingController _startdateController = TextEditingController();
   final TextEditingController _enddateController = TextEditingController();
 
-  final List<String> _statusOptions = const ['Active', 'Pending', 'Completed'];
+  final List<String> _statusOptions = const ['Active', 'Completed'];
   List<Company> allCom = [];
   int? _selectedComId;
   String _selectedStatus = 'Active';

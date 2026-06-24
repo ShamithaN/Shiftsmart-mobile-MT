@@ -357,12 +357,16 @@ class _ManagerprojectviewState extends State<Managerprojectview> {
   }
 
   Widget _buildActionButtons() {
+    final normalizedStatus = widget.project!.status.trim().toLowerCase();
+    final isCompleted =
+        normalizedStatus == 'completed' || normalizedStatus == 'complete';
+
     return Wrap(
       alignment: WrapAlignment.end,
       spacing: 12,
       runSpacing: 12,
       children: [
-        _actionButton(
+        if (!isCompleted) _actionButton(
           text: 'Complete',
           icon: Icons.check_circle_rounded,
           gradient: const [Color(0xFF34C8E8), Color(0xFF4E4AF2)],
@@ -503,6 +507,7 @@ class _ManagerprojectviewState extends State<Managerprojectview> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Project marked as completed')),
         );
+        Navigator.pop(context, true);
       }
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

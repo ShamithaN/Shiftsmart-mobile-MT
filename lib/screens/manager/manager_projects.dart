@@ -671,6 +671,12 @@ class _Managerprojectstate extends State<Managerprojects> {
       required String startDate,
       required String dueDate,
       required Widget trailing}) {
+    final normalizedStatus = status.trim().toLowerCase();
+    final isCompleted =
+        normalizedStatus == 'completed' || normalizedStatus == 'complete';
+    final statusColor = isCompleted ? Colors.greenAccent : Colors.amberAccent;
+    final statusIcon = isCompleted ? Icons.check_circle : Icons.sync;
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
       padding: const EdgeInsets.all(16),
@@ -694,17 +700,18 @@ class _Managerprojectstate extends State<Managerprojects> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.amberAccent),
+                  border: Border.all(color: statusColor),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.sync, color: Colors.amberAccent, size: 14),
+                    Icon(statusIcon, color: statusColor, size: 14),
                     const SizedBox(width: 4),
-                    Text(status,
-                        style: const TextStyle(
-                            color: Colors.amberAccent, fontSize: 12)),
+                    Text(
+                      status,
+                      style: TextStyle(color: statusColor, fontSize: 12),
+                    ),
                   ],
                 ),
               ),

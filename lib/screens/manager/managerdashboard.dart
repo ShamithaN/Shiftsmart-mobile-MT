@@ -374,21 +374,7 @@ class _ManagerdashboardState extends State<Managerdashboard> {
                                           screenHeight: screenHeight,
                                         ),
                                         SizedBox(height: screenHeight * 0.025),
-                                        InkWell(
-                                          borderRadius:
-                                              BorderRadius.circular(20),
-                                          onTap: () {
-                                            Navigator.of(context)
-                                                .pushReplacement(
-                                              MaterialPageRoute(
-                                                builder: (context) =>
-                                                    const Bottomnavbar(
-                                                        selectedIndex: 2,
-                                                        jobsInitialTabIndex: 1),
-                                              ),
-                                            );
-                                          },
-                                          child: ConstrainedBox(
+                                        ConstrainedBox(
                                             constraints: BoxConstraints(
                                               minHeight: screenHeight * 0.18,
                                               maxHeight: screenHeight * 0.45,
@@ -403,14 +389,34 @@ class _ManagerdashboardState extends State<Managerdashboard> {
                                                   crossAxisAlignment:
                                                       CrossAxisAlignment.start,
                                                   children: [
-                                                    const Text(
-                                                      "TODAY'S SHIFTS",
-                                                      style: TextStyle(
-                                                        fontSize: 18,
-                                                        color: Colors.white,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
+                                                    Row(
+                                                      children: [
+                                                        const Expanded(
+                                                          child: Text(
+                                                            "TODAY'S SHIFTS",
+                                                            style: TextStyle(
+                                                              fontSize: 18,
+                                                              color: Colors.white,
+                                                              fontWeight:
+                                                                  FontWeight.bold,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        _buildDashboardArrowButton(
+                                                          onTap: () {
+                                                            Navigator.of(context)
+                                                                .pushReplacement(
+                                                              MaterialPageRoute(
+                                                                builder: (context) =>
+                                                                    const Bottomnavbar(
+                                                                  selectedIndex: 2,
+                                                                  jobsInitialTabIndex: 1,
+                                                                ),
+                                                              ),
+                                                            );
+                                                          },
+                                                        ),
+                                                      ],
                                                     ),
                                                     const SizedBox(height: 6),
                                                     Text(
@@ -648,7 +654,6 @@ class _ManagerdashboardState extends State<Managerdashboard> {
                                               ),
                                             ),
                                           ),
-                                        ),
                                       ],
                                     ),
                                   ),
@@ -682,6 +687,38 @@ class _ManagerdashboardState extends State<Managerdashboard> {
     }
   }
 
+  Widget _buildDashboardArrowButton({
+    required VoidCallback onTap,
+    double size = 44,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A315E),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6EA7FF).withValues(alpha: 0.2),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.north_east_rounded,
+            color: Color(0xFF78AFFF),
+            size: 24,
+          ),
+        ),
+      ),
+    );
+  }
   Widget _buildProjectOverviewCard({
     required double screenWidth,
     required int totalProjects,
@@ -733,7 +770,6 @@ class _ManagerdashboardState extends State<Managerdashboard> {
           final donutSize = 176.0 * compactScale;
           final titleSize = 28.0 * compactScale;
           final subtitleSize = 18.0 * compactScale;
-          final iconSize = 54.0 * compactScale;
           final chart = _ProjectDonutChart(
             size: donutSize,
             totalProjects: totalProjects,
@@ -798,40 +834,15 @@ class _ManagerdashboardState extends State<Managerdashboard> {
                       ],
                     ),
                   ),
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: () {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                const Bottomnavbar(selectedIndex: 1),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        width: iconSize,
-                        height: iconSize,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A315E),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF6EA7FF)
-                                  .withValues(alpha: 0.2),
-                              blurRadius: 18,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
+                  _buildDashboardArrowButton(
+                    onTap: () {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const Bottomnavbar(selectedIndex: 1),
                         ),
-                        child: Icon(
-                          Icons.north_east_rounded,
-                          color: const Color(0xFF78AFFF),
-                          size: 28 * compactScale,
-                        ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -904,16 +915,7 @@ class _ManagerdashboardState extends State<Managerdashboard> {
     required double screenHeight,
   }) {
     final todayLeaves = getTodayLeaveRequests();
-    return InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: () {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) => const Bottomnavbar(selectedIndex: 4),
-            ),
-          );
-        },
-        child: Container(
+    return Container(
           width: double.infinity,
           constraints: BoxConstraints(minHeight: screenHeight * 0.20),
           padding: EdgeInsets.symmetric(
@@ -944,14 +946,29 @@ class _ManagerdashboardState extends State<Managerdashboard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
-              const Text(
-                "Today on Leave",
-                style: TextStyle(
-                  fontSize: 22,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
-                ),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      "Today on Leave",
+                      style: TextStyle(
+                        fontSize: 22,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ),
+                  _buildDashboardArrowButton(
+                    onTap: () {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(
+                          builder: (context) => const Bottomnavbar(selectedIndex: 4),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
               SizedBox(height: screenHeight * 0.028),
               if (todayLeaves.isEmpty)
@@ -1022,7 +1039,7 @@ class _ManagerdashboardState extends State<Managerdashboard> {
                 ),
             ],
           ),
-        ));
+        );
   }
 
   Future<void> _handleApproval(
