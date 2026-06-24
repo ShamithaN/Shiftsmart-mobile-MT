@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shiftsmart/services/job_service.dart';
 import 'package:shiftsmart/services/project_service.dart';
@@ -240,6 +241,13 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
     }
     if (_selectedJobRoles.isEmpty) {
       _showError("Please add at least one job role.");
+      return false;
+    }
+    final hasInvalidResourceValues = _selectedJobRoles.any(
+      (role) => role.numberOfRoles <= 0 || role.estimatedTime <= 0,
+    );
+    if (hasInvalidResourceValues) {
+      _showError("Resource count and time must be greater than 0.");
       return false;
     }
     return true;
@@ -790,6 +798,41 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
     );
   }
 
+  final TextInputFormatter _positiveNumberFormatter =
+      TextInputFormatter.withFunction(
+    (oldValue, newValue) {
+      final parsed = int.tryParse(newValue.text);
+      if (parsed == null || parsed <= 0) return oldValue;
+      return newValue;
+    },
+  );
+
+  Widget _buildStepperButton({
+    required IconData icon,
+    required VoidCallback? onTap,
+  }) {
+    final enabled = onTap != null;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(6),
+      onTap: onTap,
+      child: Container(
+        width: 26,
+        height: 26,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: enabled ? 0.10 : 0.04),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(
+          icon,
+          size: 16,
+          color: enabled ? Colors.white70 : Colors.white24,
+        ),
+      ),
+    );
+  }
+
   Widget _buildCardField({
     required String label,
     required int initialValue,
@@ -805,27 +848,48 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
         const SizedBox(width: 8),
         Expanded(
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
             decoration: BoxDecoration(
               color: ManagerScreenStyle.fieldBg,
               borderRadius: BorderRadius.circular(6),
             ),
-            child: TextFormField(
-              initialValue: initialValue.toString(),
-              onChanged: (val) {
-                int? parsed = int.tryParse(val);
-                if (parsed != null && parsed > 0) {
-                  onChanged(parsed);
-                }
-              },
-              keyboardType: TextInputType.number,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-              decoration: const InputDecoration(
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-                border: InputBorder.none,
-              ),
+            child: Row(
+              children: [
+                _buildStepperButton(
+                  icon: Icons.remove_rounded,
+                  onTap: initialValue > 1
+                      ? () => onChanged(initialValue - 1)
+                      : null,
+                ),
+                Expanded(
+                  child: TextFormField(
+                    key: ValueKey('$label-$initialValue'),
+                    initialValue: initialValue.toString(),
+                    onChanged: (val) {
+                      int? parsed = int.tryParse(val);
+                      if (parsed != null && parsed > 0) {
+                        onChanged(parsed);
+                      }
+                    },
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      _positiveNumberFormatter,
+                    ],
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+                _buildStepperButton(
+                  icon: Icons.add_rounded,
+                  onTap: () => onChanged(initialValue + 1),
+                ),
+              ],
             ),
           ),
         ),
@@ -932,5 +996,8 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
     );
   }
 }
+
+
+
 
 
