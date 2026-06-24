@@ -251,26 +251,41 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
   }
 
   // --- Job Roles Logic ---
-  void _addJobRole(JobRoleType jobRoleType) {
-    bool alreadyExists =
-        _selectedJobRoles.any((role) => role.jobRoleTypeId == jobRoleType.id);
-    if (alreadyExists) {
+  List<JobRoleType> _availableRoleTypes({int? excludingIndex}) {
+    final selectedRoleIds = _selectedJobRoles
+        .asMap()
+        .entries
+        .where((entry) => entry.key != excludingIndex)
+        .map((entry) => entry.value.jobRoleTypeId)
+        .toSet();
+
+    return _jobRoleTypes
+        .where((roleType) => !selectedRoleIds.contains(roleType.id))
+        .toList();
+  }
+
+  void _addJobRole() {
+    final availableRoleTypes = _availableRoleTypes();
+
+    if (availableRoleTypes.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("${jobRoleType.name} is already added.")),
+        const SnackBar(content: Text("No more resources available to add.")),
       );
       return;
     }
 
+    final roleType = availableRoleTypes.first;
+
     setState(() {
-      _selectedJobRoles.insert(
-          0,
-          JobRole(
-            jobRoleTypeId: jobRoleType.id,
-            roleName: jobRoleType.name,
-            estimatedTime: 8,
-            numberOfRoles: 1,
-            notes: "",
-          ));
+      _selectedJobRoles.add(
+        JobRole(
+          jobRoleTypeId: roleType.id,
+          roleName: roleType.name,
+          estimatedTime: 8,
+          numberOfRoles: 1,
+          notes: "",
+        ),
+      );
     });
   }
 
@@ -494,12 +509,7 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
                                             ),
                                           ),
                                           IconButton.filled(
-                                            onPressed: () {
-                                              if (_jobRoleTypes.isEmpty) return;
-                                              final defaultRole =
-                                                  _jobRoleTypes.first;
-                                              _addJobRole(defaultRole);
-                                            },
+                                            onPressed: _addJobRole,
                                             style: IconButton.styleFrom(
                                               backgroundColor:
                                                   ManagerScreenStyle.fieldBg,
@@ -511,16 +521,6 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
                                         ],
                                       ),
                                       const SizedBox(height: 16),
-                                      if (_selectedJobRoles.isEmpty)
-                                        const Padding(
-                                          padding: EdgeInsets.symmetric(
-                                              vertical: 20),
-                                          child: Center(
-                                            child: Text("No roles added yet.",
-                                                style: TextStyle(
-                                                    color: Colors.white54)),
-                                          ),
-                                        ),
                                       ListView.builder(
                                         shrinkWrap: true,
                                         physics:
@@ -696,6 +696,12 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
       (type) => type.id == role.jobRoleTypeId,
       orElse: () => _jobRoleTypes.first,
     );
+    final availableRoleTypes = _availableRoleTypes(excludingIndex: index);
+    final dropdownRoleTypes = availableRoleTypes.any(
+      (type) => type.id == currentRoleType.id,
+    )
+        ? availableRoleTypes
+        : [currentRoleType, ...availableRoleTypes];
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -731,7 +737,7 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
                     iconEnabledColor: Colors.white70,
                     isExpanded: true,
                     underline: const SizedBox(),
-                    items: _jobRoleTypes.map((roleType) {
+                    items: dropdownRoleTypes.map((roleType) {
                       return DropdownMenuItem(
                         value: roleType,
                         child: Text(roleType.name),
@@ -926,3 +932,5 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
     );
   }
 }
+
+
