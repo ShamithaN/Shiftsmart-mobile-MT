@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -354,8 +355,16 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
 
     try {
       if (widget.existingJob != null) {
-        success =
-            await JobService().updateJob(widget.existingJob!.jobId, jobData);
+        if (_selectedImage != null) {
+          success = await JobService().updateJobWithImage(
+            widget.existingJob!.jobId,
+            jobData,
+            _selectedImage!,
+          );
+        } else {
+          success =
+              await JobService().updateJob(widget.existingJob!.jobId, jobData);
+        }
       } else {
         if (_selectedImage != null) {
           success =
@@ -366,7 +375,7 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
         }
       }
     } catch (e) {
-      errorMessage = e.toString();
+      errorMessage = e.toString().replaceFirst('Exception: ', '');
       success = false;
     }
 
@@ -393,8 +402,15 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
           },
         );
       } else {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text("Failed: $errorMessage")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              errorMessage.isEmpty
+                  ? 'Failed to save job'
+                  : 'Failed: $errorMessage',
+            ),
+          ),
+        );
       }
     }
   }
@@ -435,6 +451,65 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
     );
   }
 
+  Widget _buildJobImagePreview() {
+    if (_selectedImage != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.file(_selectedImage!, fit: BoxFit.cover),
+      );
+    }
+
+    final existingImageUrl = widget.existingJob?.jobImageUrl.trim() ?? '';
+    if (existingImageUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: _buildRemoteJobImage(existingImageUrl),
+      );
+    }
+
+    return const Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          Icons.cloud_upload_outlined,
+          color: Colors.white70,
+          size: 48,
+        ),
+        SizedBox(height: 16),
+        Text(
+          "Tap to upload an image",
+          style: TextStyle(color: Colors.white70),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRemoteJobImage(String imageUrl) {
+    if (imageUrl.toLowerCase().startsWith('data:image')) {
+      try {
+        final bytes = base64Decode(imageUrl.split(',').last);
+        return Image.memory(bytes, fit: BoxFit.cover);
+      } catch (_) {
+        return _buildImageErrorPlaceholder();
+      }
+    }
+
+    return Image.network(
+      imageUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _buildImageErrorPlaceholder(),
+    );
+  }
+
+  Widget _buildImageErrorPlaceholder() {
+    return const Center(
+      child: Icon(
+        Icons.broken_image_outlined,
+        color: Colors.white54,
+        size: 44,
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     final isEditMode = widget.existingJob != null;
@@ -564,30 +639,7 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
                                                 .withValues(alpha: 0.2),
                                             width: 1.5),
                                       ),
-                                      child: _selectedImage == null
-                                          ? const Column(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Icon(
-                                                    Icons
-                                                        .cloud_upload_outlined,
-                                                    color: Colors.white70,
-                                                    size: 48),
-                                                SizedBox(height: 16),
-                                                Text(
-                                                    "Tap to upload an image",
-                                                    style: TextStyle(
-                                                        color: Colors.white70))
-                                              ],
-                                            )
-                                          : ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              child: Image.file(
-                                                  _selectedImage!,
-                                                  fit: BoxFit.cover),
-                                            ),
+                                      child: _buildJobImagePreview(),
                                     ),
                                   ),
                                 ),
@@ -996,8 +1048,4 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
     );
   }
 }
-
-
-
-
 

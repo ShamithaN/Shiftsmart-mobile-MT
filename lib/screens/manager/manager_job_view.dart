@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shiftsmart/models/job.dart';
 import 'package:shiftsmart/models/project.dart' as model;
@@ -220,6 +221,8 @@ class _ManagerJobViewState extends State<ManagerJobView> {
                       ? widget.job.description
                       : 'No description available.',
                 ),
+                const SizedBox(height: 12),
+                _jobImagePanel(),
               ],
             ),
           ),
@@ -368,6 +371,88 @@ class _ManagerJobViewState extends State<ManagerJobView> {
     );
   }
 
+  Widget _jobImagePanel() {
+    final imageUrl = widget.job.jobImageUrl.trim();
+
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 120),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: ManagerScreenStyle.tileBg.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.image_rounded, color: ManagerScreenStyle.cyan, size: 18),
+              SizedBox(width: 8),
+              Text(
+                'JOB IMAGE',
+                style: TextStyle(
+                  color: ManagerScreenStyle.cyan,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (imageUrl.isEmpty)
+            Text(
+              'No image available',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.56),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            )
+          else
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: _buildJobImage(imageUrl),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildJobImage(String imageUrl) {
+    if (imageUrl.toLowerCase().startsWith('data:image')) {
+      try {
+        return Image.memory(
+          base64Decode(imageUrl.split(',').last),
+          fit: BoxFit.cover,
+        );
+      } catch (_) {
+        return _imageErrorPlaceholder();
+      }
+    }
+
+    return Image.network(
+      imageUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _imageErrorPlaceholder(),
+    );
+  }
+
+  Widget _imageErrorPlaceholder() {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.12),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.broken_image_outlined,
+        color: Colors.white54,
+        size: 42,
+      ),
+    );
+  }
   Widget _statusBadge(String status) {
     final color = _statusColor(status);
 
@@ -414,3 +499,6 @@ class _ManagerJobViewState extends State<ManagerJobView> {
     return dateTimeString;
   }
 }
+
+
+
