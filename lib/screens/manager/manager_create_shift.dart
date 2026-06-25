@@ -86,10 +86,9 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
     } else if (mounted) {
       // Default values for new shift
       setState(() {
-        _dateController.text = dateFormat.format(DateTime.now());
-        _starttimecontroller.text = "07:00:00";
-        _endtimecontroller.text = "15:00:00";
-        _selectedDates.add(DateTime.now());
+        _dateController.text = '';
+        _starttimecontroller.clear();
+        _endtimecontroller.clear();
       });
       // Initial auto-name attempt (might be empty until job is selected)
       _updateAutoShiftName();
@@ -206,6 +205,7 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
 
     return employeeIds.toList();
   }
+
   // --- Time Picker ---
   Future<void> _selectTime(
       BuildContext context, TextEditingController controller) async {
@@ -271,6 +271,19 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
     }
   }
 
+  DateTime _dateOnly(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
+
+  DateTime _todayOnly() {
+    final now = DateTime.now();
+    return _dateOnly(now);
+  }
+
+  bool _isPastDate(DateTime date) {
+    return _dateOnly(date).isBefore(_todayOnly());
+  }
+
   bool isOnLeave(int employeeId, String shiftDateStr) {
     if (shiftDateStr.isEmpty) return false;
     try {
@@ -324,6 +337,12 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
     if (_selectedDates.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Please select at least one date")));
+      return;
+    }
+
+    if (widget.shift == null && _selectedDates.any(_isPastDate)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Past dates cannot be selected")));
       return;
     }
 
@@ -708,7 +727,15 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
   }
 
   Future<void> _openMultiDatePicker(BuildContext context) async {
-    DateTime? tempDate = DateTime.now();
+    final firstAllowedDate = _todayOnly();
+    DateTime tempDate = _selectedDates.isNotEmpty
+        ? _dateOnly(_selectedDates.first)
+        : firstAllowedDate;
+
+    if (tempDate.isBefore(firstAllowedDate)) {
+      tempDate = firstAllowedDate;
+    }
+
     await showDialog(
       context: context,
       builder: (context) {
@@ -786,14 +813,14 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
                               backgroundColor: const Color(0xFF2A3243)),
                         ),
                         child: CalendarDatePicker(
-                          initialDate: tempDate ?? DateTime.now(),
-                          firstDate: DateTime.now()
-                              .subtract(const Duration(days: 365)),
+                          initialDate: tempDate,
+                          firstDate: firstAllowedDate,
                           lastDate:
                               DateTime.now().add(const Duration(days: 365 * 2)),
                           onDateChanged: (date) {
+                            if (_isPastDate(date)) return;
                             setDialogState(() {
-                              tempDate = date;
+                              tempDate = _dateOnly(date);
                               if (_selectedDates.any((d) =>
                                   d.year == date.year &&
                                   d.month == date.month &&
