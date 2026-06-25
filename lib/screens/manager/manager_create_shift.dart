@@ -271,6 +271,9 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
     }
   }
 
+  bool _isEmployeeActive(Employee employee) {
+    return (employee.employmentStatus ?? '').trim().toLowerCase() == 'active';
+  }
   DateTime _dateOnly(DateTime date) {
     return DateTime(date.year, date.month, date.day);
   }
@@ -349,6 +352,18 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
     if (_selectedEmptIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Please select at least one employee")));
+      return;
+    }
+
+    final inactiveSelectedEmployees = allEmployees
+        .where((employee) =>
+            _selectedEmptIds.contains(employee.employeeId) &&
+            !_isEmployeeActive(employee))
+        .toList();
+
+    if (inactiveSelectedEmployees.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Inactive employees cannot be assigned to shifts")));
       return;
     }
 
@@ -1006,6 +1021,7 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
                                   height: 1),
                               itemBuilder: (context, index) {
                                 final employee = filteredEmployees[index];
+                                final isActive = _isEmployeeActive(employee);
                                 final isSelected = _selectedEmptIds
                                     .contains(employee.employeeId);
                                 final fullName =
@@ -1039,28 +1055,34 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
                                           color: Colors.white,
                                           fontSize: 15,
                                           fontWeight: FontWeight.w500)),
-                                  subtitle: (hasCon || onL)
-                                      ? Text(
-                                          hasCon
-                                              ? " Scheduling Conflict"
-                                              : " On Approved Leave",
-                                          style: const TextStyle(
+                                  subtitle: !isActive
+                                      ? const Text("Inactive employee",
+                                          style: TextStyle(
                                               color: Colors.redAccent,
                                               fontSize: 12))
-                                      : Text(employee.email ?? '',
-                                          style: TextStyle(
-                                              color: Colors.white
-                                                  .withValues(alpha: 0.5),
-                                              fontSize: 12)),
+                                      : (hasCon || onL)
+                                          ? Text(
+                                              hasCon
+                                                  ? " Scheduling Conflict"
+                                                  : " On Approved Leave",
+                                              style: const TextStyle(
+                                                  color: Colors.redAccent,
+                                                  fontSize: 12))
+                                          : Text(employee.email ?? '',
+                                              style: TextStyle(
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.5),
+                                                  fontSize: 12)),
                                   trailing: isSelected
                                       ? const Icon(Icons.check_circle,
                                           color: Colors.blueAccent)
-                                      : (hasCon || onL
-                                          ? const Icon(Icons.info_outline,
+                                      : (!isActive || hasCon || onL
+                                          ? const Icon(Icons.block,
                                               color: Colors.redAccent, size: 20)
                                           : const Icon(Icons.add_circle_outline,
                                               color: Colors.white24)),
-                                  onTap: (hasCon || onL)
+                                  onTap: (!isSelected &&
+                                          (!isActive || hasCon || onL))
                                       ? null
                                       : () {
                                           setState(() {
