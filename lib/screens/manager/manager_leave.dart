@@ -51,6 +51,7 @@ class _ManagerleaveState extends State<Managerleave> {
   String _lastTenant = '';
   int _selectedLeaveTab = 0;
   String _leaveSearchQuery = '';
+  final Map<int, String> _localRejectionReasons = {};
 
   @override
   void initState() {
@@ -79,9 +80,23 @@ class _ManagerleaveState extends State<Managerleave> {
       setState(() {
         final tenantEmployeeIds =
             _allEmployees.map((e) => e.employeeId).toSet();
-        _leaveRequests = leaveRequests
+        final scopedRequests = leaveRequests
             .where((req) => tenantEmployeeIds.contains(req.employeeId))
             .toList();
+
+        for (final request in scopedRequests) {
+          final serverReason = request.rejectionReason.trim();
+          if (serverReason.isNotEmpty) {
+            _localRejectionReasons[request.leaveRequestId] = serverReason;
+          } else {
+            final localReason = _localRejectionReasons[request.leaveRequestId];
+            if (localReason != null && localReason.trim().isNotEmpty) {
+              request.rejectionReason = localReason.trim();
+            }
+          }
+        }
+
+        _leaveRequests = scopedRequests;
       });
     } catch (e) {
       if (!mounted) return;
@@ -128,9 +143,12 @@ class _ManagerleaveState extends State<Managerleave> {
       setState(() {
         updatedRequest.status = newStatus;
         if (rejectionReason != null && rejectionReason.trim().isNotEmpty) {
-          updatedRequest.rejectionReason = rejectionReason.trim();
+          final trimmedReason = rejectionReason.trim();
+          updatedRequest.rejectionReason = trimmedReason;
+          _localRejectionReasons[id] = trimmedReason;
         } else if (newStatus.toLowerCase() == 'approved') {
           updatedRequest.rejectionReason = '';
+          _localRejectionReasons.remove(id);
         }
       });
     } catch (e) {
@@ -999,8 +1017,13 @@ class _ManagerleaveState extends State<Managerleave> {
                               ? Colors.red
                               : Colors.white,
                     ),
-                    if (isRejectedRequest && request.rejectionReason.trim().isNotEmpty)
-                      _detailRow("Rejection Reason", request.rejectionReason),
+                    if (isRejectedRequest)
+                      _detailRow(
+                        "Rejection Reason",
+                        request.rejectionReason.trim().isEmpty
+                            ? "Not provided"
+                            : request.rejectionReason,
+                      ),
                     _detailRow(
                         "Requested At", dateFormat.format(request.requestedAt)),
                     if (canReject || canApprove) ...[

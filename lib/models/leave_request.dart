@@ -46,7 +46,7 @@ class LeaveRequest {
       endDate: parseServerDateTime(json['EndDate']?.toString() ?? '') ??
           DateTime.now(),
       reason: json['Reason'] ?? '',
-      rejectionReason: json['RejectionReason'] ?? '',
+      rejectionReason: json['RejectionReason'] ?? json['rejectionReason'] ?? '',
       status: json['Status'] ?? 'Pending',
       requestedAt: parseServerDateTime(json['RequestedAt']?.toString() ?? '') ??
           DateTime.now(),
