@@ -80,7 +80,7 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
         _starttimecontroller.text = widget.shift!.startTime;
         _endtimecontroller.text = widget.shift!.endTime;
         _selectedJobId = widget.shift!.jobId;
-        _selectedEmptIds.addAll(widget.shift!.assignedEmployeeIds);
+        _selectedEmptIds.addAll(_assignedEmployeeIdsForShift(widget.shift!));
         _selectedDates.add(widget.shift!.date);
       });
     } else if (mounted) {
@@ -189,6 +189,23 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
     return "${names.take(2).join(", ")} +${names.length - 2} more";
   }
 
+  List<int> _assignedEmployeeIdsForShift(Shift shift) {
+    final employeeIds = <int>{};
+
+    for (final employeeId in shift.assignedEmployeeIds) {
+      if (employeeId > 0) {
+        employeeIds.add(employeeId);
+      }
+    }
+
+    for (final response in shift.employeeResponses) {
+      if (response.employeeId > 0) {
+        employeeIds.add(response.employeeId);
+      }
+    }
+
+    return employeeIds.toList();
+  }
   // --- Time Picker ---
   Future<void> _selectTime(
       BuildContext context, TextEditingController controller) async {
@@ -285,7 +302,7 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
 
       final shiftDate = DateFormat('yyyy-MM-dd').format(shift.date);
       if (shiftDate == selectedDate &&
-          shift.assignedEmployeeIds.contains(employeeId)) {
+          _assignedEmployeeIdsForShift(shift).contains(employeeId)) {
         if (isOverlapping(
             shift.startTime, shift.endTime, selectedStart, selectedEnd)) {
           return true;
@@ -370,7 +387,7 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
           }
 
           if (DateFormat('yyyy-MM-dd').format(shift.date) == dateStr &&
-              shift.assignedEmployeeIds.contains(empId)) {
+              _assignedEmployeeIdsForShift(shift).contains(empId)) {
             if (isOverlapping(
                 shift.startTime, shift.endTime, timeOnlyStart, timeOnlyEnd)) {
               conflictingAssignments[empId] = shift.shiftId;
@@ -415,6 +432,7 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
 
     int successCount = 0;
     bool anyFailure = false;
+    String failureMessage = '';
 
     // API Call: Create a separate shift for each date
     for (final date in _selectedDates) {
@@ -451,11 +469,10 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
 
       try {
         bool success = false;
-        if (widget.shift != null && _selectedDates.length == 1) {
+        if (isUpdate) {
           success = await ShiftService()
               .updateShift(widget.shift!.shiftId, shiftData);
         } else {
-          // For new shifts, ensure ShiftId 0 doesn't cause issues (backend usually ignores it on create)
           success = await ShiftService().addShift(shiftData);
         }
 
@@ -468,10 +485,16 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
           }
         } else {
           anyFailure = true;
-          debugPrint(
-              " Backend returned failure for shift creation on $dateStr");
+          failureMessage = isUpdate
+              ? "Backend returned failure for shift update on $dateStr"
+              : "Backend returned failure for shift creation on $dateStr";
+          debugPrint(" $failureMessage");
         }
       } catch (e) {
+        final cleanedError = e.toString().replaceFirst('Exception: ', '');
+        failureMessage = cleanedError.isNotEmpty
+            ? cleanedError
+            : "Exception submitting shift for $dateStr";
         debugPrint(" Exception submitting shift for $dateStr: $e");
         anyFailure = true;
       }
@@ -495,8 +518,13 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
       }
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text("Operation Failed")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              failureMessage.isEmpty ? "Operation Failed" : failureMessage,
+            ),
+          ),
+        );
         setState(() => _isSubmitting = false);
       }
     }

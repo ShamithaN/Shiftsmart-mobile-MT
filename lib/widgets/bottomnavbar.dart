@@ -243,6 +243,7 @@ class _BottomnavbarState extends State<Bottomnavbar> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: const Color(0xFF1C2230),
       drawer: Sidenav(currentScreen: _selectedIndex == 0 ? 'Home' : null),
       appBar: const Uppernavbar(),

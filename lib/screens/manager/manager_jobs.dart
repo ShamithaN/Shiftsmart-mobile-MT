@@ -917,13 +917,16 @@ class _ManagerjobsState extends State<Managerjobs>
   }
 
   Widget _buildShiftProfileStack(Shift shift, {required bool isCompact}) {
-    final assignedIds = shift.assignedEmployeeIds;
-    final profiles = assignedIds.isEmpty
+    final assignedIds = _assignedEmployeeIdsForShift(shift);
+    final visibleIds = assignedIds.take(4).toList();
+    final profiles = visibleIds.isEmpty
         ? <Employee?>[null]
-        : assignedIds.take(2).map((id) => employeeMap[id]).toList();
+        : visibleIds.map((id) => employeeMap[id]).toList();
     final avatarSize = isCompact ? 44.0 : 42.0;
     final overlapOffset = avatarSize - 14;
-    final stackWidth = avatarSize + (profiles.length - 1) * overlapOffset;
+    final extraCount = assignedIds.length - profiles.length;
+    final itemCount = profiles.length + (extraCount > 0 ? 1 : 0);
+    final stackWidth = avatarSize + (itemCount - 1) * overlapOffset;
 
     return SizedBox(
       width: stackWidth,
@@ -939,7 +942,51 @@ class _ManagerjobsState extends State<Managerjobs>
                 size: avatarSize,
               ),
             ),
+          if (extraCount > 0)
+            Positioned(
+              left: profiles.length * overlapOffset,
+              child: _buildExtraEmployeeCount(extraCount, size: avatarSize),
+            ),
         ],
+      ),
+    );
+  }
+
+  List<int> _assignedEmployeeIdsForShift(Shift shift) {
+    final employeeIds = <int>{};
+
+    for (final employeeId in shift.assignedEmployeeIds) {
+      if (employeeId > 0) {
+        employeeIds.add(employeeId);
+      }
+    }
+
+    for (final response in shift.employeeResponses) {
+      if (response.employeeId > 0) {
+        employeeIds.add(response.employeeId);
+      }
+    }
+
+    return employeeIds.toList();
+  }
+
+  Widget _buildExtraEmployeeCount(int count, {required double size}) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFF31394D),
+        borderRadius: BorderRadius.circular(size / 2),
+        border: Border.all(color: const Color(0xFF1E2433), width: 2),
+      ),
+      child: Text(
+        '+$count',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }

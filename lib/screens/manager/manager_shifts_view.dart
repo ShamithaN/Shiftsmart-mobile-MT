@@ -122,6 +122,8 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
   }
 
   Widget _buildDetailsPanel(Shift shift) {
+    final assignedEmployees = _assignedEmployeeRows(shift);
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF262D3F).withValues(alpha: 0.94),
@@ -208,7 +210,7 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
                         _detailTile(
                             width,
                             'EMPLOYEES',
-                            shift.assignedEmployeeIds.length.toString(),
+                            assignedEmployees.length.toString(),
                             Icons.groups_rounded),
                         _detailTile(
                             width, 'STATUS', shift.status, Icons.flag_rounded),
@@ -227,13 +229,13 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                if (shift.employeeResponses.isEmpty)
+                if (assignedEmployees.isEmpty)
                   const Text(
-                    'No employee responses available.',
+                    'No assigned employees available.',
                     style: TextStyle(color: Colors.white70),
                   )
                 else
-                  ...shift.employeeResponses.map((response) {
+                  ...assignedEmployees.map((response) {
                     final name = _getEmployeeNameById(response.employeeId);
                     return _buildEmployeeCard(name, response);
                   }),
@@ -542,6 +544,31 @@ class _ManagerShiftsViewState extends State<ManagerShiftsView> {
 
   String _getEmployeeNameById(int id) {
     return employeeMap[id] ?? "$id";
+  }
+
+  List<EmployeeResponse> _assignedEmployeeRows(Shift shift) {
+    final rowsByEmployeeId = <int, EmployeeResponse>{};
+
+    for (final response in shift.employeeResponses) {
+      if (response.employeeId > 0) {
+        rowsByEmployeeId[response.employeeId] = response;
+      }
+    }
+
+    for (final employeeId in shift.assignedEmployeeIds) {
+      if (employeeId > 0) {
+        rowsByEmployeeId.putIfAbsent(
+          employeeId,
+          () => EmployeeResponse(
+            employeeId: employeeId,
+            status: 'Pending',
+            isEarlyExit: false,
+          ),
+        );
+      }
+    }
+
+    return rowsByEmployeeId.values.toList();
   }
 }
 
