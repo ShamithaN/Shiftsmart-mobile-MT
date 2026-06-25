@@ -99,9 +99,14 @@ class _ManagerleaveState extends State<Managerleave> {
     }
   }
 
-  Future<void> _updateLeaveStatus(int id, String newStatus) async {
+  Future<void> _updateLeaveStatus(int id, String newStatus,
+      {String? rejectionReason}) async {
     try {
-      await _leaveService.updateLeaveStatus(id, newStatus);
+      await _leaveService.updateLeaveStatus(
+        id,
+        newStatus,
+        rejectionReason: rejectionReason,
+      );
 
       if (!mounted) return;
 
@@ -122,6 +127,11 @@ class _ManagerleaveState extends State<Managerleave> {
       // Update state
       setState(() {
         updatedRequest.status = newStatus;
+        if (rejectionReason != null && rejectionReason.trim().isNotEmpty) {
+          updatedRequest.rejectionReason = rejectionReason.trim();
+        } else if (newStatus.toLowerCase() == 'approved') {
+          updatedRequest.rejectionReason = '';
+        }
       });
     } catch (e) {
       if (!mounted) return;
@@ -131,6 +141,108 @@ class _ManagerleaveState extends State<Managerleave> {
         SnackBar(content: Text('Error: $e')),
       );
     }
+  }
+
+  Future<String?> _showRejectReasonDialog() async {
+    String reasonText = '';
+
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final hasReason = reasonText.trim().isNotEmpty;
+
+            return AlertDialog(
+              backgroundColor: const Color(0xFF2A3243),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Row(
+                children: [
+                  Icon(Icons.error_rounded, color: Colors.redAccent, size: 22),
+                  SizedBox(width: 10),
+                  Text(
+                    'Reject Request',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Please provide a reason for rejecting this leave request.',
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    maxLines: 4,
+                    autofocus: true,
+                    style: const TextStyle(color: Colors.white),
+                    onChanged: (value) {
+                      setDialogState(() => reasonText = value);
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Enter rejection reason...',
+                      hintStyle: const TextStyle(color: Colors.white38),
+                      filled: true,
+                      fillColor: const Color(0xFF1E2433),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.12),
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.12),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Colors.redAccent),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: hasReason
+                      ? () => Navigator.of(dialogContext).pop(reasonText.trim())
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                    disabledBackgroundColor:
+                        Colors.redAccent.withValues(alpha: 0.28),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text('Confirm'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _fetchAllEmployees() async {
@@ -831,17 +943,12 @@ class _ManagerleaveState extends State<Managerleave> {
     final dateFormat = DateFormat('yyyy-MM-dd');
     final employee = getEmployeeById(request.employeeId);
 
-    int? remainingDays;
-    try {
-      remainingDays = await _fetchLeaveBalance(request.employeeId);
-    } catch (e) {
-      debugPrint("Error fetching leave balance: $e");
-    }
-
     final requestDays =
         request.endDate.difference(request.startDate).inDays + 1;
-    final hasEnoughLeave =
-        remainingDays != null && remainingDays >= requestDays;
+    final isApprovedRequest = request.status.toLowerCase() == 'approved';
+    final isRejectedRequest = _isRejectedLeave(request.status);
+    final canReject = request.isPending || isApprovedRequest;
+    final canApprove = request.isPending || isRejectedRequest;
 
     showDialog(
       context: context,
@@ -888,91 +995,144 @@ class _ManagerleaveState extends State<Managerleave> {
                       request.status,
                       valueColor: request.status.toLowerCase() == "approved"
                           ? Colors.green
-                          : request.status.toLowerCase() == "rejected"
+                          : _isRejectedLeave(request.status)
                               ? Colors.red
                               : Colors.white,
                     ),
+                    if (isRejectedRequest && request.rejectionReason.trim().isNotEmpty)
+                      _detailRow("Rejection Reason", request.rejectionReason),
                     _detailRow(
                         "Requested At", dateFormat.format(request.requestedAt)),
-                    const SizedBox(height: 10),
-                    Text(
-                      "Remaining Leave Days: ${remainingDays ?? 'N/A'}",
-                      style: TextStyle(
-                        color: hasEnoughLeave ? Colors.green : Colors.red,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                            _updateLeaveStatus(
-                                    request.leaveRequestId, "Rejected")
-                                .then((_) {
-                              _fetchLeaveRequests();
-                            });
-                          },
-                          style: ElevatedButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                            backgroundColor: Colors.transparent,
-                            shadowColor: Colors.transparent,
-                          ),
-                          child: Ink(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  Color.fromARGB(255, 226, 66, 63),
-                                  Color.fromARGB(255, 133, 5, 5)
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF1A1F2C)
-                                      .withValues(alpha: 0.6),
-                                  spreadRadius: 0,
-                                  blurRadius: 8,
-                                  offset: const Offset(3, 3),
-                                ),
-                              ],
-                            ),
-                            child: Container(
-                              alignment: Alignment.center,
-                              width: 120,
-                              height: 44,
-                              child: const Text(
-                                "Reject",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+                    if (canReject || canApprove) ...[
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          if (canReject)
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  final rejectionReason =
+                                      await _showRejectReasonDialog();
+                                  if (rejectionReason == null ||
+                                      rejectionReason.trim().isEmpty) {
+                                    return;
+                                  }
+                                  if (!context.mounted) return;
 
-                        // Approve with default GradientButton
-                        GradientButton(
-                          text: "Approve",
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                            _updateLeaveStatus(
-                                    request.leaveRequestId, "Approved")
-                                .then((_) {
-                              _fetchLeaveRequests();
-                            });
-                          },
-                        ),
-                      ],
-                    ),
+                                  Navigator.of(context).pop();
+                                  _updateLeaveStatus(
+                                    request.leaveRequestId,
+                                    "Rejected",
+                                    rejectionReason: rejectionReason,
+                                  ).then((_) {
+                                    _fetchLeaveRequests();
+                                  });
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  backgroundColor: Colors.transparent,
+                                  shadowColor: Colors.transparent,
+                                ),
+                                child: Ink(
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color.fromARGB(255, 226, 66, 63),
+                                        Color.fromARGB(255, 133, 5, 5),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF1A1F2C)
+                                            .withValues(alpha: 0.6),
+                                        spreadRadius: 0,
+                                        blurRadius: 8,
+                                        offset: const Offset(3, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Container(
+                                    alignment: Alignment.center,
+                                    height: 44,
+                                    child: const Text(
+                                      "Reject",
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (canReject && canApprove)
+                            const SizedBox(width: 12),
+                          if (canApprove)
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                  _updateLeaveStatus(
+                                    request.leaveRequestId,
+                                    "Approved",
+                                  ).then((_) {
+                                    _fetchLeaveRequests();
+                                  });
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  backgroundColor: Colors.transparent,
+                                  shadowColor: Colors.transparent,
+                                ),
+                                child: Ink(
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFF34C8E8),
+                                        Color(0xFF4E4AF2),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF1A1F2C)
+                                            .withValues(alpha: 0.6),
+                                        spreadRadius: 0,
+                                        blurRadius: 8,
+                                        offset: const Offset(3, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Container(
+                                    alignment: Alignment.center,
+                                    height: 44,
+                                    child: const Text(
+                                      "Approve",
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
