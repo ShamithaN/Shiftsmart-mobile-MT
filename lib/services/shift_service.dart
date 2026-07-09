@@ -261,6 +261,21 @@ class ShiftService {
     return payload;
   }
 
+  Map<String, dynamic> _normalizeUpdatePayload(
+      int id, Map<String, dynamic> shiftData) {
+    final payload = Map<String, dynamic>.from(shiftData)..['ShiftId'] = id;
+
+    final startDate = payload['StartDate']?.toString();
+    if (startDate != null && startDate.isNotEmpty) {
+      payload['Date'] = startDate;
+    }
+
+    payload['StartTime'] = _timeOnly(payload['StartTime']);
+    payload['EndTime'] = _timeOnly(payload['EndTime']);
+
+    return payload;
+  }
+
   String _timeOnly(dynamic value) {
     var time = value?.toString().trim() ?? '';
     if (time.contains('T')) time = time.split('T').last;
@@ -274,21 +289,26 @@ class ShiftService {
   // 10. Update Existing Shift
   Future<bool> updateShift(int id, Map<String, dynamic> shiftData) async {
     final updateUrl = '$baseUrl/shift/update/$id?code=$shiftUpdateKey';
-    shiftData['ShiftId'] = id;
+    final payload = _normalizeUpdatePayload(id, shiftData);
 
     try {
       final response =
-          await _apiClient.put(updateUrl, body: shiftData, useAuth: true);
+          await _apiClient.put(updateUrl, body: payload, useAuth: true);
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      if (response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204) {
         return true;
-      } else {
-        debugPrint('Failed to update shift: ${response.body}');
-        return false;
       }
+
+      final message = response.body.trim().isNotEmpty
+          ? response.body.trim()
+          : 'Status code: ${response.statusCode}';
+      debugPrint('Failed to update shift: $message');
+      throw Exception(message);
     } catch (e) {
       debugPrint('Exception in updateShift: $e');
-      return false;
+      rethrow;
     }
   }
 
@@ -314,3 +334,5 @@ class ShiftService {
     }
   }
 }
+
+

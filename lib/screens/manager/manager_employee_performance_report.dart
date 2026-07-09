@@ -357,6 +357,7 @@ class _ManagerEmployeePerformanceReportState
   Widget build(BuildContext context) {
     // ... (This function is unchanged)
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: const Color(0xFF1C2230),
       appBar: const Uppernavbar(showBackButton: true),
       drawer: const Sidenav(),

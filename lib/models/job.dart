@@ -50,8 +50,10 @@ class Job {
         employeeId: json['EmployeeId'] ?? json['employeeId'] as int?,
         startTime: json['StartTime'] ?? json['startTime'] as String?,
         endTime: json['EndTime'] ?? json['endTime'] as String?,
-        totalEstimatedTime: json['TotalEstimatedTime'] ?? json['totalEstimatedTime'] ?? 0,
-        jobImageUrl: json['JobImageUrl'] ?? json['jobImageUrl'] ?? '',
+        totalEstimatedTime:
+            json['TotalEstimatedTime'] ?? json['totalEstimatedTime'] ?? 0,
+        jobImageUrl:
+            (json['JobImageUrl'] ?? json['jobImageUrl'] ?? '').toString(),
         jobRoles: ((json['JobRoles'] ?? json['jobRoles']) as List<dynamic>?)
                 ?.map((role) => JobRole.fromJson(role))
                 .toList() ??

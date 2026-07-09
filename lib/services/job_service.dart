@@ -127,7 +127,9 @@ class JobService {
       }
 
       request.fields['job'] = jsonEncode(jobData);
-      request.files.add(await http.MultipartFile.fromPath('image', image.path));
+      request.files.add(
+        await http.MultipartFile.fromPath('image', image.path),
+      );
 
       final response = await request.send();
 
@@ -222,25 +224,65 @@ class JobService {
   // --- UPDATE JOB WITH IMAGE ---
   Future<bool> updateJobWithImage(
       int jobId, Map<String, dynamic> jobData, File image) async {
-    final url = Uri.parse(
-        '$baseUrl/job/updatewithimage/$jobId?code=$jobUpdateWithImageKey');
-    try {
-      final request = http.MultipartRequest("PUT", url);
-
-      final token = await _apiClient.getAppToken();
-      if (token != null) {
-        request.headers['Authorization'] = 'Bearer $token';
-      }
-
-      request.fields['job'] = jsonEncode(jobData);
-      request.files.add(await http.MultipartFile.fromPath('image', image.path));
-
-      final response = await request.send();
-      return response.statusCode == 200 || response.statusCode == 201;
-    } catch (e) {
-      debugPrint("Error updating job with image: $e");
-      return false;
+    if (jobUpdateWithImageKey.isEmpty) {
+      throw Exception('JOB_UPDATE_WITH_IMAGE_KEY is missing.');
     }
+
+    final payload = Map<String, dynamic>.from(jobData)
+      ..['jobId'] = jobId
+      ..['JobId'] = jobId;
+
+    final endpoints = [
+      Uri.parse(
+        '$baseUrl/job/update-with-image/$jobId?code=$jobUpdateWithImageKey',
+      ),
+      Uri.parse(
+        '$baseUrl/job/updatewithimage/$jobId?code=$jobUpdateWithImageKey',
+      ),
+    ];
+
+    String lastError = '';
+
+    for (final url in endpoints) {
+      try {
+        final request = http.MultipartRequest('PUT', url);
+
+        final token = await _apiClient.getAppToken();
+        if (token != null) {
+          request.headers['Authorization'] = 'Bearer $token';
+        }
+
+        request.fields['job'] = jsonEncode(payload);
+        request.files.add(
+        await http.MultipartFile.fromPath('image', image.path),
+      );
+
+        final response = await request.send();
+        final responseBody = await response.stream.bytesToString();
+
+        if (response.statusCode == 200 ||
+            response.statusCode == 201 ||
+            response.statusCode == 204) {
+          return true;
+        }
+
+        lastError = responseBody.isNotEmpty
+            ? responseBody
+            : 'Status code: ${response.statusCode}';
+        debugPrint('Failed to update job with image at $url: $lastError');
+
+        if (response.statusCode != 404 && response.statusCode != 405) {
+          break;
+        }
+      } catch (e) {
+        lastError = e.toString();
+        debugPrint('Error updating job with image at $url: $e');
+      }
+    }
+
+    throw Exception(
+      lastError.isEmpty ? 'Failed to update job with image.' : lastError,
+    );
   }
 
   // --- FETCH JOB ROLE TYPES ---
@@ -285,7 +327,9 @@ class JobService {
     final url = '$baseUrl/jobroletype/create?code=$jobRoleTypeCreateKey';
     try {
       final response = await _apiClient.post(url, body: data, useAuth: true);
-      return response.statusCode == 200 || response.statusCode == 201;
+      return response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204;
     } catch (e) {
       debugPrint("Error creating job role type: $e");
       return false;
@@ -304,3 +348,4 @@ class JobService {
     }
   }
 }
+

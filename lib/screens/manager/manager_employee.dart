@@ -87,6 +87,7 @@ class _ManageremployeeState extends State<Manageremployee> {
             children: [
               const Positioned.fill(child: Background()),
               Scaffold(
+                resizeToAvoidBottomInset: false,
                 backgroundColor: Colors.transparent,
                 body: SafeArea(
                   child: Center(
@@ -115,6 +116,7 @@ class _ManageremployeeState extends State<Manageremployee> {
         }
 
         return Scaffold(
+          resizeToAvoidBottomInset: false,
           body: Stack(children: [
             const Positioned.fill(child: Background()),
             SafeArea(

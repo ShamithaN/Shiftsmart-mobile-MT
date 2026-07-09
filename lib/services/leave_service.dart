@@ -374,12 +374,20 @@ class LeaveService {
   // FIX: Changed from POST to PATCH — approval/rejection is a partial update
   // on an existing resource.  If your Azure Function only accepts POST, change
   // _apiClient.patch → _apiClient.post here (and nowhere else).
-  Future<void> updateLeaveStatus(int id, String newStatus) async {
+  Future<void> updateLeaveStatus(
+    int id,
+    String newStatus, {
+    String? rejectionReason,
+  }) async {
     final String url = '$baseUrl/leave/approve/$id?code=$leaveApproveKey';
-    final body = {"status": newStatus};
+    final body = <String, dynamic>{"status": newStatus};
+
+    final trimmedReason = rejectionReason?.trim() ?? '';
+    if (trimmedReason.isNotEmpty) {
+      body['RejectionReason'] = trimmedReason;
+    }
  
     try {
-      
       final response = await _apiClient.post(
         url,
         body: body,

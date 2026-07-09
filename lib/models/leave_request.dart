@@ -3,22 +3,28 @@ import 'package:shiftsmart/utils/date_time_parser.dart';
 class LeaveRequest {
   final int leaveRequestId;
   final int employeeId;
+  final String employeeName;
   final String leaveType;
   final DateTime startDate;
   final DateTime endDate;
   final String reason;
+  String rejectionReason;
   String status;
   final DateTime requestedAt;
+  final int tenantId;
 
   LeaveRequest({
     required this.leaveRequestId,
     required this.employeeId,
+    this.employeeName = '',
     required this.leaveType,
     required this.startDate,
     required this.endDate,
     required this.reason,
+    this.rejectionReason = '',
     required this.status,
     required this.requestedAt,
+    this.tenantId = 0,
   });
 
   factory LeaveRequest.fromJson(Map<String, dynamic> json) {
@@ -31,37 +37,23 @@ class LeaveRequest {
     }
 
     return LeaveRequest(
-      leaveRequestId: parseId(json['LeaveRequestId'] ??
-          json['leaveRequestId'] ??
-          json['leave_request_id'] ??
-          json['id'] ??
-          json['Id']),
-      employeeId: parseId(json['EmployeeId'] ??
-          json['employeeId'] ??
-          json['employee_id'] ??
-          json['userId'] ??
-          json['UserId']),
-      leaveType:
-          json['LeaveType'] ?? json['leaveType'] ?? json['leave_type'] ?? '',
-      startDate: parseServerDateTime(json['StartDate']?.toString() ??
-              json['startDate']?.toString() ??
-              json['start_date']?.toString() ??
-              '') ??
+      leaveRequestId: parseId(json['LeaveRequestId']),
+      employeeId: parseId(json['EmployeeId']),
+      employeeName: json['EmployeeName'] ?? '',
+      leaveType: json['LeaveType'] ?? '',
+      startDate: parseServerDateTime(json['StartDate']?.toString() ?? '') ??
           DateTime.now(),
-      endDate: parseServerDateTime(json['EndDate']?.toString() ??
-              json['endDate']?.toString() ??
-              json['end_date']?.toString() ??
-              '') ??
+      endDate: parseServerDateTime(json['EndDate']?.toString() ?? '') ??
           DateTime.now(),
-      reason: json['Reason'] ?? json['reason'] ?? '',
-      status: json['Status'] ?? json['status'] ?? 'Pending',
-      requestedAt: parseServerDateTime(json['RequestedAt']?.toString() ??
-              json['requestedAt']?.toString() ??
-              json['requested_at']?.toString() ??
-              '') ??
+      reason: json['Reason'] ?? '',
+      rejectionReason: json['RejectionReason'] ?? json['rejectionReason'] ?? '',
+      status: json['Status'] ?? 'Pending',
+      requestedAt: parseServerDateTime(json['RequestedAt']?.toString() ?? '') ??
           DateTime.now(),
+      tenantId: parseId(json['TenantId']),
     );
   }
+
   bool get isPending {
     return status.toLowerCase() == 'pending';
   }

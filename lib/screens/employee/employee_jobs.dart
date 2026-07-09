@@ -109,6 +109,7 @@ class _EmployeeshiftsState extends State<Employeeshifts> {
       children: [
         const Positioned.fill(child: Background()),
         Scaffold(
+          resizeToAvoidBottomInset: false,
           backgroundColor: Colors.transparent,
           body: _isLoading
               ? const Center(

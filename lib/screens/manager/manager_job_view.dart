@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shiftsmart/models/job.dart';
 import 'package:shiftsmart/models/project.dart' as model;
@@ -8,6 +9,7 @@ import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/manager_screen_style.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
+import 'package:shiftsmart/services/job_service.dart';
 
 class ManagerJobView extends StatefulWidget {
   final Job job;
@@ -133,6 +135,7 @@ class _ManagerJobViewState extends State<ManagerJobView> {
             )
             .siteName ??
         'Unknown Location';
+    final isCompleted = widget.job.status.trim().toLowerCase() == 'completed';
 
     return Container(
       decoration: BoxDecoration(
@@ -220,29 +223,47 @@ class _ManagerJobViewState extends State<ManagerJobView> {
                       ? widget.job.description
                       : 'No description available.',
                 ),
+                const SizedBox(height: 12),
+                _jobImagePanel(),
               ],
             ),
           ),
           Divider(height: 1, color: Colors.white.withValues(alpha: 0.08)),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: ManagerActionButton(
-                text: 'Update',
-                icon: Icons.edit_rounded,
-                onPressed: () async {
-                  final result = await Navigator.of(context).push<bool>(
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          ManagerCreateJob(existingJob: widget.job),
-                    ),
-                  );
-                  if (result == true && mounted) {
-                    Navigator.pop(context, true);
-                  }
-                },
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (!isCompleted)
+                  ManagerActionButton(
+                    text: 'Mark as Completed',
+                    icon: Icons.check_circle_rounded,
+                    onPressed: () async {
+                      final success =
+                          await JobService().completeJob(widget.job.jobId);
+
+                      if (success && mounted) {
+                        Navigator.pop(context, true);
+                      }
+                    },
+                  ),
+                if (!isCompleted) const SizedBox(width: 12),
+                ManagerActionButton(
+                  text: 'Update',
+                  icon: Icons.edit_rounded,
+                  onPressed: () async {
+                    final result = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            ManagerCreateJob(existingJob: widget.job),
+                      ),
+                    );
+                    if (result == true && mounted) {
+                      Navigator.pop(context, true);
+                    }
+                  },
+                ),
+              ],
             ),
           ),
         ],
@@ -364,6 +385,90 @@ class _ManagerJobViewState extends State<ManagerJobView> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _jobImagePanel() {
+    final imageUrl = widget.job.jobImageUrl.trim();
+
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 120),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: ManagerScreenStyle.tileBg.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.image_rounded,
+                  color: ManagerScreenStyle.cyan, size: 18),
+              SizedBox(width: 8),
+              Text(
+                'JOB IMAGE',
+                style: TextStyle(
+                  color: ManagerScreenStyle.cyan,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (imageUrl.isEmpty)
+            Text(
+              'No image available',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.56),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            )
+          else
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: _buildJobImage(imageUrl),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildJobImage(String imageUrl) {
+    if (imageUrl.toLowerCase().startsWith('data:image')) {
+      try {
+        return Image.memory(
+          base64Decode(imageUrl.split(',').last),
+          fit: BoxFit.cover,
+        );
+      } catch (_) {
+        return _imageErrorPlaceholder();
+      }
+    }
+
+    return Image.network(
+      imageUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _imageErrorPlaceholder(),
+    );
+  }
+
+  Widget _imageErrorPlaceholder() {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.12),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.broken_image_outlined,
+        color: Colors.white54,
+        size: 42,
       ),
     );
   }

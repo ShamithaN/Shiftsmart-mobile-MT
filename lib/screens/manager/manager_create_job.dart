@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shiftsmart/services/job_service.dart';
 import 'package:shiftsmart/services/project_service.dart';
@@ -242,6 +244,13 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
       _showError("Please add at least one job role.");
       return false;
     }
+    final hasInvalidResourceValues = _selectedJobRoles.any(
+      (role) => role.numberOfRoles <= 0 || role.estimatedTime <= 0,
+    );
+    if (hasInvalidResourceValues) {
+      _showError("Resource count and time must be greater than 0.");
+      return false;
+    }
     return true;
   }
 
@@ -251,26 +260,41 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
   }
 
   // --- Job Roles Logic ---
-  void _addJobRole(JobRoleType jobRoleType) {
-    bool alreadyExists =
-        _selectedJobRoles.any((role) => role.jobRoleTypeId == jobRoleType.id);
-    if (alreadyExists) {
+  List<JobRoleType> _availableRoleTypes({int? excludingIndex}) {
+    final selectedRoleIds = _selectedJobRoles
+        .asMap()
+        .entries
+        .where((entry) => entry.key != excludingIndex)
+        .map((entry) => entry.value.jobRoleTypeId)
+        .toSet();
+
+    return _jobRoleTypes
+        .where((roleType) => !selectedRoleIds.contains(roleType.id))
+        .toList();
+  }
+
+  void _addJobRole() {
+    final availableRoleTypes = _availableRoleTypes();
+
+    if (availableRoleTypes.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("${jobRoleType.name} is already added.")),
+        const SnackBar(content: Text("No more resources available to add.")),
       );
       return;
     }
 
+    final roleType = availableRoleTypes.first;
+
     setState(() {
-      _selectedJobRoles.insert(
-          0,
-          JobRole(
-            jobRoleTypeId: jobRoleType.id,
-            roleName: jobRoleType.name,
-            estimatedTime: 8,
-            numberOfRoles: 1,
-            notes: "",
-          ));
+      _selectedJobRoles.add(
+        JobRole(
+          jobRoleTypeId: roleType.id,
+          roleName: roleType.name,
+          estimatedTime: 8,
+          numberOfRoles: 1,
+          notes: "",
+        ),
+      );
     });
   }
 
@@ -331,8 +355,16 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
 
     try {
       if (widget.existingJob != null) {
-        success =
-            await JobService().updateJob(widget.existingJob!.jobId, jobData);
+        if (_selectedImage != null) {
+          success = await JobService().updateJobWithImage(
+            widget.existingJob!.jobId,
+            jobData,
+            _selectedImage!,
+          );
+        } else {
+          success =
+              await JobService().updateJob(widget.existingJob!.jobId, jobData);
+        }
       } else {
         if (_selectedImage != null) {
           success =
@@ -343,7 +375,7 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
         }
       }
     } catch (e) {
-      errorMessage = e.toString();
+      errorMessage = e.toString().replaceFirst('Exception: ', '');
       success = false;
     }
 
@@ -370,8 +402,15 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
           },
         );
       } else {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text("Failed: $errorMessage")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              errorMessage.isEmpty
+                  ? 'Failed to save job'
+                  : 'Failed: $errorMessage',
+            ),
+          ),
+        );
       }
     }
   }
@@ -412,6 +451,65 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
     );
   }
 
+  Widget _buildJobImagePreview() {
+    if (_selectedImage != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.file(_selectedImage!, fit: BoxFit.cover),
+      );
+    }
+
+    final existingImageUrl = widget.existingJob?.jobImageUrl.trim() ?? '';
+    if (existingImageUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: _buildRemoteJobImage(existingImageUrl),
+      );
+    }
+
+    return const Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          Icons.cloud_upload_outlined,
+          color: Colors.white70,
+          size: 48,
+        ),
+        SizedBox(height: 16),
+        Text(
+          "Tap to upload an image",
+          style: TextStyle(color: Colors.white70),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRemoteJobImage(String imageUrl) {
+    if (imageUrl.toLowerCase().startsWith('data:image')) {
+      try {
+        final bytes = base64Decode(imageUrl.split(',').last);
+        return Image.memory(bytes, fit: BoxFit.cover);
+      } catch (_) {
+        return _buildImageErrorPlaceholder();
+      }
+    }
+
+    return Image.network(
+      imageUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _buildImageErrorPlaceholder(),
+    );
+  }
+
+  Widget _buildImageErrorPlaceholder() {
+    return const Center(
+      child: Icon(
+        Icons.broken_image_outlined,
+        color: Colors.white54,
+        size: 44,
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     final isEditMode = widget.existingJob != null;
@@ -494,12 +592,7 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
                                             ),
                                           ),
                                           IconButton.filled(
-                                            onPressed: () {
-                                              if (_jobRoleTypes.isEmpty) return;
-                                              final defaultRole =
-                                                  _jobRoleTypes.first;
-                                              _addJobRole(defaultRole);
-                                            },
+                                            onPressed: _addJobRole,
                                             style: IconButton.styleFrom(
                                               backgroundColor:
                                                   ManagerScreenStyle.fieldBg,
@@ -511,16 +604,6 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
                                         ],
                                       ),
                                       const SizedBox(height: 16),
-                                      if (_selectedJobRoles.isEmpty)
-                                        const Padding(
-                                          padding: EdgeInsets.symmetric(
-                                              vertical: 20),
-                                          child: Center(
-                                            child: Text("No roles added yet.",
-                                                style: TextStyle(
-                                                    color: Colors.white54)),
-                                          ),
-                                        ),
                                       ListView.builder(
                                         shrinkWrap: true,
                                         physics:
@@ -556,30 +639,7 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
                                                 .withValues(alpha: 0.2),
                                             width: 1.5),
                                       ),
-                                      child: _selectedImage == null
-                                          ? const Column(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Icon(
-                                                    Icons
-                                                        .cloud_upload_outlined,
-                                                    color: Colors.white70,
-                                                    size: 48),
-                                                SizedBox(height: 16),
-                                                Text(
-                                                    "Tap to upload an image",
-                                                    style: TextStyle(
-                                                        color: Colors.white70))
-                                              ],
-                                            )
-                                          : ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              child: Image.file(
-                                                  _selectedImage!,
-                                                  fit: BoxFit.cover),
-                                            ),
+                                      child: _buildJobImagePreview(),
                                     ),
                                   ),
                                 ),
@@ -696,6 +756,12 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
       (type) => type.id == role.jobRoleTypeId,
       orElse: () => _jobRoleTypes.first,
     );
+    final availableRoleTypes = _availableRoleTypes(excludingIndex: index);
+    final dropdownRoleTypes = availableRoleTypes.any(
+      (type) => type.id == currentRoleType.id,
+    )
+        ? availableRoleTypes
+        : [currentRoleType, ...availableRoleTypes];
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -731,7 +797,7 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
                     iconEnabledColor: Colors.white70,
                     isExpanded: true,
                     underline: const SizedBox(),
-                    items: _jobRoleTypes.map((roleType) {
+                    items: dropdownRoleTypes.map((roleType) {
                       return DropdownMenuItem(
                         value: roleType,
                         child: Text(roleType.name),
@@ -784,6 +850,41 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
     );
   }
 
+  final TextInputFormatter _positiveNumberFormatter =
+      TextInputFormatter.withFunction(
+    (oldValue, newValue) {
+      final parsed = int.tryParse(newValue.text);
+      if (parsed == null || parsed <= 0) return oldValue;
+      return newValue;
+    },
+  );
+
+  Widget _buildStepperButton({
+    required IconData icon,
+    required VoidCallback? onTap,
+  }) {
+    final enabled = onTap != null;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(6),
+      onTap: onTap,
+      child: Container(
+        width: 26,
+        height: 26,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: enabled ? 0.10 : 0.04),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(
+          icon,
+          size: 16,
+          color: enabled ? Colors.white70 : Colors.white24,
+        ),
+      ),
+    );
+  }
+
   Widget _buildCardField({
     required String label,
     required int initialValue,
@@ -799,27 +900,48 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
         const SizedBox(width: 8),
         Expanded(
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
             decoration: BoxDecoration(
               color: ManagerScreenStyle.fieldBg,
               borderRadius: BorderRadius.circular(6),
             ),
-            child: TextFormField(
-              initialValue: initialValue.toString(),
-              onChanged: (val) {
-                int? parsed = int.tryParse(val);
-                if (parsed != null && parsed > 0) {
-                  onChanged(parsed);
-                }
-              },
-              keyboardType: TextInputType.number,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-              decoration: const InputDecoration(
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-                border: InputBorder.none,
-              ),
+            child: Row(
+              children: [
+                _buildStepperButton(
+                  icon: Icons.remove_rounded,
+                  onTap: initialValue > 1
+                      ? () => onChanged(initialValue - 1)
+                      : null,
+                ),
+                Expanded(
+                  child: TextFormField(
+                    key: ValueKey('$label-$initialValue'),
+                    initialValue: initialValue.toString(),
+                    onChanged: (val) {
+                      int? parsed = int.tryParse(val);
+                      if (parsed != null && parsed > 0) {
+                        onChanged(parsed);
+                      }
+                    },
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      _positiveNumberFormatter,
+                    ],
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+                _buildStepperButton(
+                  icon: Icons.add_rounded,
+                  onTap: () => onChanged(initialValue + 1),
+                ),
+              ],
             ),
           ),
         ),
@@ -926,3 +1048,4 @@ class _ManagerCreateJobState extends State<ManagerCreateJob> {
     );
   }
 }
+

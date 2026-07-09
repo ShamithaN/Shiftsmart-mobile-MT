@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shiftsmart/models/company.dart';
 import 'package:shiftsmart/services/company_service.dart';
@@ -103,6 +104,30 @@ class _ManagercreatecomState extends State<Managercreatecom> {
       return;
     }
 
+    final textOnlyRegex = RegExp(r'^[A-Za-z ]+$');
+    final numberOnlyRegex = RegExp(r'^[0-9]+$');
+
+    if (!textOnlyRegex.hasMatch(name)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Company name can contain letters only")),
+      );
+      return;
+    }
+
+    if (!textOnlyRegex.hasMatch(contactPerson)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Contact person can contain letters only")),
+      );
+      return;
+    }
+
+    if (!numberOnlyRegex.hasMatch(contactNumber)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Contact number can contain numbers only")),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
 
     final Map<String, dynamic> companyData = {
@@ -186,17 +211,32 @@ class _ManagercreatecomState extends State<Managercreatecom> {
                         'Add contact information and the company address.',
                     child: Column(
                       children: [
-                        _buildTextField("Name", _nameController,
-                            required: true),
+                        _buildTextField(
+                          "Name",
+                          _nameController,
+                          required: true,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
+                          ],
+                        ),
                         const SizedBox(height: 18),
-                        _buildTextField("Contact Person", _personController,
-                            required: true),
+                        _buildTextField(
+                          "Contact Person",
+                          _personController,
+                          required: true,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
+                          ],
+                        ),
                         const SizedBox(height: 18),
                         _buildTextField(
                           "Contact Number",
                           _phoneController,
                           keyboardType: TextInputType.phone,
                           required: true,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
                         ),
                         const SizedBox(height: 18),
                         _buildAddressField(),
@@ -242,6 +282,7 @@ class _ManagercreatecomState extends State<Managercreatecom> {
     String label,
     TextEditingController controller, {
     TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
     bool required = false,
   }) {
     return Column(
@@ -252,6 +293,7 @@ class _ManagercreatecomState extends State<Managercreatecom> {
         TextField(
           controller: controller,
           keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           style: const TextStyle(color: Colors.white, fontSize: 16),
           decoration: managerFieldDecoration(),
         ),
@@ -445,3 +487,4 @@ class _ManagercreatecomState extends State<Managercreatecom> {
     );
   }
 }
+

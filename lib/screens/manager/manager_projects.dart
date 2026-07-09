@@ -290,6 +290,7 @@ class _Managerprojectstate extends State<Managerprojects> {
             children: [
               const Positioned.fill(child: Background()),
               Scaffold(
+                resizeToAvoidBottomInset: false,
                 backgroundColor: Colors.transparent,
                 body: SafeArea(
                   child: Center(
@@ -317,6 +318,7 @@ class _Managerprojectstate extends State<Managerprojects> {
           );
         }
         return Scaffold(
+          resizeToAvoidBottomInset: false,
           body: Stack(
             children: [
               const Background(),

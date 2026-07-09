@@ -39,8 +39,9 @@ class _SearchState extends State<Search> {
         onChanged: widget.onQueryChanged,
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
-          labelText: 'Search',
-          labelStyle: const TextStyle(color: Colors.white),
+          hintText: 'Search',
+          hintStyle: const TextStyle(color: Colors.white),
+          floatingLabelBehavior: FloatingLabelBehavior.never,
           border: const OutlineInputBorder(
             borderRadius: BorderRadius.all(Radius.circular(10.0)),
           ),

@@ -272,6 +272,7 @@ class _ManagerLocationTrackingState extends State<ManagerLocationTracking> {
       children: [
         const Positioned.fill(child: Background()),
         Scaffold(
+          resizeToAvoidBottomInset: false,
           backgroundColor: Colors.transparent,
           drawer: const Sidenav(currentScreen: 'LocationTracking'),
           extendBodyBehindAppBar: true,

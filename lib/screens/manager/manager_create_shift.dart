@@ -80,16 +80,15 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
         _starttimecontroller.text = widget.shift!.startTime;
         _endtimecontroller.text = widget.shift!.endTime;
         _selectedJobId = widget.shift!.jobId;
-        _selectedEmptIds.addAll(widget.shift!.assignedEmployeeIds);
+        _selectedEmptIds.addAll(_assignedEmployeeIdsForShift(widget.shift!));
         _selectedDates.add(widget.shift!.date);
       });
     } else if (mounted) {
       // Default values for new shift
       setState(() {
-        _dateController.text = dateFormat.format(DateTime.now());
-        _starttimecontroller.text = "07:00:00";
-        _endtimecontroller.text = "15:00:00";
-        _selectedDates.add(DateTime.now());
+        _dateController.text = '';
+        _starttimecontroller.clear();
+        _endtimecontroller.clear();
       });
       // Initial auto-name attempt (might be empty until job is selected)
       _updateAutoShiftName();
@@ -189,6 +188,24 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
     return "${names.take(2).join(", ")} +${names.length - 2} more";
   }
 
+  List<int> _assignedEmployeeIdsForShift(Shift shift) {
+    final employeeIds = <int>{};
+
+    for (final employeeId in shift.assignedEmployeeIds) {
+      if (employeeId > 0) {
+        employeeIds.add(employeeId);
+      }
+    }
+
+    for (final response in shift.employeeResponses) {
+      if (response.employeeId > 0) {
+        employeeIds.add(response.employeeId);
+      }
+    }
+
+    return employeeIds.toList();
+  }
+
   // --- Time Picker ---
   Future<void> _selectTime(
       BuildContext context, TextEditingController controller) async {
@@ -254,6 +271,22 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
     }
   }
 
+  bool _isEmployeeActive(Employee employee) {
+    return (employee.employmentStatus ?? '').trim().toLowerCase() == 'active';
+  }
+  DateTime _dateOnly(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
+
+  DateTime _todayOnly() {
+    final now = DateTime.now();
+    return _dateOnly(now);
+  }
+
+  bool _isPastDate(DateTime date) {
+    return _dateOnly(date).isBefore(_todayOnly());
+  }
+
   bool isOnLeave(int employeeId, String shiftDateStr) {
     if (shiftDateStr.isEmpty) return false;
     try {
@@ -285,7 +318,7 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
 
       final shiftDate = DateFormat('yyyy-MM-dd').format(shift.date);
       if (shiftDate == selectedDate &&
-          shift.assignedEmployeeIds.contains(employeeId)) {
+          _assignedEmployeeIdsForShift(shift).contains(employeeId)) {
         if (isOverlapping(
             shift.startTime, shift.endTime, selectedStart, selectedEnd)) {
           return true;
@@ -310,9 +343,27 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
       return;
     }
 
+    if (widget.shift == null && _selectedDates.any(_isPastDate)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Past dates cannot be selected")));
+      return;
+    }
+
     if (_selectedEmptIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Please select at least one employee")));
+      return;
+    }
+
+    final inactiveSelectedEmployees = allEmployees
+        .where((employee) =>
+            _selectedEmptIds.contains(employee.employeeId) &&
+            !_isEmployeeActive(employee))
+        .toList();
+
+    if (inactiveSelectedEmployees.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Inactive employees cannot be assigned to shifts")));
       return;
     }
 
@@ -370,7 +421,7 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
           }
 
           if (DateFormat('yyyy-MM-dd').format(shift.date) == dateStr &&
-              shift.assignedEmployeeIds.contains(empId)) {
+              _assignedEmployeeIdsForShift(shift).contains(empId)) {
             if (isOverlapping(
                 shift.startTime, shift.endTime, timeOnlyStart, timeOnlyEnd)) {
               conflictingAssignments[empId] = shift.shiftId;
@@ -415,6 +466,7 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
 
     int successCount = 0;
     bool anyFailure = false;
+    String failureMessage = '';
 
     // API Call: Create a separate shift for each date
     for (final date in _selectedDates) {
@@ -451,11 +503,10 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
 
       try {
         bool success = false;
-        if (widget.shift != null && _selectedDates.length == 1) {
+        if (isUpdate) {
           success = await ShiftService()
               .updateShift(widget.shift!.shiftId, shiftData);
         } else {
-          // For new shifts, ensure ShiftId 0 doesn't cause issues (backend usually ignores it on create)
           success = await ShiftService().addShift(shiftData);
         }
 
@@ -468,10 +519,16 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
           }
         } else {
           anyFailure = true;
-          debugPrint(
-              " Backend returned failure for shift creation on $dateStr");
+          failureMessage = isUpdate
+              ? "Backend returned failure for shift update on $dateStr"
+              : "Backend returned failure for shift creation on $dateStr";
+          debugPrint(" $failureMessage");
         }
       } catch (e) {
+        final cleanedError = e.toString().replaceFirst('Exception: ', '');
+        failureMessage = cleanedError.isNotEmpty
+            ? cleanedError
+            : "Exception submitting shift for $dateStr";
         debugPrint(" Exception submitting shift for $dateStr: $e");
         anyFailure = true;
       }
@@ -495,8 +552,13 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
       }
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text("Operation Failed")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              failureMessage.isEmpty ? "Operation Failed" : failureMessage,
+            ),
+          ),
+        );
         setState(() => _isSubmitting = false);
       }
     }
@@ -680,7 +742,15 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
   }
 
   Future<void> _openMultiDatePicker(BuildContext context) async {
-    DateTime? tempDate = DateTime.now();
+    final firstAllowedDate = _todayOnly();
+    DateTime tempDate = _selectedDates.isNotEmpty
+        ? _dateOnly(_selectedDates.first)
+        : firstAllowedDate;
+
+    if (tempDate.isBefore(firstAllowedDate)) {
+      tempDate = firstAllowedDate;
+    }
+
     await showDialog(
       context: context,
       builder: (context) {
@@ -758,14 +828,14 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
                               backgroundColor: const Color(0xFF2A3243)),
                         ),
                         child: CalendarDatePicker(
-                          initialDate: tempDate ?? DateTime.now(),
-                          firstDate: DateTime.now()
-                              .subtract(const Duration(days: 365)),
+                          initialDate: tempDate,
+                          firstDate: firstAllowedDate,
                           lastDate:
                               DateTime.now().add(const Duration(days: 365 * 2)),
                           onDateChanged: (date) {
+                            if (_isPastDate(date)) return;
                             setDialogState(() {
-                              tempDate = date;
+                              tempDate = _dateOnly(date);
                               if (_selectedDates.any((d) =>
                                   d.year == date.year &&
                                   d.month == date.month &&
@@ -951,6 +1021,7 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
                                   height: 1),
                               itemBuilder: (context, index) {
                                 final employee = filteredEmployees[index];
+                                final isActive = _isEmployeeActive(employee);
                                 final isSelected = _selectedEmptIds
                                     .contains(employee.employeeId);
                                 final fullName =
@@ -984,28 +1055,34 @@ class _ManagercreateshiftState extends State<Managercreateshift> {
                                           color: Colors.white,
                                           fontSize: 15,
                                           fontWeight: FontWeight.w500)),
-                                  subtitle: (hasCon || onL)
-                                      ? Text(
-                                          hasCon
-                                              ? " Scheduling Conflict"
-                                              : " On Approved Leave",
-                                          style: const TextStyle(
+                                  subtitle: !isActive
+                                      ? const Text("Inactive employee",
+                                          style: TextStyle(
                                               color: Colors.redAccent,
                                               fontSize: 12))
-                                      : Text(employee.email ?? '',
-                                          style: TextStyle(
-                                              color: Colors.white
-                                                  .withValues(alpha: 0.5),
-                                              fontSize: 12)),
+                                      : (hasCon || onL)
+                                          ? Text(
+                                              hasCon
+                                                  ? " Scheduling Conflict"
+                                                  : " On Approved Leave",
+                                              style: const TextStyle(
+                                                  color: Colors.redAccent,
+                                                  fontSize: 12))
+                                          : Text(employee.email ?? '',
+                                              style: TextStyle(
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.5),
+                                                  fontSize: 12)),
                                   trailing: isSelected
                                       ? const Icon(Icons.check_circle,
                                           color: Colors.blueAccent)
-                                      : (hasCon || onL
-                                          ? const Icon(Icons.info_outline,
+                                      : (!isActive || hasCon || onL
+                                          ? const Icon(Icons.block,
                                               color: Colors.redAccent, size: 20)
                                           : const Icon(Icons.add_circle_outline,
                                               color: Colors.white24)),
-                                  onTap: (hasCon || onL)
+                                  onTap: (!isSelected &&
+                                          (!isActive || hasCon || onL))
                                       ? null
                                       : () {
                                           setState(() {
