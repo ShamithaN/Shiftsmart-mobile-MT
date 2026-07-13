@@ -105,13 +105,22 @@ class _EmployeeshiftsState extends State<Employeeshifts> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        const Positioned.fill(child: Background()),
-        Scaffold(
-          resizeToAvoidBottomInset: false,
-          backgroundColor: Colors.transparent,
-          body: _isLoading
+    return Scaffold(
+      resizeToAvoidBottomInset: false,
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: MediaQuery.removeViewInsets(
+                context: context,
+                removeBottom: true,
+                child: const Background(),
+              ),
+            ),
+          ),
+          _isLoading
               ? const Center(
                   child: CircularProgressIndicator(color: Color(0xFF724584)),
                 )
@@ -190,11 +199,10 @@ class _EmployeeshiftsState extends State<Employeeshifts> {
                     ),
                   ),
                 ),
-        ),
-      ],
+        ],
+      ),
     );
   }
-
   // Widget to display individual job details
   Widget shiftCard(Job job, int employeeId) {
     final String status = job.status;
@@ -291,3 +299,4 @@ class _EmployeeshiftsState extends State<Employeeshifts> {
     );
   }
 }
+
