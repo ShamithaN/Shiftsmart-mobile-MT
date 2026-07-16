@@ -36,14 +36,13 @@ class EmployeeResponse {
     }
 
     return EmployeeResponse(
-      employeeId: parseId(
-          json['EmployeeId'] ?? json['employeeId'] ?? json['EmployeId']),
+      employeeId: parseId(json['EmployeeId'] ?? json['employeeId']),
       status: (json['Status'] ?? json['status'])?.toString() ?? 'Pending',
-      reason: (json['Reason'] ?? json['reason'])?.toString(),
+      reason: (json['RejectionReason'] ?? json['rejectionReason'])?.toString(),
       respondedAt:
-          parseServerDateTime(json['RespondedAt'] ?? json['respondedAt']),
-      clockInTime: parseServerDateTime(
-          json['ClockInTime'] ?? json['clockInTime'] ?? json['ClockinTime']),
+          parseServerDateTime(json['ResponseDate'] ?? json['responseDate']),
+      clockInTime:
+          parseServerDateTime(json['ClockInTime'] ?? json['clockInTime']),
       clockOutTime:
           parseServerDateTime(json['ClockOutTime'] ?? json['clockOutTime']),
       isEarlyExit: json['IsEarlyExit'] == true ||
@@ -63,8 +62,8 @@ class EmployeeResponse {
     return {
       'EmployeeId': employeeId,
       'Status': status,
-      'Reason': reason,
-      'RespondedAt': formatDateTimeForServer(respondedAt),
+      'RejectionReason': reason,
+      'ResponseDate': formatDateTimeForServer(respondedAt),
       'ClockInTime': formatDateTimeForServer(clockInTime),
       'ClockOutTime': formatDateTimeForServer(clockOutTime),
       'IsEarlyExit': isEarlyExit,
@@ -167,34 +166,30 @@ class Shift {
     }
 
     try {
+      final rawStatus = (json['Status'] ?? json['status'])?.toString().trim();
+      final employeeResponsesJson = json['Assignments'] ??
+          json['assignments'] ??
+          json['EmployeeResponses'] ??
+          json['employeeResponses'];
+
       return Shift(
-        shiftId: parseId(json['ShiftId'] ?? json['shiftId'] ?? json['Shitid']),
-        projectId: parseId(
-            json['ProjectId'] ?? json['projectId'] ?? json['Projectld']),
+        shiftId: parseId(json['ShiftId'] ?? json['shiftId']),
+        projectId: parseId(json['ProjectId'] ?? json['projectId']),
         taskName: (json['TaskName'] ?? json['taskName'])?.toString() ?? '',
-        date: parseServerDateTime(json['Date'] ??
-                json['date'] ??
-                json['StartDate'] ??
-                json['startDate'] ??
-                json['JobDueDate'] ??
-                json['jobDueDate']) ??
+        date: parseServerDateTime(json['Date'] ?? json['date']) ??
             DateTime.now(),
         startTime: (json['StartTime'] ?? json['startTime'])?.toString() ?? '',
         endTime: (json['EndTime'] ?? json['endTime'])?.toString() ?? '',
         location: (json['Location'] ?? json['location'])?.toString() ?? '',
-        status: (json['Status'] ?? json['status'])?.toString() ?? '',
+        status:
+            rawStatus == null || rawStatus.isEmpty ? 'Scheduled' : rawStatus,
         jobId: (json['JobId'] ?? json['jobId']) != null
-            ? parseId(json['JobId'] ?? json['jobId'] ?? json['Jobld'])
+            ? parseId(json['JobId'] ?? json['jobId'])
             : null,
-        assignedEmployeeIds: parseIdList(json['AssignedEmployeeIds'] ??
-            json['assignedEmployeeIds'] ??
-            json['AssignedEmployeelds']),
-        employeeResponses: (json['EmployeeResponses'] ??
-                json['employeeResponses'] ??
-                json['EmployeResponses']) is List
-            ? (json['EmployeeResponses'] ??
-                    json['employeeResponses'] ??
-                    json['EmployeResponses'] as List)
+        assignedEmployeeIds: parseIdList(
+            json['AssignedEmployeeIds'] ?? json['assignedEmployeeIds']),
+        employeeResponses: employeeResponsesJson is List
+            ? employeeResponsesJson
                 .map<EmployeeResponse>((e) => EmployeeResponse.fromJson(e))
                 .toList()
             : [],

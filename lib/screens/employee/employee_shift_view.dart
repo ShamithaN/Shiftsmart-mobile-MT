@@ -149,9 +149,10 @@ class _EmployeeshiftviewState extends State<Employeeshiftview> {
   }
 
   Map<String, dynamic>? _myShiftResponse(Map<String, dynamic> shift) {
-    final responses = shift['EmployeeResponses'] ??
-        shift['employeeResponses'] ??
-        shift['EmployeResponses'];
+    final responses = shift['Assignments'] ??
+        shift['assignments'] ??
+        shift['EmployeeResponses'] ??
+        shift['employeeResponses'];
 
     if (responses is! List) return null;
 

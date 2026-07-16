@@ -287,7 +287,7 @@ class _EmployeedashboardState extends State<Employeedashboard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            "TODAY'S SCHEDULED JOBS",
+            "TODAY'S SCHEDULED SHIFTS",
             style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
@@ -299,7 +299,7 @@ class _EmployeedashboardState extends State<Employeedashboard> {
           if (jobs.isEmpty)
             const Center(
               child: Text(
-                "No jobs scheduled for today.",
+                "No shifts scheduled for today.",
                 style: TextStyle(
                   color: Colors.white60,
                   fontSize: 16,
@@ -314,7 +314,7 @@ class _EmployeedashboardState extends State<Employeedashboard> {
                   return map;
                 })
                 .values
-                .map((job) => expandableJobCard(job)),
+                .map((job) => upcomingJobItem(job)),
         ],
       ),
     );
@@ -540,7 +540,7 @@ class _EmployeedashboardState extends State<Employeedashboard> {
         ),
         child: const Center(
           child: Text(
-            "No upcoming job scheduled.",
+            "No upcoming shifts scheduled.",
             style: TextStyle(
               color: Colors.white60,
               fontSize: 16,
@@ -570,7 +570,7 @@ class _EmployeedashboardState extends State<Employeedashboard> {
           Row(
             children: const [
               Text(
-                "UPCOMING JOBS",
+                "UPCOMING SHIFTS",
                 style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -589,13 +589,18 @@ class _EmployeedashboardState extends State<Employeedashboard> {
 
   Widget upcomingJobItem(Map<String, dynamic> job) {
     final shift = job['Shift'];
-    final taskName = job['Title'] ?? "Unnamed Job";
+    final taskName = shift['ShiftName'] ??
+        shift['TaskName'] ??
+        job['Title'] ??
+        "Unnamed Shift";
     final location = shift['Location'] ?? "No location";
     final startTime = shift['StartTime'] ?? "TBD";
     final shiftStart = job['ShiftStart'];
     final date = shiftStart is DateTime
         ? DateFormat('dd MMM yyyy').format(shiftStart.toLocal())
         : "TBD";
+    final endTime = shift['EndTime'] ?? "TBD";
+    final status = shift['Status'] ?? "Scheduled";
 
     return InkWell(
       onTap: () => _navigateToShiftView(job),
@@ -638,6 +643,8 @@ class _EmployeedashboardState extends State<Employeedashboard> {
                       shiftInfoRowInline("Date", date),
                       shiftInfoRowInline("Location", location),
                       shiftInfoRowInline("Start Time", startTime),
+                      shiftInfoRowInline("End Time", endTime),
+                      shiftInfoRowInline("Status", status),
                     ],
                   ),
                 ),
