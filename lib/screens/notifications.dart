@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shiftsmart/models/notification.dart';
 import 'package:shiftsmart/services/notification_service.dart';
 import 'package:shiftsmart/widgets/background.dart';
-import 'package:shiftsmart/widgets/uppernavbar.dart';
 import 'package:intl/intl.dart'; // Add this for formatting dates
 import 'package:shiftsmart/services/super_admin_service.dart'; // Add this to call your active announcements API
 import 'package:provider/provider.dart';

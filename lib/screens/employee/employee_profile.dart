@@ -4,13 +4,11 @@ import 'package:provider/provider.dart';
 import 'package:shiftsmart/providers/user_provider.dart';
 import 'package:shiftsmart/services/profile_service.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
-import 'package:shiftsmart/utils/profile_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
 import 'package:shiftsmart/widgets/build_profile_avatar.dart';
 import 'package:shiftsmart/widgets/emp_slidenav.dart';
 import 'package:shiftsmart/widgets/gradient_button.dart';
 import 'package:shiftsmart/widgets/uppernavbar.dart';
-import 'package:shiftsmart/widgets/success_dialog.dart';
 import 'package:shiftsmart/screens/employee/employee_next_of_kin.dart';
 
 class EmployeeProfile extends StatefulWidget {

@@ -6,7 +6,6 @@ import 'package:shiftsmart/widgets/custom_date_picker.dart';
 import 'package:shiftsmart/models/company.dart';
 import 'package:shiftsmart/utils/fullscreen_helper.dart';
 import 'package:shiftsmart/widgets/background.dart';
-import 'package:shiftsmart/widgets/bottomnavbar.dart';
 import 'package:shiftsmart/widgets/gradient_button.dart';
 import 'package:shiftsmart/widgets/gradienthorizontal.dart';
 import 'package:shiftsmart/widgets/sidenav.dart';
